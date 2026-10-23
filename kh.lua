@@ -10,7 +10,7 @@ if not game:IsLoaded() then game.Loaded:Wait() end
 local K = { connections = {}, cleanups = {}, destroyed = false }
 getgenv().KiciaRebuild = K
 -- build marker: shows in the F9 console so you can tell which copy of the script is running
-K.Build = "2026-10-23 (25): round-start-delay debug log (kiciarebuild/logs/round_delay.log), FW UE trash kh, GitHub rerun"
+K.Build = "2026-10-23 (26): round-start-delay entry timer + debug log (kiciarebuild/logs/round_delay.log), FW UE trash kh, GitHub rerun"
 warn("[Kicia Rebuild] build " .. K.Build)
 
 local Players = game:GetService("Players")
@@ -68887,6 +68887,21 @@ if not state.Alive then
 arg:_Reset()
 return
 end
+-- Round Start Delay, entry timer (what the first FW UE did): the first frame in a match that gets past the
+-- "no match / not enabled / dead" resets above arms a random 1-6 s hold of its own, whatever the round
+-- status says. The round-started timer in the top of Update still arms again when the round really starts,
+-- and the later of the two is kept. _Reset clears the flag, so a new match arms again.
+if arg._entryDelayArmed ~= true then
+arg._entryDelayArmed = true
+if v115.Data.Ragebot.StartDelay == true then
+local entrySeconds = 1 + math.random() * 5
+local entryUntil = os.clock() + entrySeconds
+if entryUntil > (tbl17.ragebotStartDelayUntil or 0) then
+tbl17.ragebotStartDelayUntil = entryUntil
+end
+roundDelayLog(string.format("ENTRY ARMED %.2f s (first frame in a match, status=%s)", entrySeconds, tostring(tbl17.ragebotLoggedStatus)))
+end
+end
 local characterController = innerContext.CharacterController
 local clientCFrame = characterController:GetClientCFrame()
 -- FW UE style: never attacks. Sits in the void for FW_VOID_SECONDS, then under the InstakillOOB
@@ -69318,6 +69333,7 @@ end
 end
 
 index2._Reset = function(arg)
+arg._entryDelayArmed = false
 ueS.SetStatus(nil)
 targetHud.Hide()
 arg:_ClearReloadTransport()
