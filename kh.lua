@@ -75225,13 +75225,14 @@ local boot = (function()
         -- isfile("LOAD_PERSISTENT") itself, so turning the toggle off still cancels the re-run.
         local PERSIST_FILE = "LOAD_PERSISTENT"
         -- What the queued loader runs. getgenv().KiciaRerunFile (a workspace file) wins if set;
-        -- otherwise the script is downloaded from the private GitHub repo kkbisnyu-sys/23 (branch main, kh.lua),
-        -- so Re-run works without a local copy of the script. A private repo needs a token: put a GitHub
-        -- personal access token that can read that repo's contents in the workspace file
-        -- kiciarebuild/github_token.txt (or set getgenv().KiciaGithubToken before the script runs). The token
-        -- is never written into this script. getgenv().KiciaRerunUrl overrides the address.
+        -- otherwise the script is downloaded from the public GitHub repo kkbisnyu-sys/12 (branch main, kh.lua),
+        -- so Re-run works without a local copy of the script. A raw.githubusercontent.com address is sent with
+        -- a GitHub token when one exists (workspace file kiciarebuild/github_token.txt, or
+        -- getgenv().KiciaGithubToken), which is only needed for a private repo; with no token it is a plain
+        -- game:HttpGet. The token is never written into this script. getgenv().KiciaRerunUrl overrides the
+        -- address (e.g. the private repo kkbisnyu-sys/23 together with a token).
         local RERUN_URL = getgenv().KiciaRerunUrl
-            or "https://raw.githubusercontent.com/kkbisnyu-sys/23/main/kh.lua"
+            or "https://raw.githubusercontent.com/kkbisnyu-sys/12/main/kh.lua"
         local RERUN_LOADER = [[
 if not isfile("LOAD_PERSISTENT") then return end
 local _env = (getgenv and getgenv()) or _G
@@ -75293,7 +75294,8 @@ local function _fetch()
     if _file ~= "" then
         ok, res = pcall(readfile, _file)
     elseif string.find(_url, "raw.githubusercontent.com", 1, true) then
-        -- private GitHub repo: the request carries the token from kiciarebuild/github_token.txt
+        -- GitHub raw address: with a token (kiciarebuild/github_token.txt) the request carries it, which a
+        -- private repo needs; without one, or if that request fails, a plain HttpGet (public repos)
         local _tok = _env.KiciaGithubToken
         if (not _tok or _tok == "") and isfile("kiciarebuild/github_token.txt") then
             local okT, t = pcall(readfile, "kiciarebuild/github_token.txt")
@@ -75305,12 +75307,11 @@ local function _fetch()
             if okR and type(resp) == "table" and resp.StatusCode == 200 then
                 ok, res = true, resp.Body
             else
-                _log("github fetch failed: " .. tostring(okR and type(resp) == "table" and resp.StatusCode or resp))
-                ok = false
+                _log("github fetch with token failed: " .. tostring(okR and type(resp) == "table" and resp.StatusCode or resp))
             end
-        else
-            _log("no github token (kiciarebuild/github_token.txt) or no request function")
-            ok = false
+        end
+        if not ok then
+            ok, res = pcall(game.HttpGet, game, _url)
         end
     else
         ok, res = pcall(game.HttpGet, game, _url)
