@@ -10,7 +10,7 @@ if not game:IsLoaded() then game.Loaded:Wait() end
 local K = { connections = {}, cleanups = {}, destroyed = false }
 getgenv().KiciaRebuild = K
 -- build marker: shows in the F9 console so you can tell which copy of the script is running
-K.Build = "2026-10-23 (26): round-start-delay entry timer + debug log (kiciarebuild/logs/round_delay.log), FW UE trash kh, GitHub rerun"
+K.Build = "2026-10-23 (27): round-start-delay reads DuelController status + debug log (kiciarebuild/logs/round_delay.log), FW UE trash kh, GitHub rerun"
 warn("[Kicia Rebuild] build " .. K.Build)
 
 local Players = game:GetService("Players")
@@ -68826,14 +68826,22 @@ end
 index2.Update = function(arg, arg2)
 -- publish the round status (same source as UE's ueRoundActive) for the Careful style's Round Start Delay
 do
-local fighters = arg._fighters
-local localState = fighters ~= nil and fighters.LocalState or nil
-local ok, status
-if localState ~= nil then
-ok, status = pcall(localState.GetRoundStatus, localState)
+-- The round status is DuelController.CurrentObject.Data.Status, cycling RoundStarted -> RoundFinished ->
+-- RoundStarting (about 5 s of countdown) -> RoundStarted (read in game). The fighters registry's
+-- LocalState that was read here before is nil in this game, so the status never came through.
+local status
+local okStatus = pcall(function()
+local duelController = tbl17.ragebotDuelController
+if duelController == nil then
+duelController = require(game:GetService("Players").LocalPlayer.PlayerScripts.Controllers.DuelController)
+tbl17.ragebotDuelController = duelController
 end
-tbl17.ragebotRoundActive = ok and (status == "RoundStarted") or nil
-local statusText = localState == nil and "no-localstate" or (ok and tostring(status) or "error")
+local currentDuel = duelController.CurrentObject
+local duelData = type(currentDuel) == "table" and currentDuel.Data or nil
+status = type(duelData) == "table" and duelData.Status or nil
+end)
+tbl17.ragebotRoundActive = status == "RoundStarted" and true or nil
+local statusText = not okStatus and "error" or (status == nil and "no-duel" or tostring(status))
 if tbl17.ragebotLoggedStatus ~= statusText then
 roundDelayLog(string.format("status %s -> %s (StartDelay=%s, style=%s, ragebotKeyOn=%s)", tostring(tbl17.ragebotLoggedStatus), statusText, tostring(v115.Data.Ragebot.StartDelay), tostring(v115.Data.Ragebot.KnifeMode), tostring(tbl17.ragebotKeyOn)))
 tbl17.ragebotLoggedStatus = statusText
