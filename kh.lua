@@ -10,7 +10,7 @@ if not game:IsLoaded() then game.Loaded:Wait() end
 local K = { connections = {}, cleanups = {}, destroyed = false }
 getgenv().KiciaRebuild = K
 -- build marker: shows in the F9 console so you can tell which copy of the script is running
-K.Build = "2026-10-23 (27): round-start-delay reads DuelController status + debug log (kiciarebuild/logs/round_delay.log), FW UE trash kh, GitHub rerun"
+K.Build = "2026-10-23 (28): FW UE void 0.1 / Translocate 0.1, round-start-delay reads DuelController status + debug log, GitHub rerun"
 warn("[Kicia Rebuild] build " .. K.Build)
 
 local Players = game:GetService("Players")
@@ -68920,8 +68920,8 @@ local mode = v115.Data.Ragebot.Evasion.Mode
 local fwue = v115.Data.Ragebot.KnifeMode == "FWUE"
 local fwVoid = false
 if fwue then
-local FW_VOID_SECONDS = 4
-local FW_TRANSLOCATE_SECONDS = 0.6
+local FW_VOID_SECONDS = 0.1
+local FW_TRANSLOCATE_SECONDS = 0.1
 local now3 = os.clock()
 local function fwNotify(parts)
 pcall(function()
