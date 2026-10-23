@@ -10,7 +10,7 @@ if not game:IsLoaded() then game.Loaded:Wait() end
 local K = { connections = {}, cleanups = {}, destroyed = false }
 getgenv().KiciaRebuild = K
 -- build marker: shows in the F9 console so you can tell which copy of the script is running
-K.Build = "2026-10-19 (24): KH gun pacing, rep root read-back, diagnostics log (hit check), rerun watchdog"
+K.Build = "2026-10-23 (25): round-start-delay debug log (kiciarebuild/logs/round_delay.log), FW UE trash kh, GitHub rerun"
 warn("[Kicia Rebuild] build " .. K.Build)
 
 local Players = game:GetService("Players")
@@ -68813,6 +68813,16 @@ rageDbg.last = now
 end
 end
 
+-- Round Start Delay debug log: kiciarebuild/logs/round_delay.log, one line per change of the round status, per
+-- arming and per change of the gate, so a round that does not delay can be read back afterwards
+local function roundDelayLog(message)
+pcall(function()
+if appendfile ~= nil then
+appendfile("kiciarebuild/logs/round_delay.log", string.format("%s %.1f %s\n", os.date("%H:%M:%S"), os.clock(), message))
+end
+end)
+end
+
 index2.Update = function(arg, arg2)
 -- publish the round status (same source as UE's ueRoundActive) for the Careful style's Round Start Delay
 do
@@ -68823,6 +68833,11 @@ if localState ~= nil then
 ok, status = pcall(localState.GetRoundStatus, localState)
 end
 tbl17.ragebotRoundActive = ok and (status == "RoundStarted") or nil
+local statusText = localState == nil and "no-localstate" or (ok and tostring(status) or "error")
+if tbl17.ragebotLoggedStatus ~= statusText then
+roundDelayLog(string.format("status %s -> %s (StartDelay=%s, style=%s, ragebotKeyOn=%s)", tostring(tbl17.ragebotLoggedStatus), statusText, tostring(v115.Data.Ragebot.StartDelay), tostring(v115.Data.Ragebot.KnifeMode), tostring(tbl17.ragebotKeyOn)))
+tbl17.ragebotLoggedStatus = statusText
+end
 end
 -- Round Start Delay (Ragebot.StartDelay, every style): arm a random 1-6 s hold the moment the round goes
 -- active. This is tracked here because Update runs every frame, which _Plan does not (it is only reached
@@ -68832,7 +68847,9 @@ do
 local roundNow = tbl17.ragebotRoundActive
 if roundNow == true and tbl17.ragebotRoundWas ~= true and tbl17.ragebotUpdateSeen == true
 and v115.Data.Ragebot.StartDelay == true then
-tbl17.ragebotStartDelayUntil = os.clock() + 1 + math.random() * 5
+local delaySeconds = 1 + math.random() * 5
+tbl17.ragebotStartDelayUntil = os.clock() + delaySeconds
+roundDelayLog(string.format("ARMED %.2f s", delaySeconds))
 end
 tbl17.ragebotRoundWas = roundNow
 tbl17.ragebotUpdateSeen = true
@@ -69076,7 +69093,12 @@ end
 -- Round Start Delay (Ragebot.StartDelay, all styles): for a random 1-6 s from the start of the round, hide
 -- instead of attacking. The time is armed in Update (tbl17.ragebotStartDelayUntil).
 local function ragebotStartDelayActive(arg)
-return v115.Data.Ragebot.StartDelay == true and os.clock() < (tbl17.ragebotStartDelayUntil or 0)
+local active = v115.Data.Ragebot.StartDelay == true and os.clock() < (tbl17.ragebotStartDelayUntil or 0)
+if active ~= tbl17.ragebotGateWas then
+tbl17.ragebotGateWas = active
+roundDelayLog("_Plan gate active=" .. tostring(active))
+end
+return active
 end
 -- KH hides with its own evasion plan, UE with UE's void
 local function ragebotStartDelayPlan(arg, arg5, arg6, arg7)
