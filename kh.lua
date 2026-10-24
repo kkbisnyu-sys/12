@@ -9,15 +9,12 @@ if not game:IsLoaded() then game.Loaded:Wait() end
 
 local K = { connections = {}, cleanups = {}, destroyed = false }
 getgenv().KiciaRebuild = K
--- Auto FW UE: while os.clock() < K.AutoFWUEUntil (set by the hacker watcher, Ragebot > Auto FW UE) every place that
--- asks for the Ragebot Style gets "FWUE"; otherwise the style picked in the menu
-K.AutoFWUEUntil = 0
+-- The Ragebot Style as the code should see it.
 function K.RagebotStyle(picked)
-    if os.clock() < K.AutoFWUEUntil then return "FWUE" end
     return picked
 end
 -- build marker: shows in the F9 console so you can tell which copy of the script is running
-K.Build = "2026-10-24 (34): auto loadout logs every step, Auto FW UE vs hackers, auto loadout retries 3 times, name / display name spoofer rewritten, FW Weapon Check (FW UE only), melee follows the knife rule, hide point stays under the instakill OOB, mouse keybinds, heavy attack cooldown override"
+K.Build = "2026-10-24 (36): UE Cosmetic Changer window (Overview), Auto FW UE removed, auto loadout logs every step, auto loadout retries 3 times, name / display name spoofer rewritten"
 warn("[Kicia Rebuild] build " .. K.Build)
 
 local Players = game:GetService("Players")
@@ -49349,7 +49346,7 @@ arg._color = color
 end)
 end
 
-index2.Update = function(l,I)if not l._isEnabled then local R=v115.Data.Ragebot;if not(R.EvadeWhenHacking or R.PrioritizeHackers or (R.AutoFWUE and R.AutoFWUE.Enabled))then return;end;end;for W,W in l._fighters.StateByPlayer,nil,nil do if l._notifiedStateSet[W]then continue;end;if l:_IsHacking(W,I)then l:_ClassifyHacker(W);end;end;end
+index2.Update = function(l,I)if not l._isEnabled then local R=v115.Data.Ragebot;if not(R.EvadeWhenHacking or R.PrioritizeHackers or R.KnifeMode=="Auto")then return;end;end;for W,W in l._fighters.StateByPlayer,nil,nil do if l._notifiedStateSet[W]then continue;end;if l:_IsHacking(W,I)then l:_ClassifyHacker(W);end;end;end
 
 index2._ClassifyHacker = function(arg, arg2)
 if not arg._playerTags:Add(arg2.Player, "Hacker") then
@@ -59778,7 +59775,7 @@ return ie.c
 end
 end
 do -- ih
-local function fn35() tbl17 .aE();local cfgd= tbl17 .bG();local I= tbl17 .h6();local function l(W)I(W,"Enable Ragebot",{"Always","Toggle","Hold"},{"Ragebot"},true);local style=W:AddDropdown({Label="Ragebot Style",Tooltip="KH: Kicia's own ragebot. UE: the Unnamed Enhancements ragebot (void spam, backstab, gun and light attack). Picking UE hides the KH settings. Careful: the LY hub's own ragebot in its Careful mode (its own targeting, teleport attack, evasion and reloads). Careful Settings, Weapon Strategy and Target HUD apply to it.",Options={"Original","UE","Careful","SLEEPY","FWUE"},Labels={Original="KH",UE="UE",Careful="Careful",SLEEPY="SLEEPY",FWUE="FW UE trash kh"},Config={"Ragebot","KnifeMode"}});W:AddToggle({Label="Round Start Delay",Tooltip="At the start of a round, hide in the void for a random 1-6 s first, then start attacking. Applies to every Ragebot Style.",Config={"Ragebot","StartDelay"}});W:AddToggle({Label="Prioritize Hackers",Config={"Ragebot","PrioritizeHackers"}});W:AddToggle({Label="Evade When Target Hacking",Config={"Ragebot","EvadeWhenHacking"}});W:AddButton({Label="Clear Hacker Tags",OnClick=function()local d=K.HackerDetector;local ok,n=pcall(function()return d and d:ClearTags() or nil;end);local text=(not ok or n==nil) and "Hacker detector is not ready" or string.format("Cleared %d hacker tag(s)",n);pcall(function()tbl17.aB().get():Notify(text);end);end});return style;end;local function kf(W)W:AddToggle({Label="Detect Knife",Config={"Ragebot","DetectKnife"}});W:AddSlider({Label="Stability",Min=0,Max=1.5,Step=0.001,Config={"Ragebot","Stability"}});W:AddSlider({Label="Shoot Frames",Min=1,Max=5,Config={"Ragebot","ShootFrames"}});end;local function cf(W)W:AddToggle({Label="Evade Between Shots",Tooltip="Slow weapons (shotgun, sniper, knife): evade in the gaps instead of standing on the target",Config={"Ragebot","Careful","EvadeBetweenShots"}});W:AddToggle({Label="Attack After Enemy",Tooltip="Only shoot an enemy in the gap right after it fired or swung, or while its weapon cools down or reloads",Config={"Ragebot","Careful","RetaliateOnly"}});W:AddSlider({Label="Gap Window",Tooltip="How long after its shot or swing an enemy can still be shot (its weapon cooldown or reload also counts)",Min=0.5,Max=5,Step=0.1,Suffix="s",Config={"Ragebot","Careful","RetaliateWindow"}});end;local function uf(W)W:AddToggle({Label="Never Void",Tooltip="Never hide in the void (UE style): no hide phase, and none while reloading, swapping, without a target or between knife stabs. You stay where you are.",Config={"Ragebot","UE","NoVoid"}});W:AddToggle({Label="Backstab Cooldown 0.8",Tooltip="On: the time between two backstabs is HeavyAttackCooldown x 0.8. Off: UE's own x 0.75.",Config={"Ragebot","UE","KnifeCooldown08"}});W:AddToggle({Label="Void Spam",Tooltip="Hide in the void between attack bursts (UE void spam). Used by the gun and the light attack, not by the backstab.",Config={"Ragebot","UE","VoidSpam"}});W:AddSlider({Label="Void Spam Attack",Tooltip="the amount of time attacking before hiding again (UE adds 0.1 s on top)",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","AttackTime"}});W:AddSlider({Label="Void Spam Hide",Tooltip="how long it stays in void for",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","HideTime"}});W:AddSlider({Label="Shoot Attempts",Tooltip="how many times it will try to fire your weapon (UE: ragebot_shoot_attempts)",Min=1,Max=2,Step=1,Config={"Ragebot","UE","ShootAttempts"}});W:AddDropdown({Label="Knife Attack",Tooltip="Heavy Backstab = UE attack mode knife. Light Attack = UE attack mode melee (fast light attacks with the knife).",Options={"Heavy","Light"},Labels={Heavy="Heavy Backstab",Light="Light Attack"},Config={"Ragebot","UE","KnifeAttack"}});end;local function I(W)local N={"Primary","Secondary","Melee"};for P,P in N,nil,nil do W:AddToggle({Label=string.format("%s Enabled",tostring(P)),Config={"Ragebot","Weapons","Enabled",P}});end;W:AddOrderedList({Label="Weapon Priority",Items=N,Default=N,Config={"Ragebot","Weapons","Priority"}});W:AddDropdown({Label="On Empty",Options={"Reload","Swap","SwapOrReload"},Labels={SwapOrReload="Swap or Reload"},Config={"Ragebot","Weapons","OnEmpty"}});end;local function W(N,P)local a=N:AddGroup({Source=P,Option="ProjectileBreaker"});a:AddRangeSlider({Label="Forward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForward"}});a:AddSlider({Label="Forward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForwardFrequency"}});a:AddRangeSlider({Label="Upward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUp"}});a:AddSlider({Label="Upward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUpFrequency"}});a:AddSlider({Label="Reposition Interval (s)",Min=0.05,Max=2,Step=0.01,Config={"Ragebot","Evasion","ProjectileBreaker","RepositionInterval"}});a:AddToggle({Label="Fallback Character Origin",Config={"Ragebot","Evasion","ProjectileBreaker","FallbackAnchorFromCharacter"}});a:AddSlider({Label="Fallback Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackBaseRadius"}});a:AddSlider({Label="Fallback Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackRadiusRandomFactor"}});end;local function N(P)local a=P:AddDropdown({Label="Evasion Mode",Options={"Off","Random","Translocate","ProjectileBreaker"},Labels={ProjectileBreaker="Projectile Breaker"},Config={"Ragebot","Evasion","Mode"}});local e=P:AddGroup({Source=a,Option="Random"});e:AddToggle({Label="Character Origin",Config={"Ragebot","Evasion","Random","AnchorFromCharacter"}});e:AddSlider({Label="Base Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","Random","BaseRadius"}});e:AddSlider({Label="Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","Random","RadiusRandomFactor"}});P:AddGroup({Source=a,Option="Translocate"}):AddSlider({Label="Offset",Min=-5,Max=5,Step=0.1,Config={"Ragebot","Evasion","Translocate","Offset"}});W(P,a);end;local function H(P)P:AddToggle({Label="Target HUD",Config={"Ragebot","TargetHud","Enabled"}});P:AddSlider({Label="Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","Scale"}});P:AddSlider({Label="Item Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","ItemScale"}});P:AddSlider({Label="Offset X (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosX"}});P:AddSlider({Label="Offset Y (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosY"}});end;return function(W)local style=l(W:AddSection({Title="Activation",Side="left"}));local khSection=W:AddSection({Title="KH Settings",Side="left"});kf(khSection);local carefulSection=W:AddSection({Title="Careful Settings",Side="left"});cf(carefulSection);local ueSection=W:AddSection({Title="UE Settings",Side="left"});uf(ueSection);local weaponSection=W:AddSection({Title="Weapon Strategy",Side="left"});I(weaponSection);local evasionSection=W:AddSection({Title="Evasion",Side="right"});N(evasionSection);local hudSection=W:AddSection({Title="Target HUD",Side="right"});H(hudSection);local fwSection=W:AddSection({Title="FW UE Settings",Side="left"});local autoSection=W:AddSection({Title="Auto FW UE",Side="left"});autoSection:AddToggle({Label="Switch To FW UE Vs Hackers",Tooltip="Watches the enemies with the Hacker Detector's verdict (view pitch past tau, or speed over 200 for 0.25 s). While one of them is flagged, the Ragebot Style is FW UE whatever you picked; with nobody flagged it is the style you picked. The Hacker Detector does not have to be on.",Config={"Ragebot","AutoFWUE","Enabled"}});autoSection:AddToggle({Label="Notify On Switch",Tooltip="Pop-up when the style switches to FW UE and when it goes back.",Config={"Ragebot","AutoFWUE","Notify"}});autoSection:AddToggle({Label="Switch Back When Hacker Is Gone",Tooltip="On: back to your own style once no enemy is flagged (after the time below). Off: stays on FW UE until you turn this feature off.",Config={"Ragebot","AutoFWUE","Return"}});autoSection:AddSlider({Label="Keep FW UE For (s)",Min=0,Max=120,Step=1,Config={"Ragebot","AutoFWUE","HoldSeconds"}});fwSection:AddToggle({Label="FW Weapon Check",Tooltip="Hide only while the weapon window is open. Slow weapons: the shot / swing cooldown must have at least 0.6 s left. Fast weapons (cooldown up to 0.3 s): the magazine must be nearly empty. Nobody may be reloading, and an enemy starting to reload sends you back to the void. No time limit on the wait.",Config={"Ragebot","FWWeaponCheck"}});local function applyStyle()local picked=style.Value;local isUE=picked=="UE";local isCareful=picked=="Careful";local isEmpty=picked=="SLEEPY" or picked=="FWUE";khSection:SetVisible(not isUE and not isCareful and not isEmpty);evasionSection:SetVisible(not isUE and not isCareful and not isEmpty);ueSection:SetVisible(isUE);carefulSection:SetVisible(isCareful);weaponSection:SetVisible(not isEmpty);hudSection:SetVisible(not isEmpty);fwSection:SetVisible(picked=="FWUE" or (cfgd.Data.Ragebot.AutoFWUE~=nil and cfgd.Data.Ragebot.AutoFWUE.Enabled==true));end;applyStyle();pcall(function()style.ValueChanged:Connect(applyStyle);end);pcall(function()cfgd:GetPropertyChangedSignal({"Ragebot","AutoFWUE","Enabled"}):Connect(applyStyle);end);end;end
+local function fn35() tbl17 .aE();local cfgd= tbl17 .bG();local I= tbl17 .h6();local function l(W)I(W,"Enable Ragebot",{"Always","Toggle","Hold"},{"Ragebot"},true);local style=W:AddDropdown({Label="Ragebot Style",Tooltip="KH: Kicia's own ragebot. UE: the Unnamed Enhancements ragebot (void spam, backstab, gun and light attack). Picking UE hides the KH settings. Auto: plays as KH until the Hacker Detector flags an enemy, then switches this dropdown to FW UE and stays there. Careful: the LY hub's own ragebot in its Careful mode (its own targeting, teleport attack, evasion and reloads). Careful Settings, Weapon Strategy and Target HUD apply to it.",Options={"Original","UE","Careful","SLEEPY","FWUE"},Labels={Original="KH",UE="UE",Careful="Careful",SLEEPY="SLEEPY",FWUE="FW UE trash kh"},Config={"Ragebot","KnifeMode"}});W:AddToggle({Label="Round Start Delay",Tooltip="At the start of a round, hide in the void for a random 1-6 s first, then start attacking. Applies to every Ragebot Style.",Config={"Ragebot","StartDelay"}});W:AddToggle({Label="Prioritize Hackers",Config={"Ragebot","PrioritizeHackers"}});W:AddToggle({Label="Evade When Target Hacking",Config={"Ragebot","EvadeWhenHacking"}});W:AddButton({Label="Clear Hacker Tags",OnClick=function()local d=K.HackerDetector;local ok,n=pcall(function()return d and d:ClearTags() or nil;end);local text=(not ok or n==nil) and "Hacker detector is not ready" or string.format("Cleared %d hacker tag(s)",n);pcall(function()tbl17.aB().get():Notify(text);end);end});return style;end;local function kf(W)W:AddToggle({Label="Detect Knife",Config={"Ragebot","DetectKnife"}});W:AddSlider({Label="Stability",Min=0,Max=1.5,Step=0.001,Config={"Ragebot","Stability"}});W:AddSlider({Label="Shoot Frames",Min=1,Max=5,Config={"Ragebot","ShootFrames"}});end;local function cf(W)W:AddToggle({Label="Evade Between Shots",Tooltip="Slow weapons (shotgun, sniper, knife): evade in the gaps instead of standing on the target",Config={"Ragebot","Careful","EvadeBetweenShots"}});W:AddToggle({Label="Attack After Enemy",Tooltip="Only shoot an enemy in the gap right after it fired or swung, or while its weapon cools down or reloads",Config={"Ragebot","Careful","RetaliateOnly"}});W:AddSlider({Label="Gap Window",Tooltip="How long after its shot or swing an enemy can still be shot (its weapon cooldown or reload also counts)",Min=0.5,Max=5,Step=0.1,Suffix="s",Config={"Ragebot","Careful","RetaliateWindow"}});end;local function uf(W)W:AddToggle({Label="Never Void",Tooltip="Never hide in the void (UE style): no hide phase, and none while reloading, swapping, without a target or between knife stabs. You stay where you are.",Config={"Ragebot","UE","NoVoid"}});W:AddToggle({Label="Backstab Cooldown 0.8",Tooltip="On: the time between two backstabs is HeavyAttackCooldown x 0.8. Off: UE's own x 0.75.",Config={"Ragebot","UE","KnifeCooldown08"}});W:AddToggle({Label="Void Spam",Tooltip="Hide in the void between attack bursts (UE void spam). Used by the gun and the light attack, not by the backstab.",Config={"Ragebot","UE","VoidSpam"}});W:AddSlider({Label="Void Spam Attack",Tooltip="the amount of time attacking before hiding again (UE adds 0.1 s on top)",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","AttackTime"}});W:AddSlider({Label="Void Spam Hide",Tooltip="how long it stays in void for",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","HideTime"}});W:AddSlider({Label="Shoot Attempts",Tooltip="how many times it will try to fire your weapon (UE: ragebot_shoot_attempts)",Min=1,Max=2,Step=1,Config={"Ragebot","UE","ShootAttempts"}});W:AddDropdown({Label="Knife Attack",Tooltip="Heavy Backstab = UE attack mode knife. Light Attack = UE attack mode melee (fast light attacks with the knife).",Options={"Heavy","Light"},Labels={Heavy="Heavy Backstab",Light="Light Attack"},Config={"Ragebot","UE","KnifeAttack"}});end;local function I(W)local N={"Primary","Secondary","Melee"};for P,P in N,nil,nil do W:AddToggle({Label=string.format("%s Enabled",tostring(P)),Config={"Ragebot","Weapons","Enabled",P}});end;W:AddOrderedList({Label="Weapon Priority",Items=N,Default=N,Config={"Ragebot","Weapons","Priority"}});W:AddDropdown({Label="On Empty",Options={"Reload","Swap","SwapOrReload"},Labels={SwapOrReload="Swap or Reload"},Config={"Ragebot","Weapons","OnEmpty"}});end;local function W(N,P)local a=N:AddGroup({Source=P,Option="ProjectileBreaker"});a:AddRangeSlider({Label="Forward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForward"}});a:AddSlider({Label="Forward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForwardFrequency"}});a:AddRangeSlider({Label="Upward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUp"}});a:AddSlider({Label="Upward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUpFrequency"}});a:AddSlider({Label="Reposition Interval (s)",Min=0.05,Max=2,Step=0.01,Config={"Ragebot","Evasion","ProjectileBreaker","RepositionInterval"}});a:AddToggle({Label="Fallback Character Origin",Config={"Ragebot","Evasion","ProjectileBreaker","FallbackAnchorFromCharacter"}});a:AddSlider({Label="Fallback Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackBaseRadius"}});a:AddSlider({Label="Fallback Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackRadiusRandomFactor"}});end;local function N(P)local a=P:AddDropdown({Label="Evasion Mode",Options={"Off","Random","Translocate","ProjectileBreaker"},Labels={ProjectileBreaker="Projectile Breaker"},Config={"Ragebot","Evasion","Mode"}});local e=P:AddGroup({Source=a,Option="Random"});e:AddToggle({Label="Character Origin",Config={"Ragebot","Evasion","Random","AnchorFromCharacter"}});e:AddSlider({Label="Base Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","Random","BaseRadius"}});e:AddSlider({Label="Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","Random","RadiusRandomFactor"}});P:AddGroup({Source=a,Option="Translocate"}):AddSlider({Label="Offset",Min=-5,Max=5,Step=0.1,Config={"Ragebot","Evasion","Translocate","Offset"}});W(P,a);end;local function H(P)P:AddToggle({Label="Target HUD",Config={"Ragebot","TargetHud","Enabled"}});P:AddSlider({Label="Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","Scale"}});P:AddSlider({Label="Item Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","ItemScale"}});P:AddSlider({Label="Offset X (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosX"}});P:AddSlider({Label="Offset Y (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosY"}});end;return function(W)local style=l(W:AddSection({Title="Activation",Side="left"}));local khSection=W:AddSection({Title="KH Settings",Side="left"});kf(khSection);local carefulSection=W:AddSection({Title="Careful Settings",Side="left"});cf(carefulSection);local ueSection=W:AddSection({Title="UE Settings",Side="left"});uf(ueSection);local weaponSection=W:AddSection({Title="Weapon Strategy",Side="left"});I(weaponSection);local evasionSection=W:AddSection({Title="Evasion",Side="right"});N(evasionSection);local hudSection=W:AddSection({Title="Target HUD",Side="right"});H(hudSection);local fwSection=W:AddSection({Title="FW UE Settings",Side="left"});fwSection:AddToggle({Label="FW Weapon Check",Tooltip="Hide only while the weapon window is open. Slow weapons: the shot / swing cooldown must have at least 0.6 s left. Fast weapons (cooldown up to 0.3 s): the magazine must be nearly empty. Nobody may be reloading, and an enemy starting to reload sends you back to the void. No time limit on the wait.",Config={"Ragebot","FWWeaponCheck"}});local function applyStyle()local picked=style.Value;local isUE=picked=="UE";local isCareful=picked=="Careful";local isEmpty=picked=="SLEEPY" or picked=="FWUE";khSection:SetVisible(not isUE and not isCareful and not isEmpty);evasionSection:SetVisible(not isUE and not isCareful and not isEmpty);ueSection:SetVisible(isUE);carefulSection:SetVisible(isCareful);weaponSection:SetVisible(not isEmpty);hudSection:SetVisible(not isEmpty);fwSection:SetVisible(picked=="FWUE");end;applyStyle();pcall(function()style.ValueChanged:Connect(applyStyle);end);end;end
 
 tbl17.ih = function()
 local ih = tbl17.cache.ih
@@ -60523,7 +60520,7 @@ return il.c
 end
 end
 do -- im
-local function fn35() tbl17 .aL(); tbl17 .aE(); tbl17 .hN();local I,W= tbl17 .e1(), tbl17 .dY();return function(l,N,P)local a,e,c=N:AddSection({Title="Cosmetic Runtime",Side="left"}),N:AddSection({Title="Unlock All",Side="left"}),N:AddSection({Title="Community",Side="right"});local E,p,T=a:AddToggle({Label="Enable Cosmetic Changes",OnChanged=function(t)l.CosmeticsConfig:SetRuntimeEnabled(t);P();end}),a:AddLabel({Label="Cosmetic features are paused until cosmetic changes are enabled.",TextColor=Color3.fromRGB(255,190,90)}),a:AddToggle({Label="Use Custom Loadout",Tooltip="Applies the choices from the Skins, Wraps, Charms, and Finishers catalogs.",OnChanged=function(t)l.Cosmetics:SetSkinChangerEnabled(t);P();end});a:AddButton({Label="Reroll Random Cosmetics",OnClick=function()l.Cosmetics:RerollAll();end});local a,t,x=e:AddToggle({Label="Unlock All Cosmetics",OnChanged=function(S)l.Cosmetics:SetUnlockerEnabled(S);end}),e:AddMultiDropdown({Label="Cosmetic Types to Unlock",Options=W.All,Search=true,OnChanged=function(W)l.CosmeticsConfig:SetUnlockedTypes(W);end}),e:AddMultiDropdown({Label="Cosmetic Rarities to Unlock",Options=I,Search=true,Default={Legendary=true,Mythical=true,Unobtainable=true},OnChanged=function(I)l.CosmeticsConfig:SetUnlockedRarities(I);end});c:AddToggle({Label="Share Skins",Config={"UserServer","ShareSkins"}});c:AddToggle({Label="Show Active Cosmetics",Config={"UserServer","ShowActive"}});local function I(W)E:Set(W.RuntimeEnabled,true);T:Set(W.SkinChangerEnabled,true);a:Set(W.UnlockerEnabled,true);p:SetVisible(not W.RuntimeEnabled);t:Set(W.Types,true);x:Set(W.Rarities,true);P();end;E:OnChanged(function(W)p:SetVisible(not W);end);E:Connect(l.CosmeticsConfig.StateConfigLoaded,I);N=l.CosmeticsConfig:GetStateConfigState();I(N);l.CosmeticsConfig:SetUnlockedTypes(N.Types);l.CosmeticsConfig:SetUnlockedRarities(N.Rarities);end;end
+local function fn35() tbl17 .aL(); tbl17 .aE(); tbl17 .hN();local I,W= tbl17 .e1(), tbl17 .dY();return function(l,N,P)local a,e,c=N:AddSection({Title="Cosmetic Runtime",Side="left"}),N:AddSection({Title="Unlock All",Side="left"}),N:AddSection({Title="Community",Side="right"});local E,p,T=a:AddToggle({Label="Enable Cosmetic Changes",OnChanged=function(t)l.CosmeticsConfig:SetRuntimeEnabled(t);P();end}),a:AddLabel({Label="Cosmetic features are paused until cosmetic changes are enabled.",TextColor=Color3.fromRGB(255,190,90)}),a:AddToggle({Label="Use Custom Loadout",Tooltip="Applies the choices from the Skins, Wraps, Charms, and Finishers catalogs.",OnChanged=function(t)l.Cosmetics:SetSkinChangerEnabled(t);P();end});a:AddButton({Label="Reroll Random Cosmetics",OnClick=function()l.Cosmetics:RerollAll();end});local a,t,x=e:AddToggle({Label="Unlock All Cosmetics",OnChanged=function(S)l.Cosmetics:SetUnlockerEnabled(S);end}),e:AddMultiDropdown({Label="Cosmetic Types to Unlock",Options=W.All,Search=true,OnChanged=function(W)l.CosmeticsConfig:SetUnlockedTypes(W);end}),e:AddMultiDropdown({Label="Cosmetic Rarities to Unlock",Options=I,Search=true,Default={Legendary=true,Mythical=true,Unobtainable=true},OnChanged=function(I)l.CosmeticsConfig:SetUnlockedRarities(I);end});c:AddToggle({Label="Share Skins",Config={"UserServer","ShareSkins"}});c:AddToggle({Label="Show Active Cosmetics",Config={"UserServer","ShowActive"}});if K.UESkins then local ok,err=pcall(K.UESkins.BuildUI,l,N,P,E,T);if not ok then warn("[Kicia Rebuild] UE skin changer UI failed: "..tostring(err)) end end;local function I(W)E:Set(W.RuntimeEnabled,true);T:Set(W.SkinChangerEnabled,true);a:Set(W.UnlockerEnabled,true);p:SetVisible(not W.RuntimeEnabled);t:Set(W.Types,true);x:Set(W.Rarities,true);P();end;E:OnChanged(function(W)p:SetVisible(not W);end);E:Connect(l.CosmeticsConfig.StateConfigLoaded,I);N=l.CosmeticsConfig:GetStateConfigState();I(N);l.CosmeticsConfig:SetUnlockedTypes(N.Types);l.CosmeticsConfig:SetUnlockedRarities(N.Rarities);end;end
 
 tbl17.im = function()
 local im = tbl17.cache.im
@@ -72201,53 +72198,6 @@ local v197 = v147:Add(v124.new(v190, decoratorFactory))
 local v198 = v147:Add(v148.new(v190, playerTags))
 K.HackerDetector = v198
 
--- Auto FW UE watcher (menu: Ragebot > Auto FW UE). Every frame it asks the Hacker Detector's tags whether an enemy in
--- our arena is flagged "Hacker" (view pitch past tau, or speed over 200 for 0.25 s; the other hub's
--- getgenv().InstanceHackerFlagged counts too). While one is, K.AutoFWUEUntil is pushed ahead by HoldSeconds, which
--- makes K.RagebotStyle() answer "FWUE"; once none is left and the hold has run out it answers the picked style again.
--- Return off: the first hacker switches to FW UE until the toggle is turned off.
-do
-    local autoConfig = tbl17.bG()
-    local autoRun = cloneref(game:GetService("RunService"))
-    local autoActive = false
-    local function autoNotify(text, detail)
-        pcall(function()
-            tbl17.aB().get():Notify({ { Text = text, Accent = true }, { Text = detail } }, { Color = autoConfig.Data.HackerDetector.Color, Lifetime = 5 })
-        end)
-    end
-    v147:Add(autoRun.Heartbeat:Connect(function()
-        local auto = autoConfig.Data.Ragebot.AutoFWUE
-        if auto == nil or not auto.Enabled then
-            if autoActive then
-                autoActive = false
-                K.AutoFWUEUntil = 0
-            end
-            return
-        end
-        local found
-        local detector = K.HackerDetector
-        local flagged = getgenv().InstanceHackerFlagged
-        pcall(function()
-            for player in pairs(detector._fighters.EnemyByPlayer) do
-                if detector._playerTags:Has(player, "Hacker") or (type(flagged) == "table" and flagged[player] == true) then
-                    found = player
-                    break
-                end
-            end
-        end)
-        local now = os.clock()
-        if found ~= nil then
-            K.AutoFWUEUntil = auto.Return == false and math.huge or now + math.max(auto.HoldSeconds or 0, 0.25)
-            if not autoActive then
-                autoActive = true
-                if auto.Notify then autoNotify(found.DisplayName or found.Name, " is hacking - Ragebot Style FW UE") end
-            end
-        elseif autoActive and now >= K.AutoFWUEUntil then
-            autoActive = false
-            if auto.Notify then autoNotify("Auto FW UE", " - back to your Ragebot Style") end
-        end
-    end))
-end
 local v199 = v147:Add(v164.new(v190))
 v185(storeProfiles, v147, v199)
 local v200 = v147:Add(v138.new(v190, v199))
@@ -75497,6 +75447,714 @@ do
 			total - #missing, total, tostring(registered),
 			tostring(type(sample) == "table" and sample.ItemName), tostring(type(sample) == "table" and sample.Rarity),
 			#missing > 0 and (" missing: " .. table.concat(missing, ", ")) or ""))
+	end
+end
+
+--==========================================================================
+--  UE cosmetics changer (ported from Unnamed Enhancements; its decompile is in Downloads\ue_decomp).
+--  UE keeps one record per weapon, misc.cosmetics_cache[weapon] = { skin = {enabled, name, random},
+--  wrap = {enabled, name, random, inverted}, charm = {...}, finisher = {...} }, and every time a weapon
+--  is built (protos 380 / 156) it writes the record into the weapon data for the LOCAL fighter only;
+--  a "random" record is re-rolled from that weapon's own pool (skins) or the global pool (wraps /
+--  charms / finishers) on each build. Here the same per-weapon records drive Kicia's skin-changer layer
+--  (Cosmetics:SetSkinChangerChoice), so menus, viewmodels and previews follow, and the random records
+--  are re-rolled on every respawn. The UI lives in the Cosmetics > Overview tab (K.UESkins.BuildUI).
+--==========================================================================
+local function setupUESkins()
+	local HttpService = game:GetService("HttpService")
+	local Players = game:GetService("Players")
+	local LocalPlayer = Players.LocalPlayer
+	local SAVE_FILE = "kicia_ue_skins.json"
+	local KINDS = { "skin", "wrap", "charm", "finisher" }
+	local TYPE_OF = { skin = "Skin", wrap = "Wrap", charm = "Charm", finisher = "Finisher" }
+	local UE = { Enabled = false, RerollOnRespawn = true, Weapon = nil, Records = {}, Applied = {} }
+
+	local function recordsFor(weapon, create)
+		local records = UE.Records[weapon]
+		if records == nil and create then
+			records = {}
+			for _, kind in ipairs(KINDS) do
+				records[kind] = { enabled = false, name = nil, random = false, inverted = false }
+			end
+			UE.Records[weapon] = records
+		end
+		return records
+	end
+
+	local function catalog()
+		local ok, result = pcall(function() return tbl17.eT() end)
+		return ok and type(result) == "table" and result or nil
+	end
+
+	local function pool(kind, weapon)
+		local data = catalog()
+		if data == nil then
+			return {}
+		end
+		if kind == "skin" then
+			return data.Skins[weapon] or {}
+		elseif kind == "wrap" then
+			return data.Wraps
+		elseif kind == "charm" then
+			return data.Charms
+		end
+		return data.Finishers
+	end
+
+	-- UE: a random record picks math.random(1, #list) from the pool, a plain one uses its stored name
+	local function pick(kind, weapon, record)
+		if record.random then
+			local list = pool(kind, weapon)
+			if #list > 0 then
+				return list[math.random(1, #list)]
+			end
+			return nil
+		end
+		return record.name
+	end
+
+	function UE.Save()
+		local writefile_ = K.fn("writefile")
+		if writefile_ == nil then
+			return
+		end
+		local records = {}
+		for weapon, kinds in pairs(UE.Records) do
+			local out = {}
+			for _, kind in ipairs(KINDS) do
+				local r = kinds[kind]
+				out[kind] = { enabled = r.enabled, name = r.name, random = r.random, inverted = r.inverted }
+			end
+			records[weapon] = out
+		end
+		pcall(function()
+			writefile_(SAVE_FILE, HttpService:JSONEncode({
+				Enabled = UE.Enabled,
+				RerollOnRespawn = UE.RerollOnRespawn,
+				Weapon = UE.Weapon,
+				Records = records,
+			}))
+		end)
+	end
+
+	local function load()
+		local isfile_, readfile_ = K.fn("isfile"), K.fn("readfile")
+		if not (isfile_ and readfile_) then
+			return
+		end
+		local ok, data = pcall(function()
+			if not isfile_(SAVE_FILE) then
+				return nil
+			end
+			return HttpService:JSONDecode(readfile_(SAVE_FILE))
+		end)
+		if not ok or type(data) ~= "table" then
+			return
+		end
+		UE.Enabled = data.Enabled == true
+		UE.RerollOnRespawn = data.RerollOnRespawn ~= false
+		UE.Weapon = type(data.Weapon) == "string" and data.Weapon or nil
+		if type(data.Records) ~= "table" then
+			return
+		end
+		for weapon, kinds in pairs(data.Records) do
+			if type(weapon) == "string" and type(kinds) == "table" then
+				local records = recordsFor(weapon, true)
+				for _, kind in ipairs(KINDS) do
+					local saved = kinds[kind]
+					if type(saved) == "table" then
+						local r = records[kind]
+						r.enabled = saved.enabled == true
+						r.random = saved.random == true
+						r.inverted = saved.inverted == true
+						r.name = type(saved.name) == "string" and saved.name or nil
+					end
+				end
+			end
+		end
+	end
+
+	-- Pushes one weapon's records into the skin-changer layer, and takes back what we set earlier
+	-- once a record is switched off (or the whole changer is).
+	function UE.ApplyWeapon(l, weapon)
+		local cosmetics = l and l.Cosmetics
+		if cosmetics == nil then
+			return
+		end
+		local records = recordsFor(weapon, false)
+		local applied = UE.Applied[weapon]
+		if applied == nil then
+			applied = {}
+			UE.Applied[weapon] = applied
+		end
+		for _, kind in ipairs(KINDS) do
+			local record = UE.Enabled and records and records[kind] or nil
+			local name = record and record.enabled and pick(kind, weapon, record) or nil
+			if name ~= nil then
+				local choice
+				if kind == "wrap" then
+					choice = { Kind = "Wrap", Wrap = { Name = name, Inverted = record.inverted == true } }
+				else
+					choice = { Kind = TYPE_OF[kind], Name = name }
+				end
+				cosmetics:SetSkinChangerChoice(weapon, choice)
+				applied[kind] = true
+			elseif applied[kind] then
+				cosmetics:ClearSkinChangerSelection(weapon, TYPE_OF[kind])
+				applied[kind] = nil
+			end
+		end
+	end
+
+	function UE.ApplyAll(l, onlyRandom)
+		local weapons = {}
+		for weapon in pairs(UE.Records) do
+			weapons[weapon] = true
+		end
+		for weapon in pairs(UE.Applied) do
+			weapons[weapon] = true
+		end
+		for weapon in pairs(weapons) do
+			local hasRandom = false
+			local records = UE.Records[weapon]
+			if records ~= nil then
+				for _, kind in ipairs(KINDS) do
+					if records[kind].enabled and records[kind].random then
+						hasRandom = true
+					end
+				end
+			end
+			if not onlyRandom or hasRandom then
+				local ok, err = pcall(UE.ApplyWeapon, l, weapon)
+				if not ok then
+					warn("[Kicia UE] apply " .. tostring(weapon) .. " failed: " .. tostring(err))
+				end
+			end
+		end
+	end
+
+	-- UE's popout (proto 165 builds it, 4230 builds a tile, 4234 fills the grids, 4231 picks tile images):
+	-- "Cosmetic Changer", 669 wide. weapon filter box + a 7-column weapon grid (207 high), cosmetic
+	-- filter box + a 7-column cosmetic grid (207 high), an "inverted" toggle that only shows in wrap
+	-- mode, and the mode dropdown (skin / wrap / charm / finisher). A tile is a (51,51,51) ImageButton at
+	-- 0.85 transparency with a centred image, a name label and a dark hover overlay (13188153054 at
+	-- 0.75). The skin list starts with the weapon's own default look, as UE inserts the weapon name at 1.
+	local STOCK = "NONE_COSMETIC"
+	local ACCENT = Color3.fromRGB(86, 170, 190)
+
+	local function itemLibrary()
+		local ok, library = pcall(function() return tbl17.aS().ItemLibrary end)
+		return ok and type(library) == "table" and library or nil
+	end
+
+	local function weaponList()
+		local library = itemLibrary()
+		local source = library and library.OwnableWeapons
+		local list = {}
+		if type(source) == "table" then
+			if #source > 0 then
+				for _, name in ipairs(source) do
+					list[#list + 1] = name
+				end
+			else
+				for name, owned in pairs(source) do
+					list[#list + 1] = type(name) == "string" and name or owned
+				end
+			end
+		end
+		if #list == 0 then
+			list = table.clone(tbl17.aT())
+		end
+		table.sort(list)
+		return list
+	end
+
+	-- 4231: the tile image is ItemLibrary.ViewModels[name].ImageHighResolution
+	local function imageFor(name)
+		if name == nil or name == STOCK then
+			return "rbxassetid://0"
+		end
+		local library = itemLibrary()
+		local models = library and library.ViewModels
+		local entry = type(models) == "table" and models[name] or nil
+		if type(entry) == "table" then
+			local image = entry.ImageHighResolution or entry.Image
+			if type(image) == "string" and image ~= "" then
+				return image
+			end
+		end
+		local data = catalog()
+		local image = data and data.Images[name]
+		if type(image) == "string" and image ~= "" then
+			return image
+		end
+		return "rbxassetid://89204837120267"
+	end
+
+	function UE.BuildPanel(l, onChanged)
+		local UserInputService = game:GetService("UserInputService")
+		local gethui_ = K.fn("gethui")
+		local parent = gethui_ and gethui_() or game:GetService("CoreGui")
+		local mode = "skin"
+		local weaponFilter, cosmeticFilter = "", ""
+		local weapons = weaponList()
+		if UE.Weapon == nil or table.find(weapons, UE.Weapon) == nil then
+			UE.Weapon = weapons[1]
+		end
+
+		local gui = Instance.new("ScreenGui")
+		gui.Name = "KiciaUECosmeticChanger"
+		gui.ResetOnSpawn = false
+		gui.DisplayOrder = 100
+		gui.Enabled = false
+		gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+		gui.Parent = parent
+
+		local main = Instance.new("Frame")
+		main.Size = UDim2.fromOffset(669, 616)
+		main.Position = UDim2.new(0.5, -334, 0.5, -308)
+		main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+		main.BorderSizePixel = 0
+		main.Parent = gui
+		local mainStroke = Instance.new("UIStroke")
+		mainStroke.Color = Color3.fromRGB(45, 45, 45)
+		mainStroke.Parent = main
+
+		local function label(text, y, height, size)
+			local item = Instance.new("TextLabel")
+			item.BackgroundTransparency = 1
+			item.Position = UDim2.fromOffset(10, y)
+			item.Size = UDim2.new(1, -20, 0, height)
+			item.Font = Enum.Font.Gotham
+			item.TextSize = size or 13
+			item.TextColor3 = Color3.fromRGB(220, 220, 220)
+			item.TextXAlignment = Enum.TextXAlignment.Left
+			item.Text = text
+			item.Parent = main
+			return item
+		end
+
+		local title = label("Cosmetic Changer", 0, 30, 14)
+		title.Font = Enum.Font.GothamBold
+		local dragging, dragStart, startPos = false, nil, nil
+		title.Active = true
+		title.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 then
+				dragging, dragStart, startPos = true, input.Position, main.Position
+			end
+		end)
+		UserInputService.InputChanged:Connect(function(input)
+			if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+				local delta = input.Position - dragStart
+				main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X,
+					startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+			end
+		end)
+		UserInputService.InputEnded:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 then
+				dragging = false
+			end
+		end)
+
+		local function textBox(text, placeholder, y, callback)
+			label(text, y, 16, 12)
+			local box = Instance.new("TextBox")
+			box.Position = UDim2.fromOffset(10, y + 18)
+			box.Size = UDim2.new(1, -20, 0, 24)
+			box.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+			box.BorderSizePixel = 0
+			box.ClearTextOnFocus = false
+			box.Font = Enum.Font.Gotham
+			box.TextSize = 13
+			box.TextColor3 = Color3.fromRGB(235, 235, 235)
+			box.PlaceholderText = placeholder
+			box.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
+			box.Text = ""
+			box.TextXAlignment = Enum.TextXAlignment.Left
+			box.Parent = main
+			local pad = Instance.new("UIPadding")
+			pad.PaddingLeft = UDim.new(0, 6)
+			pad.Parent = box
+			box:GetPropertyChangedSignal("Text"):Connect(function()
+				callback(string.lower(box.Text))
+			end)
+			return box
+		end
+
+		local function scroller(y)
+			local frame = Instance.new("ScrollingFrame")
+			frame.Position = UDim2.fromOffset(10, y)
+			frame.Size = UDim2.new(1, -20, 0, 207)
+			frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+			frame.BorderSizePixel = 0
+			frame.ScrollBarThickness = 0
+			frame.CanvasSize = UDim2.new(1, 0, 0, 0)
+			frame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+			frame.ClipsDescendants = true
+			frame.Parent = main
+			local layout = Instance.new("UIGridLayout")
+			layout.FillDirectionMaxCells = 7
+			layout.FillDirection = Enum.FillDirection.Horizontal
+			layout.SortOrder = Enum.SortOrder.LayoutOrder
+			layout.CellPadding = UDim2.fromOffset(4, 4)
+			layout.CellSize = UDim2.new(0.142857, -4, 0, 62)
+			layout.Parent = frame
+			return frame
+		end
+
+		local weaponGrid, cosmeticGrid
+		local rebuildWeapons, rebuildCosmetics
+
+		-- 4230: ImageButton + centred image + name + hover overlay
+		local function tile(parentFrame, order, image, caption, selected, tinted, onClick)
+			local button = Instance.new("ImageButton")
+			button.LayoutOrder = order
+			button.AutoButtonColor = false
+			button.BorderSizePixel = 0
+			button.Image = "rbxassetid://0"
+			button.BackgroundColor3 = tinted and ACCENT or Color3.fromRGB(51, 51, 51)
+			button.BackgroundTransparency = tinted and 0.55 or 0.85
+			button.ZIndex = 2
+			button.Parent = parentFrame
+			local picture = Instance.new("ImageLabel")
+			picture.AnchorPoint = Vector2.new(0.5, 0.5)
+			picture.Position = UDim2.fromScale(0.5, 0.42)
+			picture.Size = UDim2.fromScale(0.8, 0.6)
+			picture.BackgroundTransparency = 1
+			picture.ScaleType = Enum.ScaleType.Fit
+			picture.Image = image
+			picture.ZIndex = 3
+			picture.Parent = button
+			local text = Instance.new("TextLabel")
+			text.AnchorPoint = Vector2.new(0.5, 1)
+			text.Position = UDim2.fromScale(0.5, 1)
+			text.Size = UDim2.new(1, -4, 0, 14)
+			text.BackgroundTransparency = 1
+			text.Font = Enum.Font.Gotham
+			text.TextSize = 10
+			text.TextTruncate = Enum.TextTruncate.AtEnd
+			text.TextColor3 = Color3.fromRGB(235, 235, 235)
+			text.Text = caption
+			text.ZIndex = 5
+			text.Parent = button
+			local hover = Instance.new("ImageLabel")
+			hover.AnchorPoint = Vector2.new(0.5, 0)
+			hover.Position = UDim2.fromScale(0.5, 0)
+			hover.Size = UDim2.fromScale(1, 1)
+			hover.BackgroundTransparency = 1
+			hover.Image = "rbxassetid://13188153054"
+			hover.ImageTransparency = 0.75
+			hover.ImageColor3 = Color3.new(0, 0, 0)
+			hover.Visible = false
+			hover.ZIndex = 4
+			hover.Parent = button
+			if selected then
+				local stroke = Instance.new("UIStroke")
+				stroke.Color = ACCENT
+				stroke.Thickness = 1.5
+				stroke.Parent = button
+			end
+			button.MouseEnter:Connect(function() hover.Visible = true end)
+			button.MouseLeave:Connect(function() hover.Visible = false end)
+			button.MouseButton1Click:Connect(onClick)
+			return button
+		end
+
+		local function clear(frame)
+			for _, child in ipairs(frame:GetChildren()) do
+				if child:IsA("GuiObject") then
+					child:Destroy()
+				end
+			end
+		end
+
+		local function currentRecord(weapon)
+			local records = recordsFor(weapon, false)
+			return records and records[mode] or nil
+		end
+
+		rebuildWeapons = function()
+			clear(weaponGrid)
+			local order = 0
+			for _, weapon in ipairs(weapons) do
+				if weaponFilter == "" or string.find(string.lower(weapon), weaponFilter, 1, true) ~= nil then
+					order += 1
+					local records = recordsFor(weapon, false)
+					local skin = records and records.skin
+					local shown = weapon
+					if skin and skin.enabled and not skin.random and skin.name ~= nil and skin.name ~= STOCK then
+						shown = skin.name
+					end
+					local active = false
+					if records then
+						for _, kind in ipairs(KINDS) do
+							active = active or records[kind].enabled
+						end
+					end
+					tile(weaponGrid, order, imageFor(shown), weapon, weapon == UE.Weapon, active, function()
+						UE.Weapon = weapon
+						UE.Save()
+						rebuildWeapons()
+						rebuildCosmetics()
+					end)
+				end
+			end
+		end
+
+		rebuildCosmetics = function()
+			clear(cosmeticGrid)
+			local weapon = UE.Weapon
+			if weapon == nil then
+				return
+			end
+			local record = currentRecord(weapon)
+			local entries = {}
+			if mode == "skin" then
+				entries[#entries + 1] = { name = STOCK, caption = weapon }
+			end
+			entries[#entries + 1] = { name = "RANDOM", caption = "Random", random = true }
+			for _, name in ipairs(pool(mode, weapon)) do
+				entries[#entries + 1] = { name = name, caption = name }
+			end
+			local order = 0
+			for _, entry in ipairs(entries) do
+				if entry.random or cosmeticFilter == "" or string.find(string.lower(entry.caption), cosmeticFilter, 1, true) ~= nil then
+					order += 1
+					local selected = false
+					if record and record.enabled then
+						if entry.random then
+							selected = record.random == true
+						else
+							selected = not record.random and record.name == entry.name
+						end
+					end
+					local image
+					if entry.random then
+						image = "rbxassetid://94238795177693"
+					elseif entry.name == STOCK then
+						image = imageFor(weapon)
+					else
+						image = imageFor(entry.name)
+					end
+					tile(cosmeticGrid, order, image, entry.caption, selected, selected, function()
+						local rec = recordsFor(weapon, true)[mode]
+						if entry.random then
+							if rec.enabled and rec.random then
+								rec.enabled, rec.random = false, false
+							else
+								rec.enabled, rec.random = true, true
+							end
+						elseif rec.enabled and not rec.random and rec.name == entry.name then
+							rec.enabled = false
+						else
+							rec.enabled, rec.random, rec.name = true, false, entry.name
+						end
+						UE.Save()
+						if UE.Enabled then
+							pcall(UE.ApplyWeapon, l, weapon)
+						end
+						rebuildWeapons()
+						rebuildCosmetics()
+						if onChanged then
+							onChanged()
+						end
+					end)
+				end
+			end
+		end
+
+		textBox("weapon filter", "grenade launcher...", 32, function(text)
+			weaponFilter = text
+			rebuildWeapons()
+		end)
+		weaponGrid = scroller(76)
+		textBox("cosmetic filter", "red...", 291, function(text)
+			cosmeticFilter = text
+			rebuildCosmetics()
+		end)
+		cosmeticGrid = scroller(335)
+
+		-- "inverted" (only in wrap mode, UE's dependency box) and the mode picker
+		local invertedButton = Instance.new("TextButton")
+		invertedButton.Position = UDim2.fromOffset(10, 552)
+		invertedButton.Size = UDim2.fromOffset(120, 24)
+		invertedButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+		invertedButton.BorderSizePixel = 0
+		invertedButton.Font = Enum.Font.Gotham
+		invertedButton.TextSize = 13
+		invertedButton.TextColor3 = Color3.fromRGB(235, 235, 235)
+		invertedButton.Parent = main
+		local function paintInverted()
+			local records = recordsFor(UE.Weapon, false)
+			local on = records ~= nil and records.wrap.inverted == true
+			invertedButton.Text = (on and "[x] " or "[ ] ") .. "inverted"
+			invertedButton.Visible = mode == "wrap"
+		end
+		invertedButton.MouseButton1Click:Connect(function()
+			if UE.Weapon == nil then
+				return
+			end
+			local wrap = recordsFor(UE.Weapon, true).wrap
+			wrap.inverted = not wrap.inverted
+			UE.Save()
+			if UE.Enabled then
+				pcall(UE.ApplyWeapon, l, UE.Weapon)
+			end
+			paintInverted()
+		end)
+
+		local modeButtons = {}
+		local function paintModes()
+			for name, button in pairs(modeButtons) do
+				button.BackgroundColor3 = name == mode and ACCENT or Color3.fromRGB(30, 30, 30)
+			end
+			paintInverted()
+		end
+		for index, name in ipairs({ "skin", "wrap", "charm", "finisher" }) do
+			local button = Instance.new("TextButton")
+			button.Position = UDim2.fromOffset(10 + (index - 1) * 163, 584)
+			button.Size = UDim2.fromOffset(159, 24)
+			button.BorderSizePixel = 0
+			button.Font = Enum.Font.Gotham
+			button.TextSize = 13
+			button.TextColor3 = Color3.fromRGB(235, 235, 235)
+			button.Text = name
+			button.Parent = main
+			button.MouseButton1Click:Connect(function()
+				mode = name
+				paintModes()
+				rebuildCosmetics()
+			end)
+			modeButtons[name] = button
+		end
+
+		paintModes()
+		rebuildWeapons()
+		rebuildCosmetics()
+
+		local panel = { Gui = gui }
+		function panel.SetVisible(on)
+			gui.Enabled = on == true
+			if on then
+				rebuildWeapons()
+				rebuildCosmetics()
+			end
+		end
+		function panel.Refresh()
+			rebuildWeapons()
+			rebuildCosmetics()
+			paintInverted()
+		end
+		K.onUnload(function()
+			gui:Destroy()
+		end)
+		return panel
+	end
+
+	function UE.BuildUI(l, grid, refresh, runtimeToggle, loadoutToggle)
+		local section = grid:AddSection({ Title = "Cosmetic Changer (UE)", Side = "right" })
+		local panel
+		local status = section:AddLabel({ Label = "", TextColor = Color3.fromRGB(255, 190, 90) })
+		local function updateStatus()
+			status:SetLabel(UE.Enabled and "UE Cosmetic Changer is on."
+				or "UE Cosmetic Changer is off. Picks are saved and apply once it is enabled.")
+		end
+
+		local enable = section:AddToggle({
+			Label = "Enable UE Cosmetic Changer",
+			Tooltip = "Applies the picks made in the Cosmetic Changer window (turns on Enable Cosmetic Changes and Use Custom Loadout).",
+			OnChanged = function(on)
+				UE.Enabled = on == true
+				if UE.Enabled then
+					if runtimeToggle ~= nil then
+						runtimeToggle:Set(true)
+					end
+					if loadoutToggle ~= nil then
+						loadoutToggle:Set(true)
+					end
+				end
+				UE.ApplyAll(l)
+				UE.Save()
+				updateStatus()
+				if refresh ~= nil then
+					pcall(refresh)
+				end
+			end,
+		})
+
+		section:AddToggle({
+			Label = "Show Cosmetic Changer",
+			Tooltip = "Opens UE's Cosmetic Changer window: weapon filter, cosmetic filter, skin / wrap / charm / finisher.",
+			OnChanged = function(on)
+				if panel == nil then
+					local ok, result = pcall(UE.BuildPanel, l)
+					if not ok then
+						warn("[Kicia Rebuild] UE Cosmetic Changer window failed: " .. tostring(result))
+						return
+					end
+					panel = result
+				end
+				panel.SetVisible(on)
+			end,
+		})
+
+		section:AddToggle({
+			Label = "Re-roll Random On Respawn",
+			Tooltip = "UE rolls a Random pick again every time the weapon is built; here that happens each respawn.",
+			OnChanged = function(on)
+				UE.RerollOnRespawn = on == true
+				UE.Save()
+			end,
+		}):Set(UE.RerollOnRespawn, true)
+
+		section:AddButton({
+			Label = "Re-roll Randoms Now",
+			OnClick = function()
+				UE.ApplyAll(l, true)
+			end,
+		})
+		section:AddButton({
+			Label = "Reset All Weapons",
+			OnClick = function()
+				UE.Records = {}
+				UE.ApplyAll(l)
+				UE.Save()
+				if panel then
+					panel.Refresh()
+				end
+			end,
+		})
+
+		updateStatus()
+		if UE.Enabled then
+			enable:Set(true)
+		end
+
+		local connection = LocalPlayer.CharacterAdded:Connect(function()
+			if not (UE.Enabled and UE.RerollOnRespawn) then
+				return
+			end
+			task.delay(1, function()
+				if not K.destroyed then
+					UE.ApplyAll(l, true)
+				end
+			end)
+		end)
+		K.onUnload(function()
+			connection:Disconnect()
+		end)
+	end
+
+	load()
+	return UE
+end
+
+do
+	local ok, result = pcall(setupUESkins)
+	if ok then
+		K.UESkins = result
+	else
+		warn("[Kicia Rebuild] UE skin changer failed to set up: " .. tostring(result))
 	end
 end
 
