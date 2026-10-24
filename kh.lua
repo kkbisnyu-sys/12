@@ -10,7 +10,7 @@ if not game:IsLoaded() then game.Loaded:Wait() end
 local K = { connections = {}, cleanups = {}, destroyed = false }
 getgenv().KiciaRebuild = K
 -- build marker: shows in the F9 console so you can tell which copy of the script is running
-K.Build = "2026-10-24 (30): FW Weapon Check (FW UE only), melee follows the knife rule, hide point stays under the instakill OOB, mouse keybinds, heavy attack cooldown override"
+K.Build = "2026-10-24 (31): name / display name spoofer rewritten, FW Weapon Check (FW UE only), melee follows the knife rule, hide point stays under the instakill OOB, mouse keybinds, heavy attack cooldown override"
 warn("[Kicia Rebuild] build " .. K.Build)
 
 local Players = game:GetService("Players")
@@ -22176,7 +22176,7 @@ end
 
 index2.SetPresented = function(arg, arg2, presentedName)
 local v117 = arg._identityByPlayer[arg2]
-if v117.PresentedName == presentedName then
+if v117 == nil or v117.PresentedName == presentedName then
 return
 end
 v117.PresentedName = presentedName
@@ -22185,7 +22185,7 @@ end
 
 index2.SetPresentedDisplay = function(arg, arg2, presentedDisplayName)
 local v117 = arg._identityByPlayer[arg2]
-if v117.PresentedDisplayName == presentedDisplayName then
+if v117 == nil or v117.PresentedDisplayName == presentedDisplayName then
 return
 end
 v117.PresentedDisplayName = presentedDisplayName
@@ -23389,14 +23389,69 @@ local GuiNameSpoofer = v115.new("player_spoofer.GuiNameSpoofer")
 local tbl18 = {}
 local tbl19 = {}
 local playerIdentities = arg._playerIdentities
-local function fn36(...) end
+-- candidates: the real Name and DisplayName of every player, longest first (so a name inside a longer one is not
+-- cut up); what each is shown as is looked up from the identities every time a text is rewritten (fn37)
+local function fn36()
+table.clear(tbl19)
+for _, player in v117:GetPlayers() do
+table.insert(tbl19, { Player = player, Kind = "Name", Name = player.Name })
+-- added even when it equals the Name (most accounts): a spoofed Display Name must still apply when only that
+-- toggle is on, because the first candidate then rewrites the text to itself and the second one finds it again
+table.insert(tbl19, { Player = player, Kind = "DisplayName", Name = player.DisplayName })
+end
+-- longest first; for the same text the display name goes first (it is the one a nametag shows)
+table.sort(tbl19, function(a, b)
+if #a.Name ~= #b.Name then return #a.Name > #b.Name end
+if a.Name ~= b.Name then return a.Name < b.Name end
+return a.Kind < b.Kind
+end)
+end
 local function fn37(I,W)if W=="Name"then return  playerIdentities :GetPresented(I);end;return  playerIdentities :GetPresentedDisplay(I);end
 local function fn38(l,I,W)local N,P,a={},1,0;while true do local e,c=l:find(I,P,true);if e==nil or c==nil then break;end;if P<e then table.insert(N,l:sub(P,e-1));end;table.insert(N,W);a+=1;P=c+1;end;if a==0 then return l,0;end;if P<=#l then table.insert(N,l:sub(P));end;return table.concat(N),a;end
 local function fn39(I)local W={};local N=I;for I,P in  tbl19 ,nil,nil do I= fn37 (P.Player,P.Kind);local a,e= fn38 (N,P.Name,I);if e>0 then W[P.Player]=true;N=a;end;end;return W,N;end
-local function fn40(...) end
-local function fn41(...) end
+-- rewrite one text: the real names found in it are swapped for what the identities present; the text that was there
+-- before is kept in Tracked.OriginalText so a later change of the identities (or Revert) can redo / undo it
+local function fn40(textObject)
+local entry = tbl18[textObject]
+if entry == nil then return end
+local current = textObject.Text
+local tracked = entry.Tracked
+local original = current
+if tracked ~= nil and current == tracked.SpoofedText then
+original = tracked.OriginalText
+end
+local matched, spoofed = fn39(original)
+if next(matched) == nil then
+entry.Tracked = nil
+if original ~= current then
+textObject.Text = original
+end
+return
+end
+entry.Tracked = { OriginalText = original, SpoofedText = spoofed, PlayerSet = matched }
+if current ~= spoofed then
+textObject.Text = spoofed
+end
+end
+local function fn41(textObject, tracked)
+if tracked.SpoofedText ~= tracked.OriginalText and textObject.Text == tracked.SpoofedText then
+textObject.Text = tracked.OriginalText
+end
+end
 local function fn42(I,W)local N= tbl18 [I];if N==nil then return;end; tbl18 [I]=nil;N.TextChangedConnection:Disconnect();N.DestroyingConnection:Disconnect();if W and N.Tracked~=nil then  fn41 (I,N.Tracked);end;end
-local function fn43(...) end
+-- watch one TextLabel / TextButton: rewrite it now and whenever its text changes
+local function fn43(textObject)
+if tbl18[textObject] ~= nil then return end
+local entry = {}
+tbl18[textObject] = entry
+entry.TextChangedConnection = textObject:GetPropertyChangedSignal("Text"):Connect(function()
+fn40(textObject)
+end)
+entry.DestroyingConnection = textObject.Destroying:Connect(function()
+fn42(textObject, false)
+end)
+fn40(textObject)
+end
 fn36()
 
 v116(GuiNameSpoofer, function(arg2, arg3)
