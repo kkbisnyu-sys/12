@@ -4057,7 +4057,7 @@ function Starlight:CreateWindow(WindowSettings)
 				Tab.Instances.Page.playerUser.Text = `{greetingString} | {Player.Name}`
 
 				Tab.Instances.Page.clock.Text =
-					`{formatted}\n{string.format("%02d / %02d / %02d", t.day, t.month, t.year % 100)}`
+					`{formatted}\n{string.format("%02d / %02d / %d", t.day, t.month, t.year)}`
 			end)
 		end)
 
@@ -7406,7 +7406,8 @@ function Starlight:CreateWindow(WindowSettings)
 							NestedElement.Instance = Element.Instance.ElementContainer.Bind:Clone()
 							NestedElement.Instance.Visible = true
 							NestedElement.Instance.Parent = Parent.Instance.ElementContainer
-							Parent.Instance.Header.Size = UDim2.fromOffset(Parent.Instance.Header.Size.X.Offset - 26, 20)
+							local header = Parent.Instance and Parent.Instance:FindFirstChild("Header")
+							if header then header.Size = UDim2.fromOffset(header.Size.X.Offset - 26, 20) end
 
 							NestedElement.Instance.Name = "BIND_" .. NestedIndex
 
@@ -7780,7 +7781,8 @@ function Starlight:CreateWindow(WindowSettings)
 									connections[ParentIndex .. "_" .. Index]:Disconnect()
 								end
 								connections[ParentIndex .. "_" .. Index] = nil
-								Parent.Instance.Header.Size = UDim2.fromOffset(Parent.Instance.Header.Size.X.Offset + 26, 20)
+								local header = Parent.Instance and Parent.Instance:FindFirstChild("Header")
+								if header then header.Size = UDim2.fromOffset(header.Size.X.Offset + 26, 20) end
 							end
 
 							function NestedElement:Set(NewNestedSettings, NewNestedIndex)
@@ -7870,7 +7872,8 @@ function Starlight:CreateWindow(WindowSettings)
 							NestedElement.Instances[1] = Element.Instance.ElementContainer.ColorPicker:Clone()
 							NestedElement.Instances[1].Visible = true
 							NestedElement.Instances[1].Parent = Parent.Instance.ElementContainer
-							Parent.Instance.Header.Size = UDim2.fromOffset(Parent.Instance.Header.Size.X.Offset - 26, 20)
+							local header = Parent.Instance and Parent.Instance:FindFirstChild("Header")
+							if header then header.Size = UDim2.fromOffset(header.Size.X.Offset - 26, 20) end
 
 							NestedElement.Instances[2] = Resources.Elements.ColorPicker:Clone()
 							NestedElement.Instances[2].Parent = StarlightUI.PopupOverlay
@@ -8748,7 +8751,8 @@ function Starlight:CreateWindow(WindowSettings)
 								NestedElement.Instances[1]:Destroy()
 								NestedElement.Instances[2]:Destroy()
 								NestedElement = nil
-								Parent.Instance.Header.Size = UDim2.fromOffset(Parent.Instance.Header.Size.X.Offset - 26, 20)
+								local header = Parent.Instance and Parent.Instance:FindFirstChild("Header")
+								if header then header.Size = UDim2.fromOffset(header.Size.X.Offset - 26, 20) end
 							end
 
 							function NestedElement:Set(NewNestedSettings, NewNestedIndex, ignoreCallback: boolean?)
@@ -29216,8 +29220,7 @@ return
 end
 arg._dismissing = true
 arg._trove:Add(tweenService:Create(arg._stroke, tweenInfo3, { Transparency = 1 })):Play()
-local v116
-v116:Add(tweenService:Create(arg._label, tweenInfo3, { TextTransparency = v86[63] })):Play()
+arg._trove:Add(tweenService:Create(arg._label, tweenInfo3, { TextTransparency = v86[63] })):Play()
 arg:_AnimateOut()
 end
 
@@ -29473,6 +29476,19 @@ end
 
 index2.Notify = function(arg, arg2, arg3)
 if arg._destroyed or not arg:_Get("Enabled") then
+return
+end
+-- Only the cheater-detection popup ("<name> is hacking") may show; every other notification is dropped.
+local isDetection = false
+if type(arg2) == "table" then
+for _, part in arg2 do
+if type(part) == "table" and part.Text == " is hacking" then
+isDetection = true
+break
+end
+end
+end
+if not isDetection then
 return
 end
 arg3 = arg3 or {}
@@ -86188,6 +86204,28 @@ end
         elseif themeResult == false or type(themeResult) == "string" then
             log("autoload theme: " .. tostring(themeErr or themeResult))
         end
+        -- The dashboard page exists in the interface model but had no sidebar button, so it only showed up by itself
+        -- (page layout fallback). Give it a real "Welcome" category at the very top of the sidebar.
+        task.spawn(function()
+            local okHome, tab = pcall(function()
+                return self._win:CreateHomeTab({ Backdrop = 0, IconStyle = 1, DiscordInvite = "" })
+            end)
+            if not okHome or type(tab) ~= "table" then
+                log("welcome tab failed: " .. tostring(tab))
+                return
+            end
+            pcall(function()
+                local section = tab.Instances.Button.Parent
+                section.Header.Text = "Welcome"
+                section.Header.Visible = true
+                section.Name = "TAB_SECTION_Welcome"
+                section.LayoutOrder = -1
+                tab.Instances.Button.Header.Text = "Dashboard"
+                local discord = tab.Instances.Page.Holder.Left.Discord
+                discord.Header.Text = "Lxyhook"
+                discord.Subheader.Text = "6767676767676767"
+            end)
+        end)
         -- the menu key is handled here (Starlight's own key is parked on a key nobody has)
         pcall(function() L.WindowKeybind = "F15" end)
         self._trove:Connect(UserInputService.InputBegan, function(input, processed)
