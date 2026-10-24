@@ -10,7 +10,7 @@ if not game:IsLoaded() then game.Loaded:Wait() end
 local K = { connections = {}, cleanups = {}, destroyed = false }
 getgenv().KiciaRebuild = K
 -- build marker: shows in the F9 console so you can tell which copy of the script is running
-K.Build = "2026-10-23 (29): FW UE void 4 / Translocate 0.6, round-start-delay reads DuelController status + debug log, GitHub rerun"
+K.Build = "2026-10-24 (30): FW Weapon Check (FW UE only), melee follows the knife rule, hide point stays under the instakill OOB, mouse keybinds, heavy attack cooldown override"
 warn("[Kicia Rebuild] build " .. K.Build)
 
 local Players = game:GetService("Players")
@@ -20212,7 +20212,7 @@ return bd.c
 end
 end
 do -- be
-local function fn35()local I= tbl17 .i().atomic; tbl17 .aZ();local W,N,P= tbl17 .aU(), tbl17 .aW(), tbl17 .aY();return{Aimbot=W.buildConfig(),SilentAim=N.buildConfig(),Triggerbot=P.buildConfig(),Ragebot={Enabled=false,Keybind={State=false,Kind="Always",Bind=nil,ShowInList=true,Invisible=false},Stability=0.15,ShootFrames=1,Careful={EvadeBetweenShots=true,RetaliateOnly=true,RetaliateWindow=1.5},PrioritizeHackers=false,EvadeWhenHacking=false,StartDelay=false,DetectKnife=true,KnifeMode="Original",TargetHud={Enabled=false,Scale=100,ItemScale=100,PosX=50,PosY=15},UE={VoidSpam=true,NoVoid=false,AttackTime=0.1,HideTime=0.25,ShootAttempts=1,VoidDistance=2147483647,KnifeAttack="Heavy",KnifeLead=0,KnifeStand="Sphere"},Weapons={Priority=I({"Primary","Secondary","Melee"}),Enabled={Primary=true,Secondary=true,Melee=true},OnEmpty="SwapOrReload"},Evasion={Mode="Random",Random={AnchorFromCharacter=false,BaseRadius=100,RadiusRandomFactor=0.5},ProjectileBreaker={DepthForward={Min=0,Max=4},DepthForwardFrequency=5,DepthUp={Min=0,Max=5.5},DepthUpFrequency=5,RepositionInterval=0.3,FallbackAnchorFromCharacter=false,FallbackBaseRadius=100,FallbackRadiusRandomFactor=0.5},Translocate={Offset=-5}},UtilizeHealthLead=false},Flickbot={Enabled=false,Keybind={State=false,Kind="Hold",Bind=nil,ShowInList=true,Invisible=false},Shoot=false,ShotDelay=0,Cooldown=250,FlickDuration=110,Curvature=12,Humanness=30}};end
+local function fn35()local I= tbl17 .i().atomic; tbl17 .aZ();local W,N,P= tbl17 .aU(), tbl17 .aW(), tbl17 .aY();return{Aimbot=W.buildConfig(),SilentAim=N.buildConfig(),Triggerbot=P.buildConfig(),Ragebot={Enabled=false,Keybind={State=false,Kind="Always",Bind=nil,ShowInList=true,Invisible=false},Stability=0.15,ShootFrames=1,Careful={EvadeBetweenShots=true,RetaliateOnly=true,RetaliateWindow=1.5},PrioritizeHackers=false,EvadeWhenHacking=false,StartDelay=false,FWWeaponCheck=false,DetectKnife=true,KnifeMode="Original",TargetHud={Enabled=false,Scale=100,ItemScale=100,PosX=50,PosY=15},UE={VoidSpam=true,NoVoid=false,KnifeCooldown08=false,AttackTime=0.1,HideTime=0.25,ShootAttempts=1,VoidDistance=2147483647,KnifeAttack="Heavy",KnifeLead=0,KnifeStand="Sphere"},Weapons={Priority=I({"Primary","Secondary","Melee"}),Enabled={Primary=true,Secondary=true,Melee=true},OnEmpty="SwapOrReload"},Evasion={Mode="Random",Random={AnchorFromCharacter=false,BaseRadius=100,RadiusRandomFactor=0.5},ProjectileBreaker={DepthForward={Min=0,Max=4},DepthForwardFrequency=5,DepthUp={Min=0,Max=5.5},DepthUpFrequency=5,RepositionInterval=0.3,FallbackAnchorFromCharacter=false,FallbackBaseRadius=100,FallbackRadiusRandomFactor=0.5},Translocate={Offset=-5}},UtilizeHealthLead=false},Flickbot={Enabled=false,Keybind={State=false,Kind="Hold",Bind=nil,ShowInList=true,Invisible=false},Shoot=false,ShotDelay=0,Cooldown=250,FlickDuration=110,Curvature=12,Humanness=30}};end
 
 tbl17.be = function()
 local be = tbl17.cache.be
@@ -20299,7 +20299,7 @@ return bj.c
 end
 end
 do -- bk
-local function fn35() tbl17 .a9();return{ItemModifiers={NoMotion=false,NoCameraShake=false,NoCameraSway=false,NoShootAnimation=false,NoSprintAnimation=false,NoEquipAnimation=false,NoReloadAnimation=false,NoSpread=false,AimCooldown={Enabled=false,Percentage=50},Recoil={Enabled=false,Percentage=75},FireCooldown={Enabled=false,Percentage=25},AimSpeed={Enabled=false,Percentage=300},MeleeCooldown={Enabled=false,Percentage=25},DashCooldown={Enabled=false,Percentage=25},ExtendMeleeRange={Enabled=false,Range=10},AutomaticWeapon=false,InfiniteDoubleJumps=false,AlwaysBackstab=false,CounterStab={Enabled=false,Range=12},GrenadeFuse={Enabled=false,ExplodeOn="Impact",RemoveFuse=false}},BulletTracers={Enabled=false,Color=Color3.fromRGB(120,220,255),Width=0.06,Lifetime=0.6,FadeTime=0.35,Style="Beam",TextureLength=4,TextureSpeed=1,Emission=1,Glow=1,Expand=true,ExpandSpeed=18,ExpandDamper=0.7},ViewModelOffset={Enabled=false,X=0,Y=0,Z=0,Pitch=0,Yaw=0,Roll=0},Chams={Character={Enabled=false,Material="Ghost",Color=Color3.fromRGB(255,255,255),Transparency=0,StripTextures=false},Arms={Enabled=false,Material="Ghost",Color=Color3.fromRGB(255,255,255),Transparency=0,StripTextures=true},Item={Enabled=false,Material="Ghost",Color=Color3.fromRGB(255,255,255),Transparency=0,StripTextures=false}},ViewModelHighlight={Arms={Enabled=false,AlwaysOnTop=false,FillColor=Color3.fromRGB(255,255,255),FillTransparency=0.5,OutlineColor=Color3.fromRGB(255,255,255),OutlineTransparency=0},Item={Enabled=false,AlwaysOnTop=false,FillColor=Color3.fromRGB(255,255,255),FillTransparency=0.5,OutlineColor=Color3.fromRGB(255,255,255),OutlineTransparency=0}},ViewModelWireframe={Arms={Enabled=false,Color=Color3.fromRGB(255,255,255),Width=0.0025},Item={Enabled=false,Color=Color3.fromRGB(255,255,255),Width=0.0025}},PlayerHit={Enabled=false,Sound={Enabled=false,DisableGameSound=false,HeadName=nil,BodyName=nil,HeadVolume=1,HeadPitch=1,BodyVolume=1,BodyPitch=1},Notification={Enabled=false,Text="Hit %DNAME% (%NAME%) for %DMG% in %PART%"},Chams={Enabled=false,Color=Color3.fromRGB(255,0,0),Transparency=0,Duration=0.8,Material="Ghost"},HitFlash={Enabled=false,Color=Color3.fromRGB(90,170,255),Duration=1.35}},PlayerElimination={Enabled=false,Sound={Enabled=false,Name=nil,Volume=1,Pitch=1},Notification={Enabled=false,Text="Eliminated %DNAME% (%NAME%)"},Chams={Enabled=false,Color=Color3.fromRGB(255,0,0),Transparency=0,Duration=0.8,Material="Ghost"},KillFlash={Enabled=false,Color=Color3.fromRGB(90,170,255),Duration=1.35}}};end
+local function fn35() tbl17 .a9();return{ItemModifiers={NoMotion=false,NoCameraShake=false,NoCameraSway=false,NoShootAnimation=false,NoSprintAnimation=false,NoEquipAnimation=false,NoReloadAnimation=false,NoSpread=false,AimCooldown={Enabled=false,Percentage=50},Recoil={Enabled=false,Percentage=75},FireCooldown={Enabled=false,Percentage=25},AimSpeed={Enabled=false,Percentage=300},MeleeCooldown={Enabled=false,Percentage=25},HeavyAttackCooldown={Enabled=false,Percentage=25},DashCooldown={Enabled=false,Percentage=25},ExtendMeleeRange={Enabled=false,Range=10},AutomaticWeapon=false,InfiniteDoubleJumps=false,AlwaysBackstab=false,CounterStab={Enabled=false,Range=12},GrenadeFuse={Enabled=false,ExplodeOn="Impact",RemoveFuse=false}},BulletTracers={Enabled=false,Color=Color3.fromRGB(120,220,255),Width=0.06,Lifetime=0.6,FadeTime=0.35,Style="Beam",TextureLength=4,TextureSpeed=1,Emission=1,Glow=1,Expand=true,ExpandSpeed=18,ExpandDamper=0.7},ViewModelOffset={Enabled=false,X=0,Y=0,Z=0,Pitch=0,Yaw=0,Roll=0},Chams={Character={Enabled=false,Material="Ghost",Color=Color3.fromRGB(255,255,255),Transparency=0,StripTextures=false},Arms={Enabled=false,Material="Ghost",Color=Color3.fromRGB(255,255,255),Transparency=0,StripTextures=true},Item={Enabled=false,Material="Ghost",Color=Color3.fromRGB(255,255,255),Transparency=0,StripTextures=false}},ViewModelHighlight={Arms={Enabled=false,AlwaysOnTop=false,FillColor=Color3.fromRGB(255,255,255),FillTransparency=0.5,OutlineColor=Color3.fromRGB(255,255,255),OutlineTransparency=0},Item={Enabled=false,AlwaysOnTop=false,FillColor=Color3.fromRGB(255,255,255),FillTransparency=0.5,OutlineColor=Color3.fromRGB(255,255,255),OutlineTransparency=0}},ViewModelWireframe={Arms={Enabled=false,Color=Color3.fromRGB(255,255,255),Width=0.0025},Item={Enabled=false,Color=Color3.fromRGB(255,255,255),Width=0.0025}},PlayerHit={Enabled=false,Sound={Enabled=false,DisableGameSound=false,HeadName=nil,BodyName=nil,HeadVolume=1,HeadPitch=1,BodyVolume=1,BodyPitch=1},Notification={Enabled=false,Text="Hit %DNAME% (%NAME%) for %DMG% in %PART%"},Chams={Enabled=false,Color=Color3.fromRGB(255,0,0),Transparency=0,Duration=0.8,Material="Ghost"},HitFlash={Enabled=false,Color=Color3.fromRGB(90,170,255),Duration=1.35}},PlayerElimination={Enabled=false,Sound={Enabled=false,Name=nil,Volume=1,Pitch=1},Notification={Enabled=false,Text="Eliminated %DNAME% (%NAME%)"},Chams={Enabled=false,Color=Color3.fromRGB(255,0,0),Transparency=0,Duration=0.8,Material="Ghost"},KillFlash={Enabled=false,Color=Color3.fromRGB(90,170,255),Duration=1.35}}};end
 
 tbl17.bk = function()
 local bk = tbl17.cache.bk
@@ -29251,7 +29251,7 @@ end
 if arg.EnumType == Enum.KeyCode then
 return v86[34]
 end
-return arg.EnumType == Enum.KeyCode or arg.EnumType == Enum.UserInputType and arg == Enum.UserInputType.MouseButton1 and arg == Enum.UserInputType.MouseButton2 and arg == Enum.UserInputType.MouseButton3
+return arg.EnumType == Enum.UserInputType and (arg == Enum.UserInputType.MouseButton1 or arg == Enum.UserInputType.MouseButton2 or arg == Enum.UserInputType.MouseButton3)
 end
 
 local function fn38(arg)
@@ -50171,6 +50171,18 @@ return
 end
 v103(arg2, "AttackCooldown", attackCooldown * arg3.Percentage)
 end,
+HeavyAttackCooldown = function(arg, arg2, arg3)
+local heavyAttackCooldown = v102(arg, "HeavyAttackCooldown")
+if heavyAttackCooldown == nil then
+return
+end
+
+if arg3 == nil then
+v103(arg2, "HeavyAttackCooldown", heavyAttackCooldown)
+return
+end
+v103(arg2, "HeavyAttackCooldown", heavyAttackCooldown * arg3.Percentage)
+end,
 DashCooldown = function(arg, arg2, arg3)
 local dashCooldown = v102(arg, "DashCooldown")
 if dashCooldown == nil then
@@ -50749,6 +50761,14 @@ end
 arg2:Connect(v118:GetPropertyChangedSignal({ "ItemModifiers", "DashCooldown", "Enabled" }), fn39)
 arg2:Connect(v118:GetPropertyChangedSignal({ "ItemModifiers", "DashCooldown", "Percentage" }), fn39)
 
+local function fn43()
+local heavyAttackCooldown = v118.Data.ItemModifiers.HeavyAttackCooldown
+arg._infoModifier:SetChange("HeavyAttackCooldown", heavyAttackCooldown.Enabled and { Percentage = heavyAttackCooldown.Percentage / 100 } or nil)
+end
+
+arg2:Connect(v118:GetPropertyChangedSignal({ "ItemModifiers", "HeavyAttackCooldown", "Enabled" }), fn43)
+arg2:Connect(v118:GetPropertyChangedSignal({ "ItemModifiers", "HeavyAttackCooldown", "Percentage" }), fn43)
+
 local function fn40()
 arg._infoModifier:SetChange("AutomaticWeapon", v118.Data.ItemModifiers.AutomaticWeapon and { Enabled = true } or nil)
 end
@@ -50773,6 +50793,7 @@ fn36()
 fn37()
 fn38()
 fn39()
+fn43()
 fn40()
 fn41()
 end
@@ -59630,7 +59651,7 @@ return ic.c
 end
 end
 do -- id
-local function fn35() tbl17 .aE();local function l(I,W,N,P,a,e)I:AddGroup({Source=I:AddToggle({Label=W,Config={"ItemModifiers",P,"Enabled"}})}):AddSlider({Label=N,Min=a,Max=e,Config={"ItemModifiers",P,"Percentage"}});end;return function(I)local W,N,P,a=I:AddSection({Title="Aim & Fire",Side="left"}),I:AddSection({Title="Cooldowns",Side="left"}),I:AddSection({Title="Melee",Side="right"}),I:AddSection({Title="Grenades",Side="right"});l(W,"Reduce Recoil","Recoil Reduction (%)","Recoil",0,100);W:AddToggle({Label="Remove Spread",Config={"ItemModifiers","NoSpread"}});W:AddToggle({Label="Automatic Fire",Config={"ItemModifiers","AutomaticWeapon"}});l(W,"Aim Speed Override","Aim Speed (%)","AimSpeed",50,500);l(N,"Fire Cooldown Override","Percentage","FireCooldown",0,100);l(N,"Aim Cooldown Override","Percentage","AimCooldown",1,100);l(N,"Melee Cooldown Override","Percentage","MeleeCooldown",0,100);l(N,"Dash Cooldown Override","Percentage","DashCooldown",0,100);P:AddToggle({Label="Always Backstab",Config={"ItemModifiers","AlwaysBackstab"}});P:AddGroup({Source=P:AddToggle({Label="Counter Stab",Config={"ItemModifiers","CounterStab","Enabled"}})}):AddSlider({Label="Range",Min=1,Max=20,Config={"ItemModifiers","CounterStab","Range"}});P:AddGroup({Source=P:AddToggle({Label="Extend Melee Range",Config={"ItemModifiers","ExtendMeleeRange","Enabled"}})}):AddSlider({Label="Range",Min=5,Max=20,Config={"ItemModifiers","ExtendMeleeRange","Range"}});N=a:AddGroup({Source=a:AddToggle({Label="Fuse Override",Config={"ItemModifiers","GrenadeFuse","Enabled"}})});N:AddDropdown({Label="Explode On",Options={"Impact","Throw"},Config={"ItemModifiers","GrenadeFuse","ExplodeOn"}});N:AddToggle({Label="Remove Fuse",Config={"ItemModifiers","GrenadeFuse","RemoveFuse"}});end;end
+local function fn35() tbl17 .aE();local function l(I,W,N,P,a,e)I:AddGroup({Source=I:AddToggle({Label=W,Config={"ItemModifiers",P,"Enabled"}})}):AddSlider({Label=N,Min=a,Max=e,Config={"ItemModifiers",P,"Percentage"}});end;return function(I)local W,N,P,a=I:AddSection({Title="Aim & Fire",Side="left"}),I:AddSection({Title="Cooldowns",Side="left"}),I:AddSection({Title="Melee",Side="right"}),I:AddSection({Title="Grenades",Side="right"});l(W,"Reduce Recoil","Recoil Reduction (%)","Recoil",0,100);W:AddToggle({Label="Remove Spread",Config={"ItemModifiers","NoSpread"}});W:AddToggle({Label="Automatic Fire",Config={"ItemModifiers","AutomaticWeapon"}});l(W,"Aim Speed Override","Aim Speed (%)","AimSpeed",50,500);l(N,"Fire Cooldown Override","Percentage","FireCooldown",0,100);l(N,"Aim Cooldown Override","Percentage","AimCooldown",1,100);l(N,"Melee Cooldown Override","Percentage","MeleeCooldown",0,100);l(N,"Heavy Attack Cooldown Override","Percentage","HeavyAttackCooldown",0,100);l(N,"Dash Cooldown Override","Percentage","DashCooldown",0,100);P:AddToggle({Label="Always Backstab",Config={"ItemModifiers","AlwaysBackstab"}});P:AddGroup({Source=P:AddToggle({Label="Counter Stab",Config={"ItemModifiers","CounterStab","Enabled"}})}):AddSlider({Label="Range",Min=1,Max=20,Config={"ItemModifiers","CounterStab","Range"}});P:AddGroup({Source=P:AddToggle({Label="Extend Melee Range",Config={"ItemModifiers","ExtendMeleeRange","Enabled"}})}):AddSlider({Label="Range",Min=5,Max=20,Config={"ItemModifiers","ExtendMeleeRange","Range"}});N=a:AddGroup({Source=a:AddToggle({Label="Fuse Override",Config={"ItemModifiers","GrenadeFuse","Enabled"}})});N:AddDropdown({Label="Explode On",Options={"Impact","Throw"},Config={"ItemModifiers","GrenadeFuse","ExplodeOn"}});N:AddToggle({Label="Remove Fuse",Config={"ItemModifiers","GrenadeFuse","RemoveFuse"}});end;end
 
 tbl17.id = function()
 local id = tbl17.cache.id
@@ -59659,7 +59680,7 @@ return ie.c
 end
 end
 do -- ih
-local function fn35() tbl17 .aE();local I= tbl17 .h6();local function l(W)I(W,"Enable Ragebot",{"Always","Toggle","Hold"},{"Ragebot"},true);local style=W:AddDropdown({Label="Ragebot Style",Tooltip="KH: Kicia's own ragebot. UE: the Unnamed Enhancements ragebot (void spam, backstab, gun and light attack). Picking UE hides the KH settings. Careful: the LY hub's own ragebot in its Careful mode (its own targeting, teleport attack, evasion and reloads). Careful Settings, Weapon Strategy and Target HUD apply to it.",Options={"Original","UE","Careful","SLEEPY","FWUE"},Labels={Original="KH",UE="UE",Careful="Careful",SLEEPY="SLEEPY",FWUE="FW UE trash kh"},Config={"Ragebot","KnifeMode"}});W:AddToggle({Label="Round Start Delay",Tooltip="At the start of a round, hide in the void for a random 1-6 s first, then start attacking. Applies to every Ragebot Style.",Config={"Ragebot","StartDelay"}});W:AddToggle({Label="Prioritize Hackers",Config={"Ragebot","PrioritizeHackers"}});W:AddToggle({Label="Evade When Target Hacking",Config={"Ragebot","EvadeWhenHacking"}});W:AddButton({Label="Clear Hacker Tags",OnClick=function()local d=K.HackerDetector;local ok,n=pcall(function()return d and d:ClearTags() or nil;end);local text=(not ok or n==nil) and "Hacker detector is not ready" or string.format("Cleared %d hacker tag(s)",n);pcall(function()tbl17.aB().get():Notify(text);end);end});return style;end;local function kf(W)W:AddToggle({Label="Detect Knife",Config={"Ragebot","DetectKnife"}});W:AddSlider({Label="Stability",Min=0,Max=1.5,Step=0.001,Config={"Ragebot","Stability"}});W:AddSlider({Label="Shoot Frames",Min=1,Max=5,Config={"Ragebot","ShootFrames"}});end;local function cf(W)W:AddToggle({Label="Evade Between Shots",Tooltip="Slow weapons (shotgun, sniper, knife): evade in the gaps instead of standing on the target",Config={"Ragebot","Careful","EvadeBetweenShots"}});W:AddToggle({Label="Attack After Enemy",Tooltip="Only shoot an enemy in the gap right after it fired or swung, or while its weapon cools down or reloads",Config={"Ragebot","Careful","RetaliateOnly"}});W:AddSlider({Label="Gap Window",Tooltip="How long after its shot or swing an enemy can still be shot (its weapon cooldown or reload also counts)",Min=0.5,Max=5,Step=0.1,Suffix="s",Config={"Ragebot","Careful","RetaliateWindow"}});end;local function uf(W)W:AddToggle({Label="Never Void",Tooltip="Never hide in the void (UE style): no hide phase, and none while reloading, swapping, without a target or between knife stabs. You stay where you are.",Config={"Ragebot","UE","NoVoid"}});W:AddToggle({Label="Void Spam",Tooltip="Hide in the void between attack bursts (UE void spam). Used by the gun and the light attack, not by the backstab.",Config={"Ragebot","UE","VoidSpam"}});W:AddSlider({Label="Void Spam Attack",Tooltip="the amount of time attacking before hiding again (UE adds 0.1 s on top)",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","AttackTime"}});W:AddSlider({Label="Void Spam Hide",Tooltip="how long it stays in void for",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","HideTime"}});W:AddSlider({Label="Shoot Attempts",Tooltip="how many times it will try to fire your weapon (UE: ragebot_shoot_attempts)",Min=1,Max=2,Step=1,Config={"Ragebot","UE","ShootAttempts"}});W:AddDropdown({Label="Knife Attack",Tooltip="Heavy Backstab = UE attack mode knife. Light Attack = UE attack mode melee (fast light attacks with the knife).",Options={"Heavy","Light"},Labels={Heavy="Heavy Backstab",Light="Light Attack"},Config={"Ragebot","UE","KnifeAttack"}});end;local function I(W)local N={"Primary","Secondary","Melee"};for P,P in N,nil,nil do W:AddToggle({Label=string.format("%s Enabled",tostring(P)),Config={"Ragebot","Weapons","Enabled",P}});end;W:AddOrderedList({Label="Weapon Priority",Items=N,Default=N,Config={"Ragebot","Weapons","Priority"}});W:AddDropdown({Label="On Empty",Options={"Reload","Swap","SwapOrReload"},Labels={SwapOrReload="Swap or Reload"},Config={"Ragebot","Weapons","OnEmpty"}});end;local function W(N,P)local a=N:AddGroup({Source=P,Option="ProjectileBreaker"});a:AddRangeSlider({Label="Forward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForward"}});a:AddSlider({Label="Forward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForwardFrequency"}});a:AddRangeSlider({Label="Upward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUp"}});a:AddSlider({Label="Upward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUpFrequency"}});a:AddSlider({Label="Reposition Interval (s)",Min=0.05,Max=2,Step=0.01,Config={"Ragebot","Evasion","ProjectileBreaker","RepositionInterval"}});a:AddToggle({Label="Fallback Character Origin",Config={"Ragebot","Evasion","ProjectileBreaker","FallbackAnchorFromCharacter"}});a:AddSlider({Label="Fallback Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackBaseRadius"}});a:AddSlider({Label="Fallback Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackRadiusRandomFactor"}});end;local function N(P)local a=P:AddDropdown({Label="Evasion Mode",Options={"Off","Random","Translocate","ProjectileBreaker"},Labels={ProjectileBreaker="Projectile Breaker"},Config={"Ragebot","Evasion","Mode"}});local e=P:AddGroup({Source=a,Option="Random"});e:AddToggle({Label="Character Origin",Config={"Ragebot","Evasion","Random","AnchorFromCharacter"}});e:AddSlider({Label="Base Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","Random","BaseRadius"}});e:AddSlider({Label="Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","Random","RadiusRandomFactor"}});P:AddGroup({Source=a,Option="Translocate"}):AddSlider({Label="Offset",Min=-5,Max=5,Step=0.1,Config={"Ragebot","Evasion","Translocate","Offset"}});W(P,a);end;local function H(P)P:AddToggle({Label="Target HUD",Config={"Ragebot","TargetHud","Enabled"}});P:AddSlider({Label="Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","Scale"}});P:AddSlider({Label="Item Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","ItemScale"}});P:AddSlider({Label="Offset X (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosX"}});P:AddSlider({Label="Offset Y (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosY"}});end;return function(W)local style=l(W:AddSection({Title="Activation",Side="left"}));local khSection=W:AddSection({Title="KH Settings",Side="left"});kf(khSection);local carefulSection=W:AddSection({Title="Careful Settings",Side="left"});cf(carefulSection);local ueSection=W:AddSection({Title="UE Settings",Side="left"});uf(ueSection);local weaponSection=W:AddSection({Title="Weapon Strategy",Side="left"});I(weaponSection);local evasionSection=W:AddSection({Title="Evasion",Side="right"});N(evasionSection);local hudSection=W:AddSection({Title="Target HUD",Side="right"});H(hudSection);local function applyStyle()local picked=style.Value;local isUE=picked=="UE";local isCareful=picked=="Careful";local isEmpty=picked=="SLEEPY" or picked=="FWUE";khSection:SetVisible(not isUE and not isCareful and not isEmpty);evasionSection:SetVisible(not isUE and not isCareful and not isEmpty);ueSection:SetVisible(isUE);carefulSection:SetVisible(isCareful);weaponSection:SetVisible(not isEmpty);hudSection:SetVisible(not isEmpty);end;applyStyle();pcall(function()style.ValueChanged:Connect(applyStyle);end);end;end
+local function fn35() tbl17 .aE();local I= tbl17 .h6();local function l(W)I(W,"Enable Ragebot",{"Always","Toggle","Hold"},{"Ragebot"},true);local style=W:AddDropdown({Label="Ragebot Style",Tooltip="KH: Kicia's own ragebot. UE: the Unnamed Enhancements ragebot (void spam, backstab, gun and light attack). Picking UE hides the KH settings. Careful: the LY hub's own ragebot in its Careful mode (its own targeting, teleport attack, evasion and reloads). Careful Settings, Weapon Strategy and Target HUD apply to it.",Options={"Original","UE","Careful","SLEEPY","FWUE"},Labels={Original="KH",UE="UE",Careful="Careful",SLEEPY="SLEEPY",FWUE="FW UE trash kh"},Config={"Ragebot","KnifeMode"}});W:AddToggle({Label="Round Start Delay",Tooltip="At the start of a round, hide in the void for a random 1-6 s first, then start attacking. Applies to every Ragebot Style.",Config={"Ragebot","StartDelay"}});W:AddToggle({Label="Prioritize Hackers",Config={"Ragebot","PrioritizeHackers"}});W:AddToggle({Label="Evade When Target Hacking",Config={"Ragebot","EvadeWhenHacking"}});W:AddButton({Label="Clear Hacker Tags",OnClick=function()local d=K.HackerDetector;local ok,n=pcall(function()return d and d:ClearTags() or nil;end);local text=(not ok or n==nil) and "Hacker detector is not ready" or string.format("Cleared %d hacker tag(s)",n);pcall(function()tbl17.aB().get():Notify(text);end);end});return style;end;local function kf(W)W:AddToggle({Label="Detect Knife",Config={"Ragebot","DetectKnife"}});W:AddSlider({Label="Stability",Min=0,Max=1.5,Step=0.001,Config={"Ragebot","Stability"}});W:AddSlider({Label="Shoot Frames",Min=1,Max=5,Config={"Ragebot","ShootFrames"}});end;local function cf(W)W:AddToggle({Label="Evade Between Shots",Tooltip="Slow weapons (shotgun, sniper, knife): evade in the gaps instead of standing on the target",Config={"Ragebot","Careful","EvadeBetweenShots"}});W:AddToggle({Label="Attack After Enemy",Tooltip="Only shoot an enemy in the gap right after it fired or swung, or while its weapon cools down or reloads",Config={"Ragebot","Careful","RetaliateOnly"}});W:AddSlider({Label="Gap Window",Tooltip="How long after its shot or swing an enemy can still be shot (its weapon cooldown or reload also counts)",Min=0.5,Max=5,Step=0.1,Suffix="s",Config={"Ragebot","Careful","RetaliateWindow"}});end;local function uf(W)W:AddToggle({Label="Never Void",Tooltip="Never hide in the void (UE style): no hide phase, and none while reloading, swapping, without a target or between knife stabs. You stay where you are.",Config={"Ragebot","UE","NoVoid"}});W:AddToggle({Label="Backstab Cooldown 0.8",Tooltip="On: the time between two backstabs is HeavyAttackCooldown x 0.8. Off: UE's own x 0.75.",Config={"Ragebot","UE","KnifeCooldown08"}});W:AddToggle({Label="Void Spam",Tooltip="Hide in the void between attack bursts (UE void spam). Used by the gun and the light attack, not by the backstab.",Config={"Ragebot","UE","VoidSpam"}});W:AddSlider({Label="Void Spam Attack",Tooltip="the amount of time attacking before hiding again (UE adds 0.1 s on top)",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","AttackTime"}});W:AddSlider({Label="Void Spam Hide",Tooltip="how long it stays in void for",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","HideTime"}});W:AddSlider({Label="Shoot Attempts",Tooltip="how many times it will try to fire your weapon (UE: ragebot_shoot_attempts)",Min=1,Max=2,Step=1,Config={"Ragebot","UE","ShootAttempts"}});W:AddDropdown({Label="Knife Attack",Tooltip="Heavy Backstab = UE attack mode knife. Light Attack = UE attack mode melee (fast light attacks with the knife).",Options={"Heavy","Light"},Labels={Heavy="Heavy Backstab",Light="Light Attack"},Config={"Ragebot","UE","KnifeAttack"}});end;local function I(W)local N={"Primary","Secondary","Melee"};for P,P in N,nil,nil do W:AddToggle({Label=string.format("%s Enabled",tostring(P)),Config={"Ragebot","Weapons","Enabled",P}});end;W:AddOrderedList({Label="Weapon Priority",Items=N,Default=N,Config={"Ragebot","Weapons","Priority"}});W:AddDropdown({Label="On Empty",Options={"Reload","Swap","SwapOrReload"},Labels={SwapOrReload="Swap or Reload"},Config={"Ragebot","Weapons","OnEmpty"}});end;local function W(N,P)local a=N:AddGroup({Source=P,Option="ProjectileBreaker"});a:AddRangeSlider({Label="Forward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForward"}});a:AddSlider({Label="Forward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForwardFrequency"}});a:AddRangeSlider({Label="Upward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUp"}});a:AddSlider({Label="Upward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUpFrequency"}});a:AddSlider({Label="Reposition Interval (s)",Min=0.05,Max=2,Step=0.01,Config={"Ragebot","Evasion","ProjectileBreaker","RepositionInterval"}});a:AddToggle({Label="Fallback Character Origin",Config={"Ragebot","Evasion","ProjectileBreaker","FallbackAnchorFromCharacter"}});a:AddSlider({Label="Fallback Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackBaseRadius"}});a:AddSlider({Label="Fallback Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackRadiusRandomFactor"}});end;local function N(P)local a=P:AddDropdown({Label="Evasion Mode",Options={"Off","Random","Translocate","ProjectileBreaker"},Labels={ProjectileBreaker="Projectile Breaker"},Config={"Ragebot","Evasion","Mode"}});local e=P:AddGroup({Source=a,Option="Random"});e:AddToggle({Label="Character Origin",Config={"Ragebot","Evasion","Random","AnchorFromCharacter"}});e:AddSlider({Label="Base Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","Random","BaseRadius"}});e:AddSlider({Label="Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","Random","RadiusRandomFactor"}});P:AddGroup({Source=a,Option="Translocate"}):AddSlider({Label="Offset",Min=-5,Max=5,Step=0.1,Config={"Ragebot","Evasion","Translocate","Offset"}});W(P,a);end;local function H(P)P:AddToggle({Label="Target HUD",Config={"Ragebot","TargetHud","Enabled"}});P:AddSlider({Label="Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","Scale"}});P:AddSlider({Label="Item Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","ItemScale"}});P:AddSlider({Label="Offset X (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosX"}});P:AddSlider({Label="Offset Y (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosY"}});end;return function(W)local style=l(W:AddSection({Title="Activation",Side="left"}));local khSection=W:AddSection({Title="KH Settings",Side="left"});kf(khSection);local carefulSection=W:AddSection({Title="Careful Settings",Side="left"});cf(carefulSection);local ueSection=W:AddSection({Title="UE Settings",Side="left"});uf(ueSection);local weaponSection=W:AddSection({Title="Weapon Strategy",Side="left"});I(weaponSection);local evasionSection=W:AddSection({Title="Evasion",Side="right"});N(evasionSection);local hudSection=W:AddSection({Title="Target HUD",Side="right"});H(hudSection);local fwSection=W:AddSection({Title="FW UE Settings",Side="left"});fwSection:AddToggle({Label="FW Weapon Check",Tooltip="Hide only while the weapon window is open. Slow weapons: the shot / swing cooldown must have at least 0.6 s left. Fast weapons (cooldown up to 0.3 s): the magazine must be nearly empty. Nobody may be reloading, and an enemy starting to reload sends you back to the void. No time limit on the wait.",Config={"Ragebot","FWWeaponCheck"}});local function applyStyle()local picked=style.Value;local isUE=picked=="UE";local isCareful=picked=="Careful";local isEmpty=picked=="SLEEPY" or picked=="FWUE";khSection:SetVisible(not isUE and not isCareful and not isEmpty);evasionSection:SetVisible(not isUE and not isCareful and not isEmpty);ueSection:SetVisible(isUE);carefulSection:SetVisible(isCareful);weaponSection:SetVisible(not isEmpty);hudSection:SetVisible(not isEmpty);fwSection:SetVisible(picked=="FWUE");end;applyStyle();pcall(function()style.ValueChanged:Connect(applyStyle);end);end;end
 
 tbl17.ih = function()
 local ih = tbl17.cache.ih
@@ -63387,6 +63408,12 @@ function M.KnifeLead()
 return 0
 end
 
+-- fraction of HeavyAttackCooldown between two backstabs: UE's own 0.75, or 0.8 with the "Backstab Cooldown 0.8" toggle
+function M.KnifeCooldownFactor()
+local settings = ueSettings()
+return (settings ~= nil and settings.KnifeCooldown08 == true) and 0.8 or 0.75
+end
+
 -- true when the knife should use UE's light attack (UE ragebot_mode "melee") instead of the heavy backstab ("knife")
 function M.KnifeLight()
 local settings = ueSettings()
@@ -64075,7 +64102,7 @@ if now2 >= readyAt then
 -- earlier pop-in frames left on the server (the lead makes sure there were some)
 local info = knife._info
 local cooldown = info ~= nil and info.HeavyAttackCooldown or 1.25
-arg._ueReadyAt = os.clock() + cooldown * 0.75
+arg._ueReadyAt = os.clock() + cooldown * ueS.KnifeCooldownFactor()
 ueS.SetStatus("backstabbing " .. targetName .. "...")
 -- UE stab frame: 4303 sends the packet at pc188 and only drops the server CFrame into the void
 -- afterwards, at pc199. kh runs the two in the opposite order: _ApplyPlan (kh.lua:64337) applies
@@ -64731,6 +64758,8 @@ end
 -- walls, so "wall bottom - 0.1" is inside the floor. The game's own IsWithinOOBPart then double-checks
 -- the point and steps further down if it is still inside anything. Cached for a second.
 local fwCache, fwAt, fwRadius = nil, -math.huge, 0
+-- an OOB part that takes at least this long (seconds) to kill is safe for the hide point (the hide lasts 0.6 s)
+local FW_OOB_SAFE_SECONDS = 2
 local function fwueTranslocate()
 local now2 = os.clock()
 if fwCache ~= nil and now2 - fwAt < 1 then
@@ -64756,9 +64785,19 @@ local okGU, gu = pcall(function()
 return require(game:GetService("ReplicatedStorage").Modules.GameplayUtility)
 end)
 if okGU and type(gu) == "table" then
+-- Step down only while the point is inside an OOB part that kills us within FW_OOB_SAFE_SECONDS (warn delay +
+-- kill delay). A slower one (the map's plain OOB box, 1 s + 4 s here) is fine to stand in for the hide, and
+-- leaving it would push the point down by up to 20 studs, below where the attackers stand, so the instakill
+-- slab above never reached anyone who came for us.
 for _ = 1, 40 do
 local okCheck, inside = pcall(gu.IsWithinOOBPart, gu, Vector3.new(x, y, z))
 if not (okCheck and inside) then
+break
+end
+local okDelay, total = pcall(function()
+return gu:GetOOBWarnDelay(inside:GetAttribute("WarnDelay")) + gu:GetOOBKillDelay(inside:GetAttribute("KillDelay"))
+end)
+if okDelay and type(total) == "number" and total >= FW_OOB_SAFE_SECONDS then
 break
 end
 y = y - 0.5
@@ -68935,17 +68974,32 @@ end
 -- about to end. Read the way Careful's heavyPhase does it: FighterController fighter.EquippedItem keeps
 -- _attack_cooldown (tick() time the cooldown ends) and _last_attack_animation_name up to date for other
 -- players; the start of a stab is taken when _attack_cooldown is seen to change.
-local FW_KNIFE_SWING = 0.2
+-- a heavy stab does its damage up to 0.625 s after its packet (measured, kh.lua:30329), so the window stays shut
+-- that long after the stab
+local FW_KNIFE_SWING = 0.625
 local FW_KNIFE_WAIT_MAX = 3
-local FW_KNIFE_CLOSE_MARGIN = 0.15
-local FW_KNIFE_MIN_WINDOW = 0.3
-local FW_KNIFE_COOLDOWN_FACTOR = 0.75
+local FW_KNIFE_CLOSE_MARGIN = 0
+local FW_KNIFE_MIN_WINDOW = 0
+local FW_KNIFE_COOLDOWN_FACTOR = 0.8
+-- Weapon check (optional, "FW Weapon Check"): the same idea for every other weapon an enemy holds. With it on, the
+-- hide window opens ONLY while it is open: every enemy's held weapon must still have at least FW_TRANSLOCATE_SECONDS
+-- of shot / swing cooldown left (fast weapons: a nearly empty magazine instead), and nobody may be reloading. There
+-- is no FW_KNIFE_WAIT_MAX cap then: the void goes on until the window opens. Once in the hide, the full
+-- FW_TRANSLOCATE_SECONDS are spent, except that an enemy starting to reload sends us back to the void.
+-- A slow weapon opens the window only with this much cooldown left: the FW_TRANSLOCATE_SECONDS of the hide.
+local FW_GUN_ENTRY_WINDOW = 0.6
+-- Weapons with a shot cooldown up to this many seconds are fast: they are judged by their magazine, not their cooldown.
+local FW_GUN_FAST_COOLDOWN = 0.3
+-- A fast weapon counts as nearly empty at or below this share of its magazine.
+local FW_GUN_LOW_AMMO = 0.4
+local fwWeaponCheck = v115.Data.Ragebot.FWWeaponCheck == true
 local knifeSeen = arg._fwKnifeSeen
 if knifeSeen == nil then
 knifeSeen = setmetatable({}, { __mode = "k" })
 arg._fwKnifeSeen = knifeSeen
 end
 local hasKnife, knifeCanOpen, knifeRemaining = false, true, math.huge
+local gunBlocked, gunRemaining, gunReloading = false, math.huge, false
 pcall(function()
 local fighterController = require(game:GetService("Players").LocalPlayer.PlayerScripts.Controllers.FighterController)
 local clock = tick()
@@ -68954,12 +69008,16 @@ local enemyAlive = enemyState.Character.State
 if enemyAlive ~= nil and enemyAlive.Alive then
 local fighter = fighterController:GetFighter(enemyPlayer)
 local item = fighter ~= nil and fighter.EquippedItem or nil
-if item ~= nil and item.Name == "Knife" then
+-- every melee weapon (knife, chainsaw, katana, maul, ...) follows the knife rule below; for a knife the swing
+-- must be a heavy attack, for the others any attack counts, and a held chainsaw (_attack_cooldown = infinity) is
+-- not in a cooldown at all
+if item ~= nil and item.Info ~= nil and item.Info.Class == "Melee" then
 hasKnife = true
 local info = item.Info
-local heavyCooldown = info ~= nil and info.HeavyAttackCooldown or nil
+local heavyCooldown = info.HeavyAttackCooldown or info.AttackCooldown
 local key, ends = item._last_attack_animation_name, item._attack_cooldown
-if type(heavyCooldown) == "number" and type(key) == "string" and key:match("^HeavyAttack%d") and type(ends) == "number" and ends > clock then
+local isHeavy = item.Name ~= "Knife" or (type(key) == "string" and key:match("^HeavyAttack%d") ~= nil)
+if type(heavyCooldown) == "number" and isHeavy and type(ends) == "number" and ends > clock and ends < math.huge then
 local seen = knifeSeen[item]
 if seen == nil then
 seen = { ends = ends, started = ends - heavyCooldown }
@@ -68967,9 +69025,9 @@ knifeSeen[item] = seen
 elseif seen.ends ~= ends then
 seen.ends, seen.started = ends, clock
 end
--- every knife is treated like UE's, which does not wait for the whole heavy cooldown: it stabs again
--- after 0.75 of it (readyAt = clock + cooldown * 0.75 in its knife code) plus its pop-in lead of about
--- 0.05 s. Using that for all knives only closes the window a little early on the others.
+-- every knife is treated as one that stabs again FW_KNIFE_COOLDOWN_FACTOR of its heavy cooldown after the last
+-- stab (1.25 s by default is the base). Using that for all knives only closes the window a little early on the
+-- others.
 local remaining = seen.started + heavyCooldown * FW_KNIFE_COOLDOWN_FACTOR - clock
 if clock - seen.started < FW_KNIFE_SWING or remaining <= FW_KNIFE_MIN_WINDOW then
 knifeCanOpen = false
@@ -68978,6 +69036,44 @@ knifeRemaining = math.min(knifeRemaining, remaining)
 else
 knifeCanOpen = false
 end
+end
+if fwWeaponCheck and item ~= nil and not (item.Info ~= nil and (item.Info.Class == "Utility" or item.Info.Class == "Melee")) then
+-- utility items (grenades, tripmines, ...) are not checked: their cooldown lives in _use_cooldown; melee weapons
+-- follow the knife rule above
+local info = item.Info
+local shootCd = info ~= nil and info.ShootCooldown or nil
+local remaining
+local reloadEnds = item._reload_cooldown
+if type(reloadEnds) == "number" and reloadEnds > clock then
+-- reloading: the window cannot open now, and an open one is closed (see the hide check below)
+gunReloading = true
+remaining = 0
+elseif type(shootCd) == "number" and shootCd <= FW_GUN_FAST_COOLDOWN then
+-- Fast weapon (cooldown <= FW_GUN_FAST_COOLDOWN, e.g. Uzi, Assault Rifle, Handgun): its cooldown is over before
+-- we could use it, so go by the magazine instead. The window only counts as safe while the magazine is nearly
+-- empty (FW_GUN_LOW_AMMO of its size, at least 1 round): it cannot keep shooting for long.
+local okAmmo, ammo = pcall(function() return item:Get("Ammo") end)
+local maxAmmo = info.MaxAmmo
+if okAmmo and type(ammo) == "number" and type(maxAmmo) == "number" and maxAmmo > 0 and ammo <= math.max(1, math.floor(maxAmmo * FW_GUN_LOW_AMMO)) then
+remaining = math.huge
+else
+remaining = 0
+end
+else
+-- Slow weapon (long cooldown): _shoot_cooldown / _attack_cooldown are tick() times the weapon is busy until.
+local busyUntil = 0
+for _, key in { "_shoot_cooldown", "_attack_cooldown" } do
+local value = item[key]
+if type(value) == "number" and value > busyUntil then
+busyUntil = value
+end
+end
+remaining = busyUntil - clock
+end
+if remaining < FW_GUN_ENTRY_WINDOW then
+gunBlocked = true
+end
+gunRemaining = math.min(gunRemaining, remaining)
 end
 end
 end
@@ -68988,11 +69084,14 @@ arg._fwVoidStart = now3
 arg._fwUntil = now3 + FW_VOID_SECONDS
 elseif now3 >= arg._fwUntil then
 if arg._fwPhase == "void" then
-if hasKnife and not knifeCanOpen and now3 - arg._fwVoidStart < FW_VOID_SECONDS + FW_KNIFE_WAIT_MAX then
--- an enemy knife is ready (or mid-swing): stay in the void a little longer
+local knifeWait = hasKnife and not knifeCanOpen
+if gunBlocked or (knifeWait and now3 - arg._fwVoidStart < FW_VOID_SECONDS + FW_KNIFE_WAIT_MAX) then
+-- an enemy weapon is ready (or mid-swing): stay in the void a little longer. A knife or other melee weapon that
+-- cannot open the window is waited for at most FW_KNIFE_WAIT_MAX s, then the window opens anyway; a blocking gun
+-- (weapon check on) is waited for until the window opens, however long that takes.
 if not arg._fwKnifeWaitNotified then
 arg._fwKnifeWaitNotified = true
-fwNotify({ { Text = "Knife ready", Accent = true }, { Text = " - waiting for the cooldown in the void" } })
+fwNotify({ { Text = (knifeWait and not gunBlocked) and "Knife ready" or "Weapon ready", Accent = true }, { Text = " - waiting for the cooldown in the void" } })
 end
 else
 arg._fwKnifeWaitNotified = false
@@ -69004,8 +69103,8 @@ arg._fwPhase = "void"
 arg._fwVoidStart = now3
 arg._fwUntil = now3 + FW_VOID_SECONDS
 end
-elseif arg._fwPhase == "hide" and hasKnife and knifeRemaining < FW_KNIFE_CLOSE_MARGIN then
--- a knife is about to come off cooldown: leave before it can stab
+elseif arg._fwPhase == "hide" and ((hasKnife and knifeRemaining < FW_KNIFE_CLOSE_MARGIN) or (fwWeaponCheck and gunReloading)) then
+-- a knife is about to come off cooldown, or an enemy started reloading: leave
 arg._fwPhase = "void"
 arg._fwVoidStart = now3
 arg._fwUntil = now3 + FW_VOID_SECONDS
@@ -69018,6 +69117,52 @@ arg._fwVoidStart = now3
 arg._fwUntil = tbl17.ragebotStartDelayUntil
 end
 fwVoid = arg._fwPhase == "void"
+-- Debug: every health drop in FW UE prints one line to the F9 console ("[FW hit]") with the recent phase
+-- changes, what the knife / weapon check saw this frame and each enemy's held weapon (seconds left on its
+-- shot / swing / reload cooldown), so a hit can be traced to the phase and weapon that caused it.
+if arg._fwPhaseSeen ~= arg._fwPhase then
+arg._fwPhaseSeen = arg._fwPhase
+local hist = arg._fwHist
+if hist == nil then
+hist = {}
+arg._fwHist = hist
+end
+table.insert(hist, { phase = arg._fwPhase, at = now3 })
+if #hist > 4 then
+table.remove(hist, 1)
+end
+end
+local fwHealth = state.Health
+local fwLastHealth = arg._fwLastHealth
+arg._fwLastHealth = fwHealth
+if type(fwHealth) == "number" and type(fwLastHealth) == "number" and fwHealth < fwLastHealth then
+pcall(function()
+local phases = {}
+for _, h in ipairs(arg._fwHist or {}) do
+table.insert(phases, string.format("%s %.2fs ago", h.phase, now3 - h.at))
+end
+local enemies = {}
+local fighterController = require(game:GetService("Players").LocalPlayer.PlayerScripts.Controllers.FighterController)
+local clock = tick()
+for enemyPlayer, enemyState in arg._targetSelection._fighters.EnemyByPlayer, nil, nil do
+local alive = enemyState.Character.State
+if alive ~= nil and alive.Alive then
+local fighter = fighterController:GetFighter(enemyPlayer)
+local item = fighter ~= nil and fighter.EquippedItem or nil
+if item ~= nil then
+local function left(key)
+local value = item[key]
+return type(value) == "number" and math.max(value - clock, 0) or 0
+end
+table.insert(enemies, string.format("%s:%s shoot %.2f attack %.2f reload %.2f", enemyPlayer.Name, tostring(item.Name), left("_shoot_cooldown"), left("_attack_cooldown"), left("_reload_cooldown")))
+end
+end
+end
+warn(string.format("[FW hit] -%.0f hp (%.0f left) | now %s | phases: %s | knife: has=%s canOpen=%s remaining=%.2f | weapon check=%s blocked=%s remaining=%.2f reloading=%s | enemies: %s",
+fwLastHealth - fwHealth, fwHealth, tostring(arg._fwPhase), table.concat(phases, ", "), tostring(hasKnife), tostring(knifeCanOpen), knifeRemaining,
+tostring(fwWeaponCheck), tostring(gunBlocked), gunRemaining, tostring(gunReloading), table.concat(enemies, " ; ")))
+end)
+end
 mode = "Translocate"
 else
 arg._fwPhase = nil
