@@ -48663,11 +48663,8 @@ local v123 = arg._store:Get(player, arg4)
 if v122 == nil then
 -- A gun you do not own has no weapon data, so the free-trial weapon picker shows its default
 -- icon. When you picked a skin / wrap / charm for it, hand the game a minimal record (as LYHub does).
-if player == localPlayer and type(v123) == "table" and (v123.Skin ~= nil or v123.Wrap ~= nil or v123.Charm ~= nil) then
-v122 = { Name = arg4 }
-else
+-- Unowned weapons stay unowned: no fake record is handed out.
 return nil
-end
 end
 if player == localPlayer and K.Skins ~= nil and type(v123) == "table" then
 -- menus only need the skin's name and icon: just start building the model in the background
