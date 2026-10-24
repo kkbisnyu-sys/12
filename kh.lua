@@ -16,8 +16,8 @@ getgenv().KiciaRebuild = K
 --  "__LxY" in the code):
 --    * the interface model comes from K.StarlightUI (downloaded once, cloned per build)
 --    * the acrylic module is K.StarlightAcrylic: the same modules without the Maui loader (whose getfenv / setfenv
---      would switch off Luau's optimisations for this whole script), and its glass blur is removed (no blur parts, no
---      depth-of-field effect; each part re-rendered on every camera move)
+--      would switch off Luau's optimisations for this whole script); a glass part follows the camera only while it
+--      is shown (it re-rendered on every camera move, shown or not)
 --    * the main window fades over the open page only; empty tooltips are not built; tooltips share one RenderStepped loop
 --    * theme bindings are set in place; closed dropdown / colour picker popups no longer tween on every move
 --  K.StarlightFactory() runs one fresh copy of the library (what Starlight needs after Destroy) and returns it.
@@ -209,7 +209,7 @@ local function createAcrylic()
 	if game:GetService("RunService"):IsStudio() then
 		flag = true
 	end
-	if true then return end -- (LxYHook) no acrylic glass: no blur parts, no depth of field
+	if not flag then return end
 	
 	local Part = Creator.New("Part", {
 		Name = "Body",
@@ -241,6 +241,40 @@ local viewportPointToWorld, getOffset = unpack(__mods.Utils)
 local BlurFolder = game:GetService("Workspace").CurrentCamera:FindFirstChild("Starlight Blur Elements") and game:GetService("Workspace").CurrentCamera["Starlight Blur Elements"] or Instance.new("Folder", game:GetService("Workspace").CurrentCamera)
 BlurFolder.Name = "Starlight Blur Elements"
 
+-- (LxYHook) a glass part follows the Visible of its own frame only; the frames of a closed colour picker or dropdown
+-- (and of the pages that are not open) stay Visible inside a hidden parent, so their glass kept showing. Every
+-- 0.25 s the shown parts are checked against the whole parent chain of their frame.
+local blurStates = setmetatable({}, { __mode = "k" })
+local function chainVisible(inst)
+	local a = inst
+	while a ~= nil do
+		if a:IsA("GuiObject") then
+			if not a.Visible then return false end
+		elseif a:IsA("LayerCollector") then
+			return a.Enabled
+		end
+		a = a.Parent
+	end
+	return false
+end
+task.spawn(function()
+	local idle = 0
+	while BlurFolder.Parent ~= nil and idle < 40 do
+		if next(blurStates) == nil then idle += 1 else idle = 0 end
+		for st in pairs(blurStates) do
+			local comp = st.comp
+			if comp ~= nil and st.shown then
+				local v = chainVisible(comp)
+				if v ~= st.vis then
+					st.vis = v
+					st.apply()
+				end
+			end
+		end
+		task.wait(0.25)
+	end
+end)
+
 local function createAcrylicBlur(distance)
 	
 
@@ -256,7 +290,7 @@ local function createAcrylicBlur(distance)
 	if game:GetService("RunService"):IsStudio() then
 			flag = true
 	end
-	if true then return end -- (LxYHook) no acrylic glass: no blur parts, no depth of field
+	if not flag then return end
 	local cleanups = {}
 	-- (LxYHook) the camera connections of a shown part (it follows the camera only while it is shown)
 	local following = {}
@@ -272,6 +306,7 @@ local function createAcrylicBlur(distance)
 
 	model.Parent = BlurFolder
 
+	local follow
 	local function updatePositions(size, position)
 		positions.topLeft = position
 		positions.topRight = position + Vector2.new(size.X, 0)
@@ -301,12 +336,42 @@ local function createAcrylicBlur(distance)
 		end
 	end
 
+	-- (LxYHook) the glass is a 3D part, so the GUI does not clip it: the controls of the pages that are not open sit
+	-- outside the window (Starlight parks them there with Visible still true) and their glass showed over the game.
+	-- A part is shown only while its frame is on and fully inside the main window.
+	local state = { shown = false, inside = true, vis = true, window = nil, comp = nil }
+
+	local function apply()
+		local on = state.shown and state.inside and state.vis
+		pcall(function() model.Transparency = on and 0.98 or 1 end)
+		follow(on)
+	end
+
 	local function onChange(rbx)
 		local offset = getOffset()
 		local size = rbx.AbsoluteSize - Vector2.new(offset, offset)
 		local position = rbx.AbsolutePosition + Vector2.new(offset / 2, offset / 2)
 
 		updatePositions(size, position)
+		local win = state.window
+		if win == nil or win.Parent == nil then
+			win = nil
+			local a = rbx
+			while a ~= nil do
+				if a.Name == "MainWindow" then win = a break end
+				a = a.Parent
+			end
+			state.window = win
+		end
+		if win ~= nil then
+			local p, sz = win.AbsolutePosition, win.AbsoluteSize
+			local inside = position.X >= p.X - 2 and position.Y >= p.Y - 2
+				and position.X + size.X <= p.X + sz.X + 2 and position.Y + size.Y <= p.Y + sz.Y + 2
+			if inside ~= state.inside then
+				state.inside = inside
+				apply()
+			end
+		end
 		if #following > 0 then
 			task.spawn(render)
 		end
@@ -314,7 +379,7 @@ local function createAcrylicBlur(distance)
 
 	-- (LxYHook) was renderOnChange: every part re-rendered on every camera move, shown or not (a closed dropdown's
 	-- or colour picker's too), which with one part per popup was a lot of work every frame
-	local function follow(on)
+	function follow(on)
 		if on == (#following > 0) then
 			return
 		end
@@ -335,7 +400,10 @@ local function createAcrylicBlur(distance)
 		end
 	end
 
+	blurStates[state] = true
+	state.apply = apply
 	model.Destroying:Connect(function()
+		blurStates[state] = nil
 		follow(false)
 		for _, item in cleanups do
 			pcall(function()
@@ -346,12 +414,12 @@ local function createAcrylicBlur(distance)
 
 	follow(true)
 
-	return onChange, model, follow
+	return onChange, model, follow, state, apply
 end
 
 return function(distance)
 	local Blur = {}
-	local onChange, model, follow = createAcrylicBlur(distance)
+	local onChange, model, follow, state, apply = createAcrylicBlur(distance)
 
 	local comp = Creator.New("Frame", {
 		BackgroundTransparency = 1,
@@ -361,6 +429,7 @@ return function(distance)
 		BackgroundTransparency = 1,
 		Size = UDim2.fromScale(0, 0),
 	})
+	if state ~= nil then state.comp = comp end
 
 	-- (LxYHook) no glass part: nothing to follow
 	if onChange ~= nil then
@@ -375,6 +444,9 @@ return function(distance)
 
 	Blur.AddParent = function(Parent)
 		if model == nil then return end
+		-- (LxYHook) a part starts out shown; a frame that is hidden from the start (a closed colour picker) never
+		-- fires Visible, so its glass stayed on for good
+		Blur.SetVisibility(Parent.Visible)
 		Creator.AddSignal(Parent:GetPropertyChangedSignal("Visible"), function()
 			Blur.SetVisibility(Parent.Visible)
 		end)
@@ -396,10 +468,8 @@ return function(distance)
 
 	Blur.SetVisibility = function(Value)
 		if model == nil then return end
-		pcall(function()
-			model.Transparency = Value and 0.98 or 1
-		end)
-		follow(Value == true)
+		state.shown = Value == true
+		apply()
 	end
 
 	Blur.Frame = comp
@@ -499,7 +569,7 @@ local function init()
 			flag = true
 		end
 	end
-	if true then return end -- (LxYHook) no acrylic glass: no blur parts, no depth of field
+	if not flag then return end
 	
 	local universalDof
 	for i,v in pairs(Lighting:GetChildren()) do
@@ -711,8 +781,8 @@ local GuiInset, _ = GuiService:GetGuiInset()
 GuiInset = GuiInset.Y - 20
 local themeEvent = Instance.new("BindableEvent")
 
-local mainAcrylic = false
-local notificationAcrylic = false -- (LxYHook) no glass: notifications are opaque
+local mainAcrylic = true -- (LxYHook) the glass is on by default; Settings > Theme > Acrylic turns it off
+local notificationAcrylic = true
 local acrylicEvent = Instance.new("BindableEvent")
 local notificationAcrylicEvent = Instance.new("BindableEvent")
 local acrylicFlag = false -- I do logic like this cus im scared weird and/or conditions fuck up as true may be behind or sm
@@ -728,9 +798,6 @@ else
 		acrylicFlag = true
 	end
 end
-
--- (LxYHook) no acrylic glass in this script (see K.StarlightAcrylic)
-acrylicFlag = false
 
 local isStudio = RunService:IsStudio() or false
 local website = "nebulasoftworks.xyz/starlight"
@@ -1973,10 +2040,72 @@ local oldSizeX, oldSizeY, oldPosX, oldPosY
 -- Hides the given object
 local __LxYSlowHide, __LxYSlowUnhide
 local function __LxYIsWindow(i) return i.Name == "MainWindow" or (i.Name == "Drag" and i.Parent == Starlight.Instance) end
+-- (LxYHook) The main window opens and closes with a short pop (scale only): one UIScale tweened on the window
+-- itself. Starlight's own Hide / Unhide faded every descendant of the window, which stalled the game for a while on
+-- every open and close; the window is the only thing animated here. `instant` skips it (the menu build, a rebuild).
+local __LxYWin = { animating = false, token = 0, base = nil, noAnim = false }
+local function __LxYPop(win, show)
+	local st = __LxYWin
+	st.token += 1
+	local token = st.token
+	local scale = win:FindFirstChild("__LxYScale")
+	if scale == nil then
+		scale = Instance.new("UIScale")
+		scale.Name = "__LxYScale"
+		scale.Parent = win
+	end
+	if not st.animating then st.base = win.Position end
+	st.animating = true
+	local base = st.base
+	if show then
+		win.Visible = true
+		if scale.Scale >= 1 then scale.Scale = 0.9 end
+	end
+	local from, to = scale.Scale, show and 1 or 0.9
+	local dur = show and 0.22 or 0.14
+	local t0 = os.clock()
+	local conn
+	local function apply(s)
+		scale.Scale = s
+		-- UIScale grows from the top-left corner (the window is anchored there): keep its centre where it is
+		local w, h = win.Size.X.Offset, win.Size.Y.Offset
+		win.Position = UDim2.new(base.X.Scale, base.X.Offset + w * (1 - s) / 2, base.Y.Scale, base.Y.Offset + h * (1 - s) / 2)
+	end
+	conn = game:GetService("RunService").RenderStepped:Connect(function()
+		if st.token ~= token then conn:Disconnect() return end
+		local a = math.clamp((os.clock() - t0) / dur, 0, 1)
+		local e = game:GetService("TweenService"):GetValue(a, show and Enum.EasingStyle.Back or Enum.EasingStyle.Quad, show and Enum.EasingDirection.Out or Enum.EasingDirection.In)
+		apply(from + (to - from) * e)
+		if a >= 1 then
+			conn:Disconnect()
+			st.animating = false
+			scale.Scale = 1
+			win.Position = base
+			if not show then win.Visible = false end
+		end
+	end)
+end
 local function Hide(Interface, ...)
 	if __LxYIsWindow(Interface) then
-		Interface.Visible = false
-		Starlight.Minimized = true
+		if Interface.Name == "MainWindow" then
+			Starlight.Minimized = true
+			if not __LxYWin.noAnim and Interface.Visible then
+				__LxYPop(Interface, false)
+			else
+				-- instant: drop a running pop and leave the window as it was
+				__LxYWin.token += 1
+				if __LxYWin.animating then
+					__LxYWin.animating = false
+					local scale = Interface:FindFirstChild("__LxYScale")
+					if scale then scale.Scale = 1 end
+					if __LxYWin.base then Interface.Position = __LxYWin.base end
+				end
+				Interface.Visible = false
+			end
+		else
+			-- the drag bar under the window just goes
+			Interface.Visible = false
+		end
 		return
 	end
 	__LxYSlowHide(Interface, ...)
@@ -1984,16 +2113,21 @@ local function Hide(Interface, ...)
 end
 local function Unhide(Interface, ...)
 	if __LxYIsWindow(Interface) then
-		Interface.Visible = true
 		Starlight.Minimized = false
+		if Interface.Name == "MainWindow" and not __LxYWin.noAnim then
+			__LxYPop(Interface, true)
+		else
+			Interface.Visible = true
+		end
 		return
 	end
 	__LxYSlowUnhide(Interface, ...)
 	pcall(function() Starlight.Minimized = not Starlight.Instance.MainWindow.Visible end)
 end
-Starlight.__LxYSetWindowShown = function(show)
+Starlight.__LxYSetWindowShown = function(show, instant)
 	local ui = Starlight.Instance
 	local drag = ui:FindFirstChild("Drag")
+	__LxYWin.noAnim = instant == true
 	if show then
 		Unhide(ui.MainWindow)
 		if drag ~= nil then Unhide(drag) end
@@ -2001,6 +2135,7 @@ Starlight.__LxYSetWindowShown = function(show)
 		Hide(ui.MainWindow)
 		if drag ~= nil then Hide(drag) end
 	end
+	__LxYWin.noAnim = false
 end
 __LxYSlowHide = function(Interface, JustHide: boolean?, Notify: boolean?, Bind: string?)
 	JustHide = JustHide or false
@@ -9529,7 +9664,26 @@ function Starlight:CreateWindow(WindowSettings)
 					table.insert(themesArray, v)
 				end
 
-				-- (LxYHook) the "Acrylic" and "Notification Acrylic" toggles are removed: there is no glass behind them
+				instance:CreateToggle({
+					Name = "Acrylic",
+					CurrentValue = true,
+					Tooltip = "Enables The Glass And Acrylic Style for the main UI",
+					Icon = 6031371068,
+					Callback = function(v)
+						mainAcrylic = v
+						acrylicEvent:Fire()
+					end,
+				}, "mainacrylic")
+				instance:CreateToggle({
+					Name = "Notification Acrylic",
+					CurrentValue = true,
+					Tooltip = "Enables The Glass And Acrylic Style for notifications",
+					Icon = 6031488930,
+					Callback = function(v)
+						notificationAcrylic = v
+						notificationAcrylicEvent:Fire()
+					end,
+				}, "notitficationacrylic")
 
 				instance:CreateDivider()
 
@@ -29918,7 +30072,7 @@ end
 local function fn40(arg, arg2, arg3)
 arg:AddDropdown({
 Label = "UI Style",
-Options = { "Starlight", "Classic" },
+Options = { "Starlight", "Setsuna", "Classic" },
 Default = K.UIMode(),
 Tooltip = "Starlight (default) is built into the script; if it fails, the classic menu is shown for that session. Classic is the script's own menu.",
 OnChanged = function(mode)
@@ -73070,6 +73224,7 @@ end
 local function build(mode)
 local MenuClass=W.Menu
 if mode=="Starlight" and K.StarUI~=nil then MenuClass=K.StarUI.Menu end
+if mode=="Setsuna" and K.SetsunaUI~=nil then MenuClass=K.SetsunaUI.Menu end
 local t=MenuClass.new({Icon=K.LithiumLogo,Title=string.format("LxYHook | Rivals | %s",tostring("Premium Build")),Directory=K.AccountDir,Config=l.ReactiveStoreAdapter,ColorAnimation=l.ColorAnimation,Persistence=I,State=l.GeneralState,StateData=l.GeneralStateData,OnUnload=function()e:Destroy();end})
 current=t
 e:Add(t)
@@ -84365,7 +84520,7 @@ end
 --==========================================================================
 do
     local MODE_FILE = "kiciarebuild/ui_style.txt"
-    local function valid(m) return m == "Classic" or m == "Starlight" end
+    local function valid(m) return m == "Classic" or m == "Starlight" or m == "Setsuna" end
     function K.UIMode()
         local m = getgenv().LxYUI
         if valid(m) then return m end
@@ -84595,7 +84750,6 @@ end
         -- the embedded acrylic module (no Maui getfenv / setfenv, no glass), and no acrylic glass in Starlight itself
         { "embedded acrylic module", {
             { "loadstring%(game:HttpGet%(\"https://raw%.\" %.%. website %.%. \"/AcrylicModule%.luau\"%)%)%(%)", "getgenv().__LxYAcrylic()" },
-            { "\nlocal isStudio = RunService:IsStudio%(%) or false", "\nacrylicFlag = false\nlocal isStudio = RunService:IsStudio() or false" },
         } },
         -- every theme binding ran in its own new thread (thousands while the menu is built); the body never yields
         { "theme bindings in place", {
@@ -86350,7 +86504,7 @@ end
             ui.Enabled = true
             -- the patched Starlight shows / hides its window at once; without that patch, the same done here
             if type(L.__LxYSetWindowShown) == "function" then
-                L.__LxYSetWindowShown(visible)
+                L.__LxYSetWindowShown(visible, instant)
             else
                 ui.MainWindow.Visible = visible
                 local drag = ui:FindFirstChild("Drag")
@@ -86379,6 +86533,1673 @@ end
         end)
         pcall(function() self._trove:Destroy() end)
         pcall(function() self._lib:Destroy() end)
+    end
+
+    --------------------------------------------------------------------------------------------------- Setsuna (Pop)
+    -- Third form of the menu: a port of the Pop mode of Setsuna's ClickGUI. A ring of category bubbles around the logo;
+    -- a bubble opens a list of its pages, a page opens its settings next to the list. It sits on the same Menu surface as
+    -- the Starlight form (AddTab / Grid / AddSection / AddToggle ...) and reuses its control base, groups and config
+    -- binding; only the widgets are its own.
+    local SetsunaUI = {}
+    K.SetsunaUI = SetsunaUI
+
+    local TweenSvc = game:GetService("TweenService")
+    local UIS = game:GetService("UserInputService")
+    local GuiSvc = game:GetService("GuiService")
+
+    local function mk(class, props, parent)
+        local inst = Instance.new(class)
+        for key, val in pairs(props) do inst[key] = val end
+        if parent ~= nil then inst.Parent = parent end
+        return inst
+    end
+    local function corner(inst, px) return mk("UICorner", { CornerRadius = UDim.new(0, px) }, inst) end
+    local function circle(inst) return mk("UICorner", { CornerRadius = UDim.new(0.5, 0) }, inst) end
+    local function tween(inst, seconds, props, style, dir)
+        local tw = TweenSvc:Create(inst, TweenInfo.new(seconds, style or Enum.EasingStyle.Quint, dir or Enum.EasingDirection.Out), props)
+        tw:Play()
+        return tw
+    end
+    local function clamp(v, lo, hi) return math.max(lo, math.min(hi, v)) end
+
+    local TEXT = Color3.fromRGB(243, 247, 248)
+    local DIM = Color3.fromRGB(163, 175, 180)
+    local FAINT = Color3.fromRGB(104, 118, 124)
+    local DEFAULT_ACCENT = Color3.fromRGB(150, 80, 235)
+
+    -- Setsuna's palette: dark greys pulled towards the accent
+    local function palette(acc, ov)
+        local function tone(base, amt)
+            return Color3.new((base + (acc.R * 255 - base) * amt) / 255, (base + (acc.G * 255 - base) * amt) / 255, (base + (acc.B * 255 - base) * amt) / 255)
+        end
+        local p = { acc = acc, panel = tone(7, .22), inner = tone(9, .30), track = tone(13, .42), hover = tone(17, .52),
+            surf = tone(7, .22), text = TEXT, dim = DIM, faint = FAINT, value = acc, outline = acc, sel = acc, knob = TEXT }
+        p.toggleoff = p.track
+        -- colours the user picked on the Theme page (Background, Outline, Text ...) replace the derived ones
+        for role, c in pairs(ov or {}) do p[role] = c end
+        return p
+    end
+
+    -- GUI coordinates start below the top bar: input.Position already is in them, GetMouseLocation is not
+    local function pointer(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            return input.Position.X, input.Position.Y
+        end
+        local p = UIS:GetMouseLocation()
+        local inset = GuiSvc:GetGuiInset()
+        return p.X - inset.X, p.Y - inset.Y
+    end
+
+    -- cb(x, y) in screen pixels, on the press and on every move until the button is released
+    local function dragArea(obj, cb)
+        obj.InputBegan:Connect(function(input)
+            if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+            local moveConn, endConn
+            local function stop()
+                if moveConn then moveConn:Disconnect() end
+                if endConn then endConn:Disconnect() end
+            end
+            cb(pointer(input))
+            moveConn = UIS.InputChanged:Connect(function(i)
+                if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then
+                    cb(pointer(i))
+                end
+            end)
+            endConn = UIS.InputEnded:Connect(function(i)
+                if i == input or i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                    stop()
+                end
+            end)
+        end)
+    end
+
+    local SMenu = {}
+    SMenu.__index = function(t, k)
+        local v = rawget(SMenu, k)
+        if v ~= nil then return v end
+        if isMethodName(k) then return function() return nil end end
+        return nil
+    end
+    SetsunaUI.Menu = SMenu
+
+    -- colours follow the accent: static roles are painted through here, state-dependent ones re-run their function
+    function SMenu:_paint(inst, prop, role)
+        inst[prop] = self._pal[role]
+        local list = self._themed
+        list[#list + 1] = { inst, prop, role }
+        return inst
+    end
+
+    function SMenu:_onTheme(owner, fn)
+        local list = self._themeFns
+        list[#list + 1] = { owner, fn }
+        fn()
+    end
+
+    function SMenu:_setAccent(c)
+        self._acc = c
+        self:_applyPalette()
+    end
+
+    function SMenu:_applyPalette()
+        self._pal = palette(self._acc, self._ov)
+        local keep, n = {}, 0
+        for _, e in ipairs(self._themed) do
+            local inst = e[1]
+            if inst.Parent ~= nil then
+                pcall(function() inst[e[2]] = self._pal[e[3]] end)
+                n += 1
+                keep[n] = e
+            end
+        end
+        self._themed = keep
+        local keepFns, m = {}, 0
+        for _, e in ipairs(self._themeFns) do
+            if not (e[1] ~= nil and e[1]._dead) then
+                pcall(e[2])
+                m += 1
+                keepFns[m] = e
+            end
+        end
+        self._themeFns = keepFns
+    end
+
+    local function text(m, parent, str, size, role, bold)
+        local t = mk("TextLabel", {
+            BackgroundTransparency = 1, Text = tostring(str), TextSize = size, Font = bold and Enum.Font.GothamBold or Enum.Font.GothamMedium,
+            TextXAlignment = Enum.TextXAlignment.Left, BorderSizePixel = 0,
+        }, parent)
+        m:_paint(t, "TextColor3", role)
+        return t
+    end
+
+    local function imageOf(icon)
+        local id = iconOf(icon)
+        if id == "" then return "" end
+        return "rbxassetid://" .. id
+    end
+
+    --------------------------------------------------------------------------------------------------- controls
+    local SSection = {}
+    SSection.__index = SSection
+    setmetatable(SSection, { __index = Container })
+
+    local function newRow(sec, h)
+        local m = sec._menu
+        sec._n += 1
+        local scroll = sec._page:_ensureScroll()
+        local row = mk("Frame", {
+            Size = UDim2.new(1, -8, 0, h), BorderSizePixel = 0, LayoutOrder = sec._order * 1000 + sec._n, Active = true,
+        }, scroll)
+        m:_paint(row, "BackgroundColor3", "inner")
+        corner(row, 8)
+        row.MouseEnter:Connect(function() tween(row, .12, { BackgroundColor3 = m._pal.hover }) end)
+        row.MouseLeave:Connect(function() tween(row, .12, { BackgroundColor3 = m._pal.inner }) end)
+        return row
+    end
+
+    local function rowReady(self) return self._row ~= nil end
+    local function rowInstance(self) return self._row end
+
+    -- the row's label; reserve = width kept free on the right for the row's own widget
+    local function rowLabel(self, row, str, reserve)
+        local t = text(self._menu, row, str, 14, "text", false)
+        t.Position = UDim2.fromOffset(14, 0)
+        t.Size = UDim2.new(1, -(reserve + 24), 1, 0)
+        t.TextWrapped = true
+        self._text, self._reserve, self._extrasW = t, reserve, 0
+        return t
+    end
+
+    -- a label row's height from its text (AutomaticSize rows were laid out with no height and the rows below overlapped them)
+    local TextSvc = game:GetService("TextService")
+    local function fitLabel(self)
+        local row, t = self._row, self._text
+        if row == nil or t == nil then return end
+        local g = self._menu._g
+        local avail = (g and g.setW or 280) - 16 - 28 - self._extrasW
+        local ok, size = pcall(TextSvc.GetTextSize, TextSvc, tostring(t.Text), 14, Enum.Font.GothamMedium, Vector2.new(math.max(60, avail), 10000))
+        local h = ok and size.Y or 16
+        row.Size = UDim2.new(1, -8, 0, math.max(36, h + 20))
+        t.Size = UDim2.new(1, -self._extrasW, 1, 0)
+    end
+
+    local function relabel(self)
+        local t = self._text
+        if t == nil then return end
+        if self._auto then
+            fitLabel(self)
+        else
+            t.Size = UDim2.new(1, -(self._reserve + self._extrasW + 24), 1, 0)
+        end
+    end
+
+    -- a colour swatch or a key button sits on the right of the row it belongs to
+    local function attach(host, widget, w)
+        local ex = host._extras
+        if ex == nil then
+            ex = mk("Frame", {
+                BackgroundTransparency = 1, AnchorPoint = Vector2.new(1, .5), Position = UDim2.new(1, -(host._reserve + 10), .5, 0),
+                Size = UDim2.fromOffset(0, 28), AutomaticSize = Enum.AutomaticSize.X, ZIndex = 3,
+            }, host._row)
+            mk("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Right,
+                VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, ex)
+            host._extras = ex
+        end
+        widget.Parent = ex
+        host._extrasW += w + 6
+        relabel(host)
+    end
+
+    local function rowButton(row)
+        return mk("TextButton", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 1 }, row)
+    end
+
+    ----------------------------------------------------------------------------------------------- label
+    local SLabel = subclass()
+    function SLabel.new(sec, o)
+        local self = newControl(sec, "Label", SLabel)
+        self.Text = tostring(o.Label or o.Text or "")
+        self._label = self.Text
+        self._canNest = true
+        self:_defer(function()
+            local m = sec._menu
+            local row = newRow(sec, 36)
+            mk("UIPadding", { PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 10), PaddingLeft = UDim.new(0, 14), PaddingRight = UDim.new(0, 14) }, row)
+            self._row, self._el, self._auto, self._reserve, self._extrasW = row, row, true, 0, 0
+            local t = text(m, row, self.Text, 14, "dim", false)
+            t.Size = UDim2.fromScale(1, 1)
+            t.TextWrapped = true
+            t.TextYAlignment = Enum.TextYAlignment.Center
+            self._text = t
+            fitLabel(self)
+        end)
+        return self
+    end
+    SLabel._instance = rowInstance
+    SLabel._isReady = rowReady
+
+    function SLabel:Set(str)
+        self.Text = tostring(str or "")
+        if self._text then
+            self._text.Text = self.Text
+            fitLabel(self)
+        end
+    end
+    SLabel.SetLabel = function(self, str) self:Set(str) return self end
+    SLabel.SetText = SLabel.SetLabel
+
+    ----------------------------------------------------------------------------------------------- toggle
+    local SToggle = subclass()
+    function SToggle.new(sec, o)
+        local self = newControl(sec, "Toggle", SToggle)
+        self.Value = o.Default == true
+        self._label = tostring(o.Label or "")
+        self._canNest = true
+        self:_defer(function()
+            local m = sec._menu
+            local row = newRow(sec, 40)
+            self._row, self._el = row, row
+            rowLabel(self, row, self._label, 60)
+            rowButton(row).Activated:Connect(function()
+                local nv = not self.Value
+                self.Value = nv
+                self:_render(true)
+                self:_emit(nv)
+            end)
+            local track = mk("Frame", { AnchorPoint = Vector2.new(1, .5), Position = UDim2.new(1, -12, .5, 0), Size = UDim2.fromOffset(44, 22), BorderSizePixel = 0, ZIndex = 2 }, row)
+            circle(track)
+            local knob = mk("Frame", { AnchorPoint = Vector2.new(0, .5), Size = UDim2.fromOffset(16, 16), BorderSizePixel = 0, ZIndex = 3 }, track)
+            circle(knob)
+            m:_paint(knob, "BackgroundColor3", "knob")
+            function self._render(_, animate)
+                local on = self.Value
+                local goal = on and m._pal.acc or m._pal.toggleoff
+                local pos = UDim2.new(0, on and 25 or 3, .5, 0)
+                if animate then
+                    tween(track, .15, { BackgroundColor3 = goal })
+                    tween(knob, .15, { Position = pos })
+                else
+                    track.BackgroundColor3 = goal
+                    knob.Position = pos
+                end
+            end
+            m:_onTheme(self, function() self:_render(false) end)
+        end)
+        if o.OnChanged ~= nil then self:OnChanged(o.OnChanged) end
+        return self
+    end
+    SToggle._instance = rowInstance
+    SToggle._isReady = rowReady
+
+    function SToggle:Set(v, silent)
+        v = v and true or false
+        if silent and v == self.Value then return end
+        self.Value = v
+        if self._render ~= nil then self:_render(true) end
+        self.ValueChanged:Fire(v)
+        if not silent then self.Changed:Fire(v) end
+    end
+
+    ----------------------------------------------------------------------------------------------- slider
+    local function decimals(step)
+        if step >= 1 then return 0 end
+        return math.min(4, math.ceil(-math.log10(step) - 1e-9))
+    end
+
+    local SSlider = subclass()
+    function SSlider.new(sec, o)
+        local self = newControl(sec, "Slider", SSlider)
+        local min, max = o.Min or 0, o.Max or 100
+        if max <= min then max = min + 1 end
+        self._min, self._max = min, max
+        self._step = stepFor(o)
+        self._suffix = o.Suffix and tostring(o.Suffix) or ""
+        local default = o.Default
+        if type(default) ~= "number" then default = min end
+        self.Value = default
+        self._label = tostring(o.Label or "")
+        self:_defer(function()
+            local m = sec._menu
+            local row = newRow(sec, 56)
+            self._row, self._el = row, row
+            local t = text(m, row, self._label, 14, "text", false)
+            t.Position = UDim2.fromOffset(14, 8)
+            t.Size = UDim2.new(1, -110, 0, 18)
+            self._text = t
+            local val = text(m, row, "", 13, "value", true)
+            val.AnchorPoint = Vector2.new(1, 0)
+            val.Position = UDim2.new(1, -14, 0, 8)
+            val.Size = UDim2.fromOffset(90, 18)
+            val.TextXAlignment = Enum.TextXAlignment.Right
+            local track = mk("Frame", { Position = UDim2.new(0, 14, 0, 38), Size = UDim2.new(1, -28, 0, 5), BorderSizePixel = 0 }, row)
+            circle(track)
+            m:_paint(track, "BackgroundColor3", "track")
+            local fill = mk("Frame", { Size = UDim2.fromScale(0, 1), BorderSizePixel = 0 }, track)
+            circle(fill)
+            m:_paint(fill, "BackgroundColor3", "acc")
+            local thumb = mk("Frame", { AnchorPoint = Vector2.new(.5, .5), Position = UDim2.fromScale(0, .5), Size = UDim2.fromOffset(14, 14), BorderSizePixel = 0, ZIndex = 2 }, track)
+            circle(thumb)
+            m:_paint(thumb, "BackgroundColor3", "acc")
+            local dec = decimals(self._step)
+            function self._render()
+                local frac = (self.Value - self._min) / (self._max - self._min)
+                frac = clamp(frac, 0, 1)
+                fill.Size = UDim2.fromScale(frac, 1)
+                thumb.Position = UDim2.fromScale(frac, .5)
+                val.Text = string.format("%." .. dec .. "f", self.Value) .. self._suffix
+            end
+            self:_render()
+            local hit = mk("TextButton", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 5 }, row)
+            dragArea(hit, function(x)
+                local w = track.AbsoluteSize.X
+                if w <= 0 then return end
+                local frac = clamp((x - track.AbsolutePosition.X) / w, 0, 1)
+                local v = self._min + frac * (self._max - self._min)
+                v = self._min + math.floor((v - self._min) / self._step + .5) * self._step
+                v = tonumber(string.format("%.6f", clamp(v, self._min, self._max)))
+                if v ~= self.Value then
+                    self.Value = v
+                    self:_render()
+                    self:_emit(v)
+                end
+            end)
+        end)
+        if o.OnChanged ~= nil then self:OnChanged(o.OnChanged) end
+        return self
+    end
+    SSlider._instance = rowInstance
+    SSlider._isReady = rowReady
+
+    function SSlider:Set(v, silent)
+        if type(v) ~= "number" then return end
+        if v < self._min then v = self._min elseif v > self._max then v = self._max end
+        if silent and (v == self.Value or self:_echo(silent)) then return end
+        self.Value = v
+        if self._render ~= nil then self:_render() end
+        self.ValueChanged:Fire(v)
+        if not silent then self.Changed:Fire(v) end
+    end
+
+    ----------------------------------------------------------------------------------------------- button
+    local SButton = subclass()
+    function SButton.new(sec, o)
+        local self = newControl(sec, "Button", SButton)
+        self._label = tostring(o.Label or "")
+        self._onClick = o.OnClick
+        self._confirm = o.Confirm == true
+        self._confirming = false
+        self.Clicked = Signal.new()
+        self:_defer(function()
+            local m = sec._menu
+            local row = newRow(sec, 38)
+            self._row, self._el = row, row
+            local t = text(m, row, self._confirming and "Click again to confirm" or self._label, 14, "value", true)
+            t.Size = UDim2.fromScale(1, 1)
+            t.TextXAlignment = Enum.TextXAlignment.Center
+            t.TextWrapped = true
+            self._text = t
+            rowButton(row).Activated:Connect(function() self:_click() end)
+            if self._disabled then row.BackgroundTransparency = .5 end
+        end)
+        return self
+    end
+    SButton._instance = rowInstance
+    SButton._isReady = rowReady
+    SButton._click = ButtonC._click
+    SButton.OnClick = ButtonC.OnClick
+
+    function SButton:_rename(str)
+        if self._text then self._text.Text = str end
+    end
+
+    function SButton:SetLabel(str)
+        self._label = tostring(str or "")
+        self:_rename(self._label)
+        return self
+    end
+
+    function SButton:SetEnabled(enabled)
+        self._disabled = enabled == false
+        if self._row then self._row.BackgroundTransparency = self._disabled and .5 or 0 end
+    end
+    SButton.SetActionEnabled = SButton.SetEnabled
+
+    ----------------------------------------------------------------------------------------------- divider
+    local SDivider = subclass()
+    function SDivider.new(sec, o)
+        local self = newControl(sec, "Divider", SDivider)
+        local title = o and (o.Label or o.Title)
+        self:_defer(function()
+            local m = sec._menu
+            local row = newRow(sec, 22)
+            row.BackgroundTransparency = 1
+            self._row, self._el = row, row
+            local hasTitle = title ~= nil and tostring(title) ~= ""
+            if hasTitle then
+                local t = text(m, row, title, 12, "dim", true)
+                t.Position = UDim2.fromOffset(14, 0)
+                t.Size = UDim2.new(1, -28, 1, 0)
+            else
+                local line = mk("Frame", { AnchorPoint = Vector2.new(0, .5), Position = UDim2.new(0, 14, .5, 0), Size = UDim2.new(1, -28, 0, 1), BorderSizePixel = 0 }, row)
+                m:_paint(line, "BackgroundColor3", "track")
+            end
+        end)
+        return self
+    end
+    SDivider._instance = rowInstance
+    SDivider._isReady = rowReady
+
+    ----------------------------------------------------------------------------------------------- text box
+    local STextBox = subclass()
+    function STextBox.new(sec, o)
+        local self = newControl(sec, "TextBox", STextBox)
+        self.Value = tostring(o.Default or "")
+        self._label = tostring(o.Label or "")
+        self:_defer(function()
+            local m = sec._menu
+            local row = newRow(sec, 44)
+            self._row, self._el = row, row
+            rowLabel(self, row, self._label, 160)
+            local box = mk("TextBox", {
+                AnchorPoint = Vector2.new(1, .5), Position = UDim2.new(1, -10, .5, 0), Size = UDim2.fromOffset(150, 28), BorderSizePixel = 0,
+                Text = self.Value, PlaceholderText = tostring(o.Placeholder or ""), ClearTextOnFocus = false, TextSize = 13,
+                Font = Enum.Font.GothamMedium, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 3,
+            }, row)
+            corner(box, 6)
+            mk("UIPadding", { PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8) }, box)
+            m:_paint(box, "BackgroundColor3", "track")
+            m:_paint(box, "TextColor3", "text")
+            m:_paint(box, "PlaceholderColor3", "faint")
+            self._box = box
+            box.FocusLost:Connect(function()
+                local v = box.Text
+                if v ~= self.Value then self:_emit(v) end
+            end)
+        end)
+        if o.OnChanged ~= nil then self:OnChanged(o.OnChanged) end
+        return self
+    end
+    STextBox._instance = rowInstance
+    STextBox._isReady = rowReady
+
+    function STextBox:Set(v, silent)
+        v = tostring(v or "")
+        if silent and (v == self.Value or self:_echo(silent)) then return end
+        self.Value = v
+        if self._box then self._box.Text = v end
+        self.ValueChanged:Fire(v)
+        if not silent then self.Changed:Fire(v) end
+    end
+
+    ----------------------------------------------------------------------------------------------- popups
+    function SMenu:_closePopup()
+        local p = self._popup
+        if p == nil then return end
+        self._popup = nil
+        pcall(function() p.catcher:Destroy() end)
+        if p.onClose ~= nil then pcall(p.onClose) end
+    end
+
+    -- a floating panel next to anchor; build(frame) fills it
+    function SMenu:_openPopup(anchor, w, h, build, onClose)
+        self:_closePopup()
+        local k, g, stage = self._k, self._g, self._stage
+        local catcher = mk("TextButton", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 60 }, stage)
+        local ax = (anchor.AbsolutePosition.X - stage.AbsolutePosition.X) / k
+        local ay = (anchor.AbsolutePosition.Y - stage.AbsolutePosition.Y) / k
+        local aw, ah = anchor.AbsoluteSize.X / k, anchor.AbsoluteSize.Y / k
+        local x = clamp(ax + aw - w, 8, math.max(8, g.sw - w - 8))
+        local y = ay + ah + 4
+        if y + h > g.sh - 8 then y = ay - h - 4 end
+        y = clamp(y, 8, math.max(8, g.sh - h - 8))
+        local frame = mk("Frame", { Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(w, h), BorderSizePixel = 0, ZIndex = 61, ClipsDescendants = true, Active = true }, catcher)
+        corner(frame, 10)
+        self:_paint(frame, "BackgroundColor3", "panel")
+        local st = mk("UIStroke", { Thickness = 1.5, Transparency = .3 }, frame)
+        self:_paint(st, "Color", "outline")
+        catcher.Activated:Connect(function() self:_closePopup() end)
+        self._popup = { catcher = catcher, frame = frame, onClose = onClose }
+        local ok, err = pcall(build, frame)
+        if not ok then log("popup failed: " .. tostring(err)) end
+        return frame
+    end
+
+    ----------------------------------------------------------------------------------------------- dropdown
+    local SDropdown = subclass()
+    for _, name in ipairs({ "_display", "_displayList", "_current", "_fromDisplay", "_fromSelection", "SetOptions", "Add", "Remove", "GetNames", "Set" }) do
+        SDropdown[name] = DropdownC[name]
+    end
+
+    function SDropdown.new(sec, o, multi)
+        local self = newControl(sec, multi and "MultiDropdown" or "Dropdown", SDropdown)
+        self.Multi = multi == true
+        self._labels = o.Labels
+        local options = {}
+        for i, opt in ipairs(o.Options or {}) do options[i] = tostring(opt) end
+        self.Options = options
+        if self.Multi then
+            self.Value = toSet(o.Default, options)
+        else
+            local d = o.Default
+            if not (type(d) == "string" and table.find(options, d)) then
+                d = nil
+                if o.SelectFirst ~= false then d = options[1] end
+            end
+            self.Value = d
+        end
+        self._label = tostring(o.Label or "")
+        self:_defer(function()
+            local m = sec._menu
+            local row = newRow(sec, 40)
+            self._row, self._el = row, row
+            rowLabel(self, row, self._label, 170)
+            local btn = mk("TextButton", {
+                AnchorPoint = Vector2.new(1, .5), Position = UDim2.new(1, -10, .5, 0), Size = UDim2.fromOffset(160, 28), BorderSizePixel = 0,
+                Text = "", AutoButtonColor = false, ZIndex = 3,
+            }, row)
+            corner(btn, 6)
+            m:_paint(btn, "BackgroundColor3", "track")
+            local val = text(m, btn, "", 13, "value", false)
+            val.Position = UDim2.fromOffset(8, 0)
+            val.Size = UDim2.new(1, -26, 1, 0)
+            val.TextTruncate = Enum.TextTruncate.AtEnd
+            local chev = text(m, btn, "v", 11, "faint", true)
+            chev.AnchorPoint = Vector2.new(1, .5)
+            chev.Position = UDim2.new(1, -8, .5, 0)
+            chev.Size = UDim2.fromOffset(10, 14)
+            self._btn, self._val = btn, val
+            self:_push()
+            btn.Activated:Connect(function() self:_openList(btn) end)
+        end)
+        if o.OnChanged ~= nil then self:OnChanged(o.OnChanged) end
+        return self
+    end
+    SDropdown._instance = rowInstance
+    SDropdown._isReady = rowReady
+
+    function SDropdown:_push()
+        if self._val == nil then return end
+        local cur = self:_current()
+        self._val.Text = #cur > 0 and table.concat(cur, ", ") or "None"
+        if self._redraw ~= nil then self._redraw() end
+    end
+
+    function SDropdown:SetLabel(str)
+        self._label = tostring(str or "")
+        if self._text then self._text.Text = self._label end
+        return self
+    end
+
+    function SDropdown:_openList(anchor)
+        local m = self._menu
+        local count = #self.Options
+        local h = clamp(count * 32 + 10, 52, 290)
+        m:_openPopup(anchor, math.max(anchor.AbsoluteSize.X / m._k, 170), h, function(frame)
+            local sc = mk("ScrollingFrame", {
+                Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3,
+                CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ZIndex = 62,
+            }, frame)
+            m:_paint(sc, "ScrollBarImageColor3", "acc")
+            mk("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder }, sc)
+            mk("UIPadding", { PaddingTop = UDim.new(0, 5), PaddingBottom = UDim.new(0, 5), PaddingLeft = UDim.new(0, 5), PaddingRight = UDim.new(0, 5) }, sc)
+            local items = {}
+            local function redraw()
+                for opt, item in pairs(items) do
+                    local on
+                    if self.Multi then on = self.Value[opt] == true else on = self.Value == opt end
+                    item.dot.Visible = on
+                    item.btn.BackgroundTransparency = on and .75 or 1
+                    item.label.TextColor3 = on and m._pal.text or m._pal.dim
+                end
+            end
+            self._redraw = redraw
+            for i, opt in ipairs(self.Options) do
+                local btn = mk("TextButton", { Size = UDim2.new(1, 0, 0, 30), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, LayoutOrder = i, ZIndex = 63 }, sc)
+                corner(btn, 6)
+                m:_paint(btn, "BackgroundColor3", "acc")
+                local lbl = text(m, btn, self:_display(opt), 13, "dim", false)
+                lbl.Position = UDim2.fromOffset(10, 0)
+                lbl.Size = UDim2.new(1, -30, 1, 0)
+                lbl.ZIndex = 64
+                local dot = mk("Frame", { AnchorPoint = Vector2.new(1, .5), Position = UDim2.new(1, -10, .5, 0), Size = UDim2.fromOffset(8, 8), BorderSizePixel = 0, ZIndex = 64 }, btn)
+                circle(dot)
+                m:_paint(dot, "BackgroundColor3", "acc")
+                items[opt] = { btn = btn, label = lbl, dot = dot }
+                btn.Activated:Connect(function()
+                    if self.Multi then
+                        local set = {}
+                        for k2, v2 in pairs(self.Value) do set[k2] = v2 end
+                        if set[opt] then set[opt] = nil else set[opt] = true end
+                        self:_emit(set)
+                        self:_push()
+                    else
+                        if opt ~= self.Value then
+                            self:_emit(opt)
+                            self:_push()
+                        end
+                        m:_closePopup()
+                    end
+                end)
+            end
+            redraw()
+        end, function() self._redraw = nil end)
+    end
+
+    ----------------------------------------------------------------------------------------------- colour
+    local function hostFor2(sec, o)
+        local row = o.Row
+        if row ~= nil and rawget(row, "_canNest") then return row, false end
+        return SLabel.new(sec, { Label = o.Label }), true
+    end
+
+    local SColor = subclass()
+    function SColor.new(sec, o)
+        local self = newControl(sec, "Color", SColor)
+        local host, own = hostFor2(sec, o)
+        self._host = host
+        if own then self._followers = { host } end
+        self.Value = colorValue(o.Default)
+        self:_defer(function()
+            if not host._realized then host:_realizeNow() end
+            if host._row == nil then return end
+            local btn = mk("TextButton", { Size = UDim2.fromOffset(34, 20), BorderSizePixel = 0, Text = "", AutoButtonColor = false, ZIndex = 4, BackgroundColor3 = self.Value.Rgb }, nil)
+            corner(btn, 5)
+            local st = mk("UIStroke", { Thickness = 1, Transparency = .5 }, btn)
+            sec._menu:_paint(st, "Color", "text")
+            attach(host, btn, 34)
+            self._btn, self._el = btn, btn
+            btn.Activated:Connect(function() self:_openPicker(btn) end)
+        end)
+        if o.OnChanged ~= nil then self:OnChanged(o.OnChanged) end
+        return self
+    end
+    SColor._isReady = function(self) return self._btn ~= nil end
+    SColor._instance = function(self) return self._btn end
+
+    function SColor:_openPicker(anchor)
+        local m = self._menu
+        local h, s, v = Color3.toHSV(self.Value.Rgb)
+        local alpha = self.Value.Alpha
+        local function current() return Color3.fromHSV(h, s, v) end
+        m:_openPopup(anchor, 232, 286, function(frame)
+            local sv = mk("Frame", { Position = UDim2.fromOffset(12, 12), Size = UDim2.fromOffset(208, 130), BorderSizePixel = 0, ZIndex = 62 }, frame)
+            corner(sv, 6)
+            local white = mk("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 63 }, sv)
+            corner(white, 6)
+            mk("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1) }) }, white)
+            local black = mk("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0, ZIndex = 64 }, sv)
+            corner(black, 6)
+            mk("UIGradient", { Rotation = 90, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0) }) }, black)
+            local svCursor = mk("Frame", { AnchorPoint = Vector2.new(.5, .5), Size = UDim2.fromOffset(12, 12), BackgroundTransparency = 1, ZIndex = 66 }, sv)
+            circle(svCursor)
+            mk("UIStroke", { Thickness = 2, Color = Color3.new(1, 1, 1) }, svCursor)
+
+            local hue = mk("Frame", { Position = UDim2.fromOffset(12, 152), Size = UDim2.fromOffset(208, 14), BorderSizePixel = 0, BackgroundColor3 = Color3.new(1, 1, 1), ZIndex = 62 }, frame)
+            corner(hue, 7)
+            mk("UIGradient", { Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.fromHSV(0, 1, 1)), ColorSequenceKeypoint.new(1 / 6, Color3.fromHSV(1 / 6, 1, 1)),
+                ColorSequenceKeypoint.new(2 / 6, Color3.fromHSV(2 / 6, 1, 1)), ColorSequenceKeypoint.new(3 / 6, Color3.fromHSV(3 / 6, 1, 1)),
+                ColorSequenceKeypoint.new(4 / 6, Color3.fromHSV(4 / 6, 1, 1)), ColorSequenceKeypoint.new(5 / 6, Color3.fromHSV(5 / 6, 1, 1)),
+                ColorSequenceKeypoint.new(1, Color3.fromHSV(1, 1, 1)) }) }, hue)
+            local hueCursor = mk("Frame", { AnchorPoint = Vector2.new(.5, .5), Position = UDim2.fromScale(0, .5), Size = UDim2.fromOffset(8, 18), BorderSizePixel = 0, ZIndex = 64, BackgroundColor3 = Color3.new(1, 1, 1) }, hue)
+            corner(hueCursor, 3)
+
+            local alp = mk("Frame", { Position = UDim2.fromOffset(12, 176), Size = UDim2.fromOffset(208, 14), BorderSizePixel = 0, ZIndex = 62 }, frame)
+            corner(alp, 7)
+            m:_paint(alp, "BackgroundColor3", "track")
+            local alpFill = mk("Frame", { Size = UDim2.fromScale(1, 1), BorderSizePixel = 0, ZIndex = 63 }, alp)
+            corner(alpFill, 7)
+            mk("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0) }) }, alpFill)
+            local alpCursor = mk("Frame", { AnchorPoint = Vector2.new(.5, .5), Position = UDim2.fromScale(0, .5), Size = UDim2.fromOffset(8, 18), BorderSizePixel = 0, ZIndex = 64, BackgroundColor3 = Color3.new(1, 1, 1) }, alp)
+            corner(alpCursor, 3)
+
+            local hex = mk("TextBox", { Position = UDim2.fromOffset(12, 202), Size = UDim2.fromOffset(120, 28), BorderSizePixel = 0, ClearTextOnFocus = false, TextSize = 13,
+                Font = Enum.Font.GothamMedium, ZIndex = 62, Text = "" }, frame)
+            corner(hex, 6)
+            m:_paint(hex, "BackgroundColor3", "track")
+            m:_paint(hex, "TextColor3", "text")
+            local preview = mk("Frame", { Position = UDim2.fromOffset(142, 202), Size = UDim2.fromOffset(78, 28), BorderSizePixel = 0, ZIndex = 62 }, frame)
+            corner(preview, 6)
+            local ok = mk("TextButton", { Position = UDim2.fromOffset(12, 240), Size = UDim2.fromOffset(208, 34), BorderSizePixel = 0, Text = "Done", TextSize = 14,
+                Font = Enum.Font.GothamBold, AutoButtonColor = false, ZIndex = 62 }, frame)
+            corner(ok, 8)
+            m:_paint(ok, "BackgroundColor3", "inner")
+            m:_paint(ok, "TextColor3", "value")
+            ok.Activated:Connect(function() m:_closePopup() end)
+
+            local function refresh(emit)
+                local c = current()
+                sv.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
+                svCursor.Position = UDim2.fromScale(s, 1 - v)
+                hueCursor.Position = UDim2.fromScale(h, .5)
+                alpCursor.Position = UDim2.fromScale(alpha, .5)
+                alpFill.BackgroundColor3 = c
+                preview.BackgroundColor3 = c
+                hex.Text = "#" .. c:ToHex():upper()
+                if self._btn then self._btn.BackgroundColor3 = c end
+                if emit then
+                    self.Value = { Rgb = c, Alpha = alpha, Stops = {} }
+                    self:_emit(self.Value)
+                end
+            end
+            refresh(false)
+            local function overlay(target)
+                return mk("TextButton", { Size = UDim2.new(1, 0, 1, 12), Position = UDim2.fromOffset(0, -6), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 70 }, target)
+            end
+            dragArea(overlay(sv), function(x, y)
+                s = clamp((x - sv.AbsolutePosition.X) / math.max(1, sv.AbsoluteSize.X), 0, 1)
+                v = 1 - clamp((y - sv.AbsolutePosition.Y) / math.max(1, sv.AbsoluteSize.Y), 0, 1)
+                refresh(true)
+            end)
+            dragArea(overlay(hue), function(x)
+                h = clamp((x - hue.AbsolutePosition.X) / math.max(1, hue.AbsoluteSize.X), 0, .999)
+                refresh(true)
+            end)
+            dragArea(overlay(alp), function(x)
+                alpha = clamp((x - alp.AbsolutePosition.X) / math.max(1, alp.AbsoluteSize.X), 0, 1)
+                refresh(true)
+            end)
+            hex.FocusLost:Connect(function()
+                local okc, c = pcall(Color3.fromHex, hex.Text)
+                if okc and typeof(c) == "Color3" then
+                    h, s, v = Color3.toHSV(c)
+                end
+                refresh(true)
+            end)
+        end)
+    end
+
+    function SColor:Set(v, silent)
+        local nv = colorValue(v)
+        if silent and ((nv.Rgb == self.Value.Rgb and nv.Alpha == self.Value.Alpha) or self:_echo(silent)) then return end
+        self.Value = nv
+        if self._btn then self._btn.BackgroundColor3 = nv.Rgb end
+        self.ValueChanged:Fire(self.Value)
+        if not silent then self.Changed:Fire(self.Value) end
+    end
+    function SColor:EnableAnimation() end
+    function SColor:SetAnimationMode() end
+    function SColor:SetAnimationSpeed() end
+    function SColor:SetAnimationBreathingRange() end
+    SColor.AnimationChanged = ColorC.AnimationChanged
+    SColor.AnimationSpeedChanged = ColorC.AnimationSpeedChanged
+    SColor.AnimationBreathingRangeChanged = ColorC.AnimationBreathingRangeChanged
+
+    ----------------------------------------------------------------------------------------------- keybind
+    local SKeybind = subclass()
+    for _, name in ipairs({ "SetKey", "SetMode", "SetShowInList", "SetInvisible", "SetActive", "_BindConfigMap" }) do
+        SKeybind[name] = KeybindC[name]
+    end
+
+    function SKeybind.new(sec, o)
+        local self = newControl(sec, "Keybind", SKeybind)
+        local host, own = hostFor2(sec, o)
+        self._host = host
+        local hostLabel = tostring(o.Label or host._label or "Keybind")
+        if own then self._followers = { host } end
+        local modes = {}
+        for _, mo in ipairs(o.Modes or {}) do modes[#modes + 1] = tostring(mo) end
+        self.Modes = modes
+        self.Value = { Key = nil, Mode = modes[1] or "Toggle" }
+        self.ShowInList = true
+        self.Invisible = false
+        self.ShowInListChanged = Signal.new()
+        self.InvisibleChanged = Signal.new()
+        self.ActiveChanged = Signal.new()
+        self:_defer(function()
+            if not host._realized then host:_realizeNow() end
+            if host._row == nil then return end
+            local m = sec._menu
+            local btn = mk("TextButton", { Size = UDim2.fromOffset(0, 22), AutomaticSize = Enum.AutomaticSize.X, BorderSizePixel = 0, Text = "", AutoButtonColor = false, ZIndex = 4 }, nil)
+            corner(btn, 5)
+            m:_paint(btn, "BackgroundColor3", "track")
+            mk("UISizeConstraint", { MinSize = Vector2.new(48, 22) }, btn)
+            mk("UIPadding", { PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8) }, btn)
+            local lbl = text(m, btn, "", 12, "value", true)
+            lbl.Size = UDim2.fromScale(0, 1)
+            lbl.AutomaticSize = Enum.AutomaticSize.X
+            lbl.TextXAlignment = Enum.TextXAlignment.Center
+            self._lbl = lbl
+            attach(host, btn, 56)
+            self._btn, self._el = btn, btn
+            self:_showKey()
+            btn.Activated:Connect(function() self:_capture() end)
+        end)
+        if #modes > 1 then
+            self._modeDropdown = sec:_make("Dropdown", {
+                Label = hostLabel .. " Mode",
+                Options = modes,
+                Default = self.Value.Mode,
+                OnChanged = function(mode)
+                    if self:_suppressed() or mode == nil then return end
+                    self:_emit({ Key = self.Value.Key, Mode = mode })
+                end,
+            })
+            self._followers[#self._followers + 1] = self._modeDropdown
+        end
+        return self
+    end
+    SKeybind._isReady = function(self) return self._btn ~= nil end
+    SKeybind._instance = function(self) return self._btn end
+
+    function SKeybind:_showKey()
+        if self._lbl == nil then return end
+        if self._capturing then self._lbl.Text = "..." return end
+        local t = keyToText(self.Value.Key)
+        self._lbl.Text = t == "No Bind" and "None" or t
+    end
+
+    function SKeybind:_capture()
+        if self._capturing then return end
+        self._capturing = true
+        self:_showKey()
+        local conn
+        conn = UIS.InputBegan:Connect(function(input)
+            local key
+            if input.UserInputType == Enum.UserInputType.Keyboard then
+                if input.KeyCode == Enum.KeyCode.Escape then
+                    key = false -- cancel
+                elseif input.KeyCode == Enum.KeyCode.Backspace or input.KeyCode == Enum.KeyCode.Delete then
+                    key = nil -- clear
+                else
+                    key = input.KeyCode
+                end
+            elseif input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.MouseButton2
+                or input.UserInputType == Enum.UserInputType.MouseButton3 then
+                key = input.UserInputType
+            else
+                return
+            end
+            conn:Disconnect()
+            self._capturing = false
+            if key ~= false then
+                self.Value = { Key = key, Mode = self.Value.Mode }
+                self:_emit(self.Value)
+            end
+            self:_showKey()
+        end)
+    end
+
+    function SKeybind:Set(v, silent)
+        if type(v) ~= "table" then return end
+        local key = v.Key
+        if typeof(key) ~= "EnumItem" then key = nil end
+        local mode = v.Mode
+        if type(mode) ~= "string" or (#self.Modes > 0 and not table.find(self.Modes, mode)) then mode = self.Value.Mode end
+        if silent and key == self.Value.Key and mode == self.Value.Mode then return end
+        self.Value = { Key = key, Mode = mode }
+        self:_showKey()
+        if self._modeDropdown ~= nil then self._modeDropdown:Set(mode, true) end
+        self.ValueChanged:Fire(self.Value)
+        if not silent then self.Changed:Fire(self.Value) end
+    end
+
+    ----------------------------------------------------------------------------------------------- makers and sections
+    local SMakers = {}
+    SMakers.Toggle = function(sec, o) return SToggle.new(sec, o) end
+    SMakers.Slider = function(sec, o) return SSlider.new(sec, o) end
+    SMakers.RangeSlider = function(sec, o) return RangeC.new(sec, o) end
+    SMakers.Button = function(sec, o) return SButton.new(sec, o) end
+    SMakers.Label = function(sec, o) return SLabel.new(sec, o) end
+    SMakers.Divider = function(sec, o) return SDivider.new(sec, o) end
+    SMakers.TextBox = function(sec, o) return STextBox.new(sec, o) end
+    SMakers.Dropdown = function(sec, o) return SDropdown.new(sec, o, false) end
+    SMakers.MultiDropdown = function(sec, o) return SDropdown.new(sec, o, true) end
+    SMakers.List = SMakers.Dropdown
+    SMakers.MultiList = SMakers.MultiDropdown
+    SMakers.Color = function(sec, o) return SColor.new(sec, o) end
+    SMakers.Keybind = function(sec, o) return SKeybind.new(sec, o) end
+    SMakers.OrderedList = function(sec, o) return OrderedC.new(sec, o) end
+    SMakers.SkinChanger = function(sec)
+        if not sec._menu._skinNotice then
+            sec._menu._skinNotice = true
+            sec:_make("Label", { Label = "The skin, wrap, charm and finisher picker is part of the classic menu." })
+            sec:_make("Button", { Label = "Switch to the classic menu", OnClick = function() K.SwitchUI("Classic") end })
+        end
+        return stub
+    end
+    SMakers.Stub = function() return stub end
+
+    function SSection:_make(kind, o)
+        local maker = SMakers[kind]
+        if maker == nil then return stub end
+        local c = maker(self, o)
+        if type(c) == "table" and getmetatable(c) ~= Stub then
+            self._ctls[#self._ctls + 1] = c
+            if self._secVis == false then
+                c._gv[self] = false
+                c:_applyVis()
+            end
+        end
+        local ok, err = pcall(bindToConfig, self._menu, kind, c, o)
+        if not ok then log(kind .. " '" .. tostring(o.Label) .. "' could not be linked to its setting: " .. tostring(err)) end
+        return c
+    end
+
+    function SSection:SetVisible(v)
+        self._secVis = v ~= false
+        if self._header ~= nil then self._header.Visible = self._secVis end
+        for _, c in ipairs(self._ctls) do
+            c._gv[self] = self._secVis
+            c:_applyVis()
+        end
+    end
+
+    function SSection:_realize()
+        if self._realized then return end
+        self._realized = true
+        local m = self._menu
+        local scroll = self._page:_ensureScroll()
+        if self._title ~= "" then
+            local head = mk("Frame", { Size = UDim2.new(1, -8, 0, 28), BackgroundTransparency = 1, LayoutOrder = self._order * 1000 }, scroll)
+            local t = text(m, head, string.upper(self._title), 12, "value", true)
+            t.Position = UDim2.fromOffset(6, 6)
+            t.Size = UDim2.new(1, -12, 0, 18)
+            local line = mk("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 6, 1, 0), Size = UDim2.new(1, -12, 0, 1), BorderSizePixel = 0, BackgroundTransparency = .55 }, head)
+            m:_paint(line, "BackgroundColor3", "acc")
+            self._header = head
+            if self._secVis == false then head.Visible = false end
+        end
+        local pending = self._pending
+        self._pending = {}
+        for _, c in ipairs(pending) do
+            c:_realizeNow()
+        end
+    end
+
+    local function newSSection(page, o)
+        o = o or {}
+        local title = o.Title
+        if title == nil then title = "" end
+        title = tostring(title)
+        if string.match(title, "^%s*$") then title = "" end
+        page._secCount += 1
+        local sec = setmetatable({ _menu = page._menu, _page = page, _realized = false, _pending = {}, _order = page._secCount, _n = 0, _title = title, _ctls = {} }, SSection)
+        sec._sec = sec
+        if page._realized then
+            sec:_realize()
+        else
+            page._sections[#page._sections + 1] = sec
+        end
+        return sec
+    end
+
+    local SGrid = {}
+    SGrid.__index = SGrid
+    function SGrid:AddSection(o)
+        local ok, res = pcall(newSSection, self._page, o)
+        if ok then return res end
+        log("AddSection failed: " .. tostring(res))
+        return stub
+    end
+    local function sMultiSection(page, o)
+        o = o or {}
+        local panes = {}
+        for i, title in ipairs(o.Titles or {}) do
+            local ok, res = pcall(newSSection, page, { Title = title })
+            panes[i] = ok and res or stub
+            if not ok then log("AddMultiSection failed: " .. tostring(res)) end
+        end
+        return table.unpack(panes)
+    end
+    function SGrid:AddMultiSection(o) return sMultiSection(self._page, o) end
+    function SSection:AddMultiSection(o) return sMultiSection(self._page, o) end
+    function SGrid:SetVisible() end
+
+    --------------------------------------------------------------------------------------------------- pages and tabs
+    local SPage = {}
+    SPage.__index = function(t, k)
+        local v = rawget(SPage, k)
+        if v ~= nil then return v end
+        if isMethodName(k) then return function() return nil end end
+        return nil
+    end
+
+    function SPage:_ensureScroll()
+        if self._scroll ~= nil then return self._scroll end
+        local m = self._menu
+        local sc = mk("ScrollingFrame", {
+            Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3,
+            CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y, Visible = false,
+        }, m._setBody)
+        m:_paint(sc, "ScrollBarImageColor3", "acc")
+        mk("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Center }, sc)
+        mk("UIPadding", { PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 12), PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4) }, sc)
+        self._scroll = sc
+        return sc
+    end
+
+    function SPage:_realize()
+        if self._realized then return end
+        self._realized = true
+        self:_ensureScroll()
+        local t0 = os.clock()
+        local sections = self._sections
+        self._sections = {}
+        for _, sec in ipairs(sections) do
+            local ok, err = pcall(sec._realize, sec)
+            if not ok then log("a section of '" .. tostring(self.Label) .. "' failed to build: " .. tostring(err)) end
+        end
+        log(string.format("page '%s' built on first open in %.2f s", tostring(self.Label), os.clock() - t0))
+    end
+
+    function SPage:Grid(o)
+        return setmetatable({ _page = self }, SGrid)
+    end
+
+    function SPage:OnFirstOpen(fn)
+        if type(fn) ~= "function" then return end
+        task.defer(function()
+            local ok, err = pcall(fn)
+            if not ok then log("page '" .. tostring(self.Label) .. "' failed to build: " .. tostring(err)) end
+        end)
+    end
+
+    function SPage:Open() end
+    function SPage:SetVisible() end
+
+    local STab = {}
+    STab.__index = function(t, k)
+        local v = rawget(STab, k)
+        if v ~= nil then return v end
+        if isMethodName(k) then return function() return nil end end
+        return nil
+    end
+
+    function STab:AddTab(o)
+        o = o or {}
+        local page = setmetatable({
+            _menu = self._menu, _tab = self,
+            Label = tostring(o.Label or "Page"),
+            Icon = o.Icon or false,
+            Description = o.Description or false,
+            _sections = {}, _realized = false, _secCount = 0,
+        }, SPage)
+        self._pages[#self._pages + 1] = page
+        self._menu:_makePageRow(self, page)
+        return page
+    end
+
+    -- a top-level tab used without sub tabs behaves as one page
+    function STab:Grid(o)
+        if self._single == nil then
+            self._single = self:AddTab({ Label = self.Label, Icon = self.Icon })
+        end
+        return self._single:Grid(o)
+    end
+
+    --------------------------------------------------------------------------------------------------- dialogs
+    local function sBuildDialog(menu, o, builder)
+        local key = tostring(o.Title or "Dialog")
+        local existing = menu._dialogs[key]
+        if existing ~= nil then
+            for _, p in ipairs(existing.pages) do
+                if p.onOpen ~= nil then pcall(p.onOpen) end
+            end
+            return existing
+        end
+        if menu._manage == nil then
+            menu._manage = menu:AddTab({ Label = "Manage" })
+        end
+        local page = menu._manage:AddTab({ Label = key })
+        local grid = page:Grid({ Columns = 1 })
+        local dialog = { pages = {}, title = key }
+        menu._dialogs[key] = dialog
+        function dialog:Close() end
+        function dialog:AddPage(po, pbuilder)
+            po = po or {}
+            local sec = grid:AddSection({ Title = tostring(po.Title or "Page") })
+            if po.Description then sec:_make("Label", { Label = tostring(po.Description) }) end
+            local node = { onOpen = po.OnOpen }
+            dialog.pages[#dialog.pages + 1] = node
+            if pbuilder ~= nil then
+                local ok, err = pcall(pbuilder, sec)
+                if not ok then log("dialog page failed: " .. tostring(err)) end
+            end
+            local confirming = false
+            local actionText = tostring(po.ActionText or "OK")
+            local button
+            button = sec:_make("Button", {
+                Label = actionText,
+                OnClick = function()
+                    if po.Confirmation ~= nil and not confirming then
+                        confirming = true
+                        local desc = po.Confirmation.Description
+                        if type(desc) == "function" then
+                            local ok, t = pcall(desc)
+                            desc = ok and t or ""
+                        end
+                        notify(tostring(desc or "Click again to confirm."))
+                        button:_rename("Confirm: " .. actionText)
+                        task.delay(4, function()
+                            if confirming then
+                                confirming = false
+                                button:_rename(actionText)
+                            end
+                        end)
+                        return
+                    end
+                    if confirming then
+                        confirming = false
+                        button:_rename(actionText)
+                    end
+                    if po.OnAction ~= nil then
+                        local ok, res = pcall(po.OnAction)
+                        if not ok then
+                            log("dialog action failed: " .. tostring(res))
+                        elseif res then
+                            if node.onOpen ~= nil then pcall(node.onOpen) end
+                        end
+                    end
+                end,
+            })
+            if po.ActionEnabled == false then button:SetEnabled(false) end
+            function node:SetActionEnabled(v) button:SetEnabled(v) end
+            node.Close = function() end
+            if node.onOpen ~= nil then pcall(node.onOpen) end
+            return node
+        end
+        local ok, err = pcall(builder, dialog)
+        if not ok then log("dialog '" .. key .. "' failed: " .. tostring(err)) end
+        return dialog
+    end
+
+    --------------------------------------------------------------------------------------------------- menu
+    local BUBBLE = 74
+
+    function SMenu.new(opts)
+        opts = opts or {}
+        local self = setmetatable({}, SMenu)
+        self._opts = opts
+        self._trove = Trove.new("SetsunaMenu")
+        self._controls = {}
+        self._groupConns = {}
+        self._dialogs = {}
+        self._config = opts.Config
+        self._colorAnimation = opts.ColorAnimation
+        self._persistence = opts.Persistence
+        self._state = opts.State
+        self._stateData = opts.StateData
+        self._onUnload = opts.OnUnload
+        self._themePath = opts.ThemePath or { "Theme" }
+        self._notificationPath = opts.NotificationPath or { "Notifications" }
+        self._autoExecuteEnabledPath = opts.AutoExecuteEnabledPath or { "AutoExecuteScript", "Enabled" }
+        self.Title = opts.Title or "LxYHook"
+        self.Icon = opts.Icon
+        self.Directory = opts.Directory
+        self.Visible = false
+        self.Dragging = false
+        self.Keybind = Enum.KeyCode.RightShift
+        self.VisibilityChanged = Signal.new()
+        self.AccentChanged = Signal.new()
+        self._watermark = true
+        self._keybindList = true
+        self._tabs = {}
+        self._acc, self._ov = DEFAULT_ACCENT, {}
+        self._pal = palette(self._acc, self._ov)
+        self._themed, self._themeFns = {}, {}
+
+        local saved
+        pcall(function()
+            saved = tbl17.w().deserializeKey(self._stateData and self._stateData.Keybind)
+        end)
+        if typeof(saved) == "EnumItem" then self.Keybind = saved end
+
+        self:_buildShell()
+        self.AccentChanged:Connect(function(c)
+            if typeof(c) == "Color3" then
+                self:_setAccent(c)
+            elseif type(c) == "table" and typeof(c.Rgb) == "Color3" then
+                self:_setAccent(c.Rgb)
+            end
+        end)
+
+        self._trove:Connect(UserInputService.InputBegan, function(input, processed)
+            if processed or self._destroyed then return end
+            local key = input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode or input.UserInputType
+            if key == self.Keybind then self:SetVisible(not self.Visible) end
+        end)
+        pcall(function() self._cursor = tbl17.ag().new(self._trove) end)
+        self:_hookTheme()
+        return self
+    end
+
+    -- Settings > Theme edits the script's theme tokens; follow the ones that mean something here
+    function SMenu:_hookTheme()
+        local ok, err = pcall(function()
+            local batch = tbl17.A().newBatch(self._trove)
+            local map = {
+                Background = { "panel", "surf" }, ElementBackground = { "inner" }, Outline = { "outline" }, TabButtonSelected = { "sel" },
+                TextColor = { "text" }, Unselected = { "dim" }, ToggleCircleUnselected = { "knob" }, ToggleBackgroundUnselected = { "toggleoff" },
+            }
+            for token, roles in pairs(map) do
+                batch:BindStateful(token, function(c)
+                    if typeof(c) ~= "Color3" then return end
+                    for _, role in ipairs(roles) do self._ov[role] = c end
+                    self:_applyPalette()
+                end)
+            end
+        end)
+        if not ok then log("theme hook failed: " .. tostring(err)) end
+    end
+
+    function SMenu:_buildShell()
+        local pal = self._pal
+        local gui = mk("ScreenGui", { Name = "Setsuna Interface", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 100000,
+            ZIndexBehavior = Enum.ZIndexBehavior.Sibling, Enabled = false })
+        local placed = pcall(function() gui.Parent = gethui() end)
+        if not placed or gui.Parent == nil then gui.Parent = game:GetService("CoreGui") end
+        self._gui = gui
+
+        -- Modal frees the mouse while the menu is open (first person locks it to the centre)
+        local dim = mk("TextButton", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, BorderSizePixel = 0, Modal = false }, gui)
+        self._dim = dim
+        local stage = mk("Frame", { BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 1 }, gui)
+        self._stage = stage
+        self._uiscale = mk("UIScale", {}, stage)
+
+        local ring = mk("Frame", { AnchorPoint = Vector2.new(.5, .5), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 2 }, stage)
+        circle(ring)
+        local rst = mk("UIStroke", { Thickness = 1.2, Transparency = .6 }, ring)
+        self:_paint(rst, "Color", "acc")
+        self._ring = ring
+
+        local logo = mk("ImageLabel", { AnchorPoint = Vector2.new(.5, .5), Size = UDim2.fromOffset(96, 96), BackgroundTransparency = 1, Image = tostring(K.LithiumLogo or ""), ZIndex = 3 }, stage)
+        self._logo = logo
+
+        self._bubbles = mk("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 4 }, stage)
+
+        -- the list of pages of the open category
+        local lp = mk("Frame", { BorderSizePixel = 0, ZIndex = 10, ClipsDescendants = true, Visible = false, Active = true }, stage)
+        self:_paint(lp, "BackgroundColor3", "panel")
+        self._lpCorner = corner(lp, 14)
+        local lst = mk("UIStroke", { Thickness = 1.5, Transparency = .3 }, lp)
+        self:_paint(lst, "Color", "outline")
+        self._listPanel = lp
+        local lc = mk("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false }, lp)
+        self._listContent = lc
+        self._listHead = self:_header(lc)
+        self._listBody = mk("Frame", { Position = UDim2.fromOffset(0, 60), Size = UDim2.new(1, 0, 1, -60), BackgroundTransparency = 1, ClipsDescendants = true }, lc)
+
+        -- the settings of the open page
+        local sp = mk("Frame", { BorderSizePixel = 0, ZIndex = 10, ClipsDescendants = true, Visible = false, Active = true }, stage)
+        self:_paint(sp, "BackgroundColor3", "panel")
+        self._spCorner = corner(sp, 14)
+        local sst = mk("UIStroke", { Thickness = 1.5, Transparency = .3 }, sp)
+        self:_paint(sst, "Color", "outline")
+        self._setPanel = sp
+        local sc = mk("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false }, sp)
+        self._setContent = sc
+        self._setHead = self:_header(sc)
+        self._setBody = mk("Frame", { Position = UDim2.fromOffset(0, 60), Size = UDim2.new(1, 0, 1, -60), BackgroundTransparency = 1, ClipsDescendants = true }, sc)
+
+        dim.Activated:Connect(function()
+            self:_closePopup()
+            if self._page ~= nil then self:_closePage() elseif self._cat ~= nil then self:_closeCat() end
+        end)
+        gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() self:_relayout() end)
+        self:_relayout()
+    end
+
+    -- a panel header: round button (back / icon) + title + separator
+    function SMenu:_header(parent)
+        local btn = mk("TextButton", { Position = UDim2.fromOffset(12, 11), Size = UDim2.fromOffset(36, 36), BorderSizePixel = 0, Text = "", AutoButtonColor = false }, parent)
+        circle(btn)
+        self:_paint(btn, "BackgroundColor3", "acc")
+        local icon = mk("ImageLabel", { AnchorPoint = Vector2.new(.5, .5), Position = UDim2.fromScale(.5, .5), Size = UDim2.fromOffset(20, 20), BackgroundTransparency = 1, ImageColor3 = TEXT }, btn)
+        local letter = mk("TextLabel", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", TextSize = 16, Font = Enum.Font.GothamBold, TextColor3 = TEXT }, btn)
+        local title = text(self, parent, "", 17, "text", true)
+        title.Position = UDim2.fromOffset(60, 0)
+        title.Size = UDim2.new(1, -72, 0, 58)
+        title.TextTruncate = Enum.TextTruncate.AtEnd
+        local line = mk("Frame", { Position = UDim2.fromOffset(12, 58), Size = UDim2.new(1, -24, 0, 1), BorderSizePixel = 0, BackgroundTransparency = .55 }, parent)
+        self:_paint(line, "BackgroundColor3", "acc")
+        return { btn = btn, icon = icon, letter = letter, title = title }
+    end
+
+    local function setHeader(head, name, icon)
+        head.title.Text = name
+        local img = imageOf(icon)
+        head.icon.Image = img
+        head.icon.Visible = img ~= ""
+        head.letter.Text = img == "" and string.upper(string.sub(name, 1, 1)) or ""
+    end
+
+    function SMenu:_relayout()
+        local gui = self._gui
+        local vw, vh = gui.AbsoluteSize.X, gui.AbsoluteSize.Y
+        if vw <= 0 or vh <= 0 then
+            local cam = workspace.CurrentCamera
+            if cam == nil then return end
+            vw, vh = cam.ViewportSize.X, cam.ViewportSize.Y
+        end
+        if vw <= 0 or vh <= 0 then return end
+        local k = clamp(math.min(vw / 1280, vh / 720), .65, 1.6)
+        self._k = k
+        self._uiscale.Scale = k
+        local sw, sh = vw / k, vh / k
+        self._stage.Size = UDim2.fromOffset(sw, sh)
+        self._g = {
+            sw = sw, sh = sh, cx = sw / 2, cy = sh / 2,
+            R = clamp(math.min(sw, sh) * .21, 112, 150),
+            panelW = clamp(sw * .21, 240, 290), setW = clamp(sw * .27, 290, 360),
+            listH = math.min(clamp(sh * .64, 300, 460), sh - 30), setH = math.min(clamp(sh * .80, 340, 600), sh - 30),
+        }
+        local g = self._g
+        self._ring.Size = UDim2.fromOffset(g.R * 2, g.R * 2)
+        self._ring.Position = UDim2.fromOffset(g.cx, g.cy)
+        self._logo.Position = UDim2.fromOffset(g.cx, g.cy)
+        self:_layoutRing(false)
+        if self._cat ~= nil then self:_layoutPanels(false) end
+        self:_closePopup()
+    end
+
+    function SMenu:_layoutRing(animate)
+        local g = self._g
+        if g == nil then return end
+        local n = #self._tabs
+        for i, tab in ipairs(self._tabs) do
+            local ang = math.rad(-90 + (i - 1) * (360 / n))
+            tab._bx, tab._by = g.cx + math.cos(ang) * g.R, g.cy + math.sin(ang) * g.R
+            if self._cat == nil then
+                local pos = UDim2.fromOffset(tab._bx, tab._by)
+                if animate then tween(tab._bubble, .4, { Position = pos }) else tab._bubble.Position = pos end
+            end
+        end
+    end
+
+    function SMenu:_rects()
+        local g = self._g
+        local list = { w = g.panelW, h = g.listH, y = (g.sh - g.listH) / 2 }
+        local set
+        if self._page ~= nil then
+            local pairW = g.panelW + 12 + g.setW
+            list.x = (g.sw - pairW) / 2
+            set = { x = list.x + g.panelW + 12, y = (g.sh - g.setH) / 2, w = g.setW, h = g.setH }
+        else
+            list.x = (g.sw - g.panelW) / 2
+        end
+        return list, set
+    end
+
+    local function rectProps(r)
+        return { Position = UDim2.fromOffset(r.x, r.y), Size = UDim2.fromOffset(r.w, r.h) }
+    end
+
+    function SMenu:_layoutPanels(animate)
+        local list, set = self:_rects()
+        if animate then
+            tween(self._listPanel, .3, rectProps(list))
+        else
+            self._listPanel.Position = UDim2.fromOffset(list.x, list.y)
+            self._listPanel.Size = UDim2.fromOffset(list.w, list.h)
+        end
+        if set ~= nil then
+            self._setPanel.Position = UDim2.fromOffset(set.x, set.y)
+            self._setPanel.Size = UDim2.fromOffset(set.w, set.h)
+        end
+    end
+
+    function SMenu:_showRing(animate, fromCenter)
+        local g = self._g
+        self._ring.Visible = true
+        self._logo.Visible = true
+        if animate then
+            self._ring.Size = UDim2.fromOffset(0, 0)
+            tween(self._ring, .45, { Size = UDim2.fromOffset(g.R * 2, g.R * 2) }, Enum.EasingStyle.Back)
+            self._logo.Size = UDim2.fromOffset(0, 0)
+            tween(self._logo, .4, { Size = UDim2.fromOffset(96, 96) }, Enum.EasingStyle.Back)
+        else
+            self._ring.Size = UDim2.fromOffset(g.R * 2, g.R * 2)
+            self._logo.Size = UDim2.fromOffset(96, 96)
+        end
+        for i, tab in ipairs(self._tabs) do
+            local b = tab._bubble
+            b.Visible = true
+            if fromCenter then
+                b.Position = UDim2.fromOffset(g.cx, g.cy)
+                b.Size = UDim2.fromOffset(0, 0)
+                task.delay((i - 1) * .03, function()
+                    if self._cat == nil then
+                        tween(b, .45, { Position = UDim2.fromOffset(tab._bx, tab._by), Size = UDim2.fromOffset(BUBBLE, BUBBLE) }, Enum.EasingStyle.Back)
+                    end
+                end)
+            else
+                tween(b, .3, { Position = UDim2.fromOffset(tab._bx, tab._by), Size = UDim2.fromOffset(BUBBLE, BUBBLE) })
+            end
+        end
+    end
+
+    function SMenu:_hideRing()
+        self._ring.Visible = false
+        self._logo.Visible = false
+        local g = self._g
+        for _, tab in ipairs(self._tabs) do
+            local b = tab._bubble
+            tween(b, .25, { Position = UDim2.fromOffset(g.cx, g.cy), Size = UDim2.fromOffset(0, 0) })
+            task.delay(.26, function() if self._cat ~= nil then b.Visible = false end end)
+        end
+    end
+
+    function SMenu:_openCat(tab)
+        if self._cat ~= nil or self._destroyed then return end
+        self:_closePopup()
+        self._cat, self._page = tab, nil
+        local lp = self._listPanel
+        for _, t in ipairs(self._tabs) do t._list.Visible = t == tab end
+        setHeader(self._listHead, tab.Label, tab.Icon)
+        self._listContent.Visible = false
+        lp.Visible = true
+        lp.Position = UDim2.fromOffset(tab._bx - BUBBLE / 2, tab._by - BUBBLE / 2)
+        lp.Size = UDim2.fromOffset(BUBBLE, BUBBLE)
+        self._lpCorner.CornerRadius = UDim.new(0, BUBBLE / 2)
+        local list = self:_rects()
+        tween(lp, .32, rectProps(list))
+        tween(self._lpCorner, .32, { CornerRadius = UDim.new(0, 14) })
+        task.delay(.16, function()
+            if self._cat == tab then self._listContent.Visible = true end
+        end)
+        self:_hideRing()
+    end
+
+    function SMenu:_closeCat()
+        local tab = self._cat
+        if tab == nil then return end
+        self:_closePopup()
+        if self._page ~= nil then self:_closePage(true) end
+        self._cat = nil
+        self._listContent.Visible = false
+        local lp = self._listPanel
+        tween(lp, .28, { Position = UDim2.fromOffset(tab._bx - BUBBLE / 2, tab._by - BUBBLE / 2), Size = UDim2.fromOffset(BUBBLE, BUBBLE) })
+        tween(self._lpCorner, .28, { CornerRadius = UDim.new(0, BUBBLE / 2) })
+        task.delay(.28, function()
+            if self._cat == nil then lp.Visible = false end
+        end)
+        self:_showRing(false, false)
+    end
+
+    function SMenu:_openPage(page)
+        if self._cat ~= page._tab or self._destroyed then return end
+        self:_closePopup()
+        local first = self._page == nil
+        local old = self._page
+        self._page = page
+        if old ~= nil and old._scroll ~= nil then old._scroll.Visible = false end
+        for _, p in ipairs(page._tab._pages) do
+            if p._row ~= nil then p._row.sel.Visible = p == page end
+        end
+        setHeader(self._setHead, page.Label, page.Icon)
+        local sp = self._setPanel
+        local list, set = self:_rects()
+        if first then
+            self._setContent.Visible = false
+            sp.Visible = true
+            sp.Position = UDim2.fromOffset(set.x - 40, set.y + 20)
+            sp.Size = UDim2.fromOffset(set.w * .8, set.h * .9)
+            self._spCorner.CornerRadius = UDim.new(0, 30)
+            tween(sp, .3, rectProps(set))
+            tween(self._spCorner, .3, { CornerRadius = UDim.new(0, 14) })
+            tween(self._listPanel, .3, rectProps(list))
+            task.delay(.14, function()
+                if self._page ~= nil then self._setContent.Visible = true end
+            end)
+        end
+        page:_realize()
+        -- building a page can yield; if another page was opened meanwhile, this one stays hidden
+        if self._page ~= page then return end
+        for _, tab in ipairs(self._tabs) do
+            for _, p in ipairs(tab._pages) do
+                if p ~= page and p._scroll ~= nil then p._scroll.Visible = false end
+            end
+        end
+        page._scroll.Visible = true
+        page._scroll.CanvasPosition = Vector2.zero
+    end
+
+    function SMenu:_closePage(silent)
+        local page = self._page
+        if page == nil then return end
+        self:_closePopup()
+        self._page = nil
+        if page._scroll ~= nil then page._scroll.Visible = false end
+        for _, p in ipairs(page._tab._pages) do
+            if p._row ~= nil then p._row.sel.Visible = false end
+        end
+        self._setContent.Visible = false
+        self._setPanel.Visible = false
+        if not silent then self:_layoutPanels(true) end
+    end
+
+    function SMenu:_makePageRow(tab, page)
+        local m = self
+        local n = #tab._pages
+        local btn = mk("TextButton", { Size = UDim2.new(1, -8, 0, 44), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, LayoutOrder = n, BorderSizePixel = 0 }, tab._list)
+        corner(btn, 8)
+        local hover = mk("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 1 }, btn)
+        corner(hover, 8)
+        m:_paint(hover, "BackgroundColor3", "hover")
+        local sel = mk("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = .75, BorderSizePixel = 0, Visible = false, ZIndex = 1 }, btn)
+        corner(sel, 8)
+        m:_paint(sel, "BackgroundColor3", "sel")
+        local lbl = text(m, btn, page.Label, 14, "dim", false)
+        lbl.Position = UDim2.fromOffset(14, 0)
+        lbl.Size = UDim2.new(1, -50, 1, 0)
+        lbl.ZIndex = 2
+        lbl.TextTruncate = Enum.TextTruncate.AtEnd
+        local dot = mk("Frame", { AnchorPoint = Vector2.new(1, .5), Position = UDim2.new(1, -16, .5, 0), Size = UDim2.fromOffset(7, 7), BorderSizePixel = 0, ZIndex = 2 }, btn)
+        circle(dot)
+        m:_paint(dot, "BackgroundColor3", "faint")
+        btn.MouseEnter:Connect(function() tween(hover, .12, { BackgroundTransparency = .45 }) tween(lbl, .12, { TextColor3 = m._pal.text }) end)
+        btn.MouseLeave:Connect(function() tween(hover, .12, { BackgroundTransparency = 1 }) tween(lbl, .12, { TextColor3 = m._pal.dim }) end)
+        btn.Activated:Connect(function()
+            if self._page == page then
+                self:_closePage()
+            else
+                task.spawn(function() self:_openPage(page) end)
+            end
+        end)
+        page._row = { btn = btn, sel = sel }
+    end
+
+    function SMenu:AddTab(o)
+        o = o or {}
+        local tab = setmetatable({ _menu = self, Label = tostring(o.Label or "Tab"), Icon = o.Icon or false, _pages = {} }, STab)
+        local m = self
+        local b = mk("TextButton", { AnchorPoint = Vector2.new(.5, .5), Size = UDim2.fromOffset(BUBBLE, BUBBLE), BorderSizePixel = 0, Text = "", AutoButtonColor = false, ZIndex = 5 }, self._bubbles)
+        circle(b)
+        self:_paint(b, "BackgroundColor3", "surf")
+        local st = mk("UIStroke", { Thickness = 1.6, Transparency = .25 }, b)
+        self:_paint(st, "Color", "acc")
+        local img = imageOf(tab.Icon)
+        local icon = mk("ImageLabel", { AnchorPoint = Vector2.new(.5, .5), Position = UDim2.new(.5, 0, 0, 27), Size = UDim2.fromOffset(26, 26), BackgroundTransparency = 1, Image = img, Visible = img ~= "", ZIndex = 6 }, b)
+        self:_paint(icon, "ImageColor3", "acc")
+        local name = text(self, b, tab.Label, 11, "text", true)
+        name.AnchorPoint = Vector2.new(.5, .5)
+        name.Position = UDim2.new(.5, 0, 0, img ~= "" and 54 or 37)
+        name.Size = UDim2.new(1, -8, 0, 16)
+        name.TextXAlignment = Enum.TextXAlignment.Center
+        name.TextTruncate = Enum.TextTruncate.AtEnd
+        name.ZIndex = 6
+        b.MouseEnter:Connect(function()
+            if self._cat == nil then tween(b, .15, { Size = UDim2.fromOffset(BUBBLE + 8, BUBBLE + 8) }) end
+        end)
+        b.MouseLeave:Connect(function()
+            if self._cat == nil then tween(b, .15, { Size = UDim2.fromOffset(BUBBLE, BUBBLE) }) end
+        end)
+        b.Activated:Connect(function() self:_openCat(tab) end)
+        tab._bubble = b
+
+        local list = mk("ScrollingFrame", {
+            Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3,
+            CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y, Visible = false,
+        }, self._listBody)
+        self:_paint(list, "ScrollBarImageColor3", "acc")
+        mk("UIListLayout", { Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Center }, list)
+        mk("UIPadding", { PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 10), PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4) }, list)
+        tab._list = list
+
+        self._tabs[#self._tabs + 1] = tab
+        self:_layoutRing(false)
+        return tab
+    end
+
+    function SMenu:Dialog(o, builder)
+        return sBuildDialog(self, o or {}, builder)
+    end
+
+    for _, name in ipairs({ "_setVisibleState", "View", "GetConfig", "GetColorAnimation", "GetPersistence", "GetStateData", "GetOverlayLayer",
+        "SaveState", "Connect", "Add", "Notify", "AddSettingsTab", "SetWatermarkUsername", "SetWatermarkEnabled", "IsWatermarkEnabled",
+        "SetKeybindListEnabled", "IsKeybindListEnabled", "SetAccent", "Unload" }) do
+        SMenu[name] = Menu[name]
+    end
+
+    function SMenu:SetVisible(visible, instant)
+        visible = visible and true or false
+        local was = self.Visible
+        self:_closePopup()
+        if visible then
+            self._gui.Enabled = true
+            self._dim.Modal = true
+            if self._cat ~= nil then
+                self._cat, self._page = nil, nil
+                self._listPanel.Visible, self._setPanel.Visible = false, false
+                self._listContent.Visible, self._setContent.Visible = false, false
+                for _, t in ipairs(self._tabs) do
+                    if t._list then t._list.Visible = false end
+                end
+            end
+            self:_relayout()
+            if not was then
+                self._dim.BackgroundTransparency = 1
+                tween(self._dim, .3, { BackgroundTransparency = .45 })
+                self:_showRing(not instant, not instant)
+            else
+                self:_showRing(false, false)
+            end
+        else
+            -- a Modal button keeps the mouse free for as long as it is Modal, even in a disabled gui
+            self._dim.Modal = false
+            self._gui.Enabled = false
+        end
+        self:_setVisibleState(visible)
+        return true
+    end
+
+    function SMenu:Destroy()
+        pcall(function() self._dim.Modal = false end)
+        if self._destroyed then return end
+        self._destroyed = true
+        self:SaveState()
+        if self._cursor ~= nil then pcall(self._cursor.Set, self._cursor, false) end
+        local config = self._config
+        if config ~= nil and config.SetActive ~= nil then pcall(config.SetActive, config, false) end
+        for _, c in ipairs(self._controls) do c._dead = true end
+        pcall(function()
+            for _, c in ipairs(self._groupConns) do c:Disconnect() end
+        end)
+        pcall(function() self._trove:Destroy() end)
+        pcall(function() self._gui:Destroy() end)
     end
 end
 
