@@ -8087,6 +8087,11 @@ function Starlight:CreateWindow(WindowSettings)
 									end
 									local connection
 									connection = UserInputService.InputBegan:Connect(function(i)
+										-- (LxYHook) the element is gone (Destroy sets NestedElement to nil) but this global listener lived on and erred on every click
+										if NestedElement == nil or NestedElement.Instances == nil or NestedElement.Instances[2] == nil then
+											connection:Disconnect()
+											return
+										end
 										if i.UserInputType ~= Enum.UserInputType.MouseButton1 then
 											return
 										end
@@ -9071,6 +9076,11 @@ function Starlight:CreateWindow(WindowSettings)
 									end
 									local connection
 									connection = UserInputService.InputBegan:Connect(function(i)
+										-- (LxYHook) the element is gone (Destroy sets NestedElement to nil) but this global listener lived on and erred on every click
+										if NestedElement == nil or NestedElement.Instances == nil or NestedElement.Instances[2] == nil then
+											connection:Disconnect()
+											return
+										end
 										if i.UserInputType ~= Enum.UserInputType.MouseButton1 then
 											return
 										end
@@ -30072,7 +30082,7 @@ end
 local function fn40(arg, arg2, arg3)
 arg:AddDropdown({
 Label = "UI Style",
-Options = { "Starlight", "Setsuna", "Classic" },
+Options = { "Starlight", "Setsuna", "Setsuna Drop", "Classic" },
 Default = K.UIMode(),
 Tooltip = "Starlight (default) is built into the script; if it fails, the classic menu is shown for that session. Classic is the script's own menu.",
 OnChanged = function(mode)
@@ -73225,6 +73235,7 @@ local function build(mode)
 local MenuClass=W.Menu
 if mode=="Starlight" and K.StarUI~=nil then MenuClass=K.StarUI.Menu end
 if mode=="Setsuna" and K.SetsunaUI~=nil then MenuClass=K.SetsunaUI.Menu end
+if mode=="Setsuna Drop" and K.SetsunaUI~=nil then MenuClass=K.SetsunaUI.Drop end
 local t=MenuClass.new({Icon=K.LithiumLogo,Title=string.format("LxYHook | Rivals | %s",tostring("Premium Build")),Directory=K.AccountDir,Config=l.ReactiveStoreAdapter,ColorAnimation=l.ColorAnimation,Persistence=I,State=l.GeneralState,StateData=l.GeneralStateData,OnUnload=function()e:Destroy();end})
 current=t
 e:Add(t)
@@ -84520,7 +84531,7 @@ end
 --==========================================================================
 do
     local MODE_FILE = "kiciarebuild/ui_style.txt"
-    local function valid(m) return m == "Classic" or m == "Starlight" or m == "Setsuna" end
+    local function valid(m) return m == "Classic" or m == "Starlight" or m == "Setsuna" or m == "Setsuna Drop" end
     function K.UIMode()
         local m = getgenv().LxYUI
         if valid(m) then return m end
@@ -86622,6 +86633,18 @@ end
     end
     SetsunaUI.Menu = SMenu
 
+    -- the Drop form shares the Pop form's constructor, theme, popups, dialogs and settings tab
+    local SDrop = {}
+    SDrop.__index = function(t, k)
+        local v = rawget(SDrop, k)
+        if v ~= nil then return v end
+        v = rawget(SMenu, k)
+        if v ~= nil then return v end
+        if isMethodName(k) then return function() return nil end end
+        return nil
+    end
+    SetsunaUI.Drop = SDrop
+
     -- colours follow the accent: static roles are painted through here, state-dependent ones re-run their function
     function SMenu:_paint(inst, prop, role)
         inst[prop] = self._pal[role]
@@ -87000,9 +87023,9 @@ end
             local m = sec._menu
             local row = newRow(sec, 44)
             self._row, self._el = row, row
-            rowLabel(self, row, self._label, 160)
+            rowLabel(self, row, self._label, m._ctlW.tb + 10)
             local box = mk("TextBox", {
-                AnchorPoint = Vector2.new(1, .5), Position = UDim2.new(1, -10, .5, 0), Size = UDim2.fromOffset(150, 28), BorderSizePixel = 0,
+                AnchorPoint = Vector2.new(1, .5), Position = UDim2.new(1, -10, .5, 0), Size = UDim2.fromOffset(m._ctlW.tb, 28), BorderSizePixel = 0,
                 Text = self.Value, PlaceholderText = tostring(o.Placeholder or ""), ClearTextOnFocus = false, TextSize = 13,
                 Font = Enum.Font.GothamMedium, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 3,
             }, row)
@@ -87093,9 +87116,9 @@ end
             local m = sec._menu
             local row = newRow(sec, 40)
             self._row, self._el = row, row
-            rowLabel(self, row, self._label, 170)
+            rowLabel(self, row, self._label, m._ctlW.dd + 10)
             local btn = mk("TextButton", {
-                AnchorPoint = Vector2.new(1, .5), Position = UDim2.new(1, -10, .5, 0), Size = UDim2.fromOffset(160, 28), BorderSizePixel = 0,
+                AnchorPoint = Vector2.new(1, .5), Position = UDim2.new(1, -10, .5, 0), Size = UDim2.fromOffset(m._ctlW.dd, 28), BorderSizePixel = 0,
                 Text = "", AutoButtonColor = false, ZIndex = 3,
             }, row)
             corner(btn, 6)
@@ -87558,15 +87581,19 @@ end
 
     function SPage:_ensureScroll()
         if self._scroll ~= nil then return self._scroll end
-        local m = self._menu
+        self._scroll = self._menu:_makeHost(self)
+        return self._scroll
+    end
+
+    -- Pop: the page's settings are a scrolling list in the settings panel
+    function SMenu:_makeHost(page)
         local sc = mk("ScrollingFrame", {
             Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3,
             CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y, Visible = false,
-        }, m._setBody)
-        m:_paint(sc, "ScrollBarImageColor3", "acc")
+        }, self._setBody)
+        self:_paint(sc, "ScrollBarImageColor3", "acc")
         mk("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Center }, sc)
         mk("UIPadding", { PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 12), PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4) }, sc)
-        self._scroll = sc
         return sc
     end
 
@@ -87708,9 +87735,11 @@ end
     --------------------------------------------------------------------------------------------------- menu
     local BUBBLE = 74
 
-    function SMenu.new(opts)
+    local function newMenu(class, opts)
         opts = opts or {}
-        local self = setmetatable({}, SMenu)
+        local self = setmetatable({}, class)
+        -- widths of the widgets on the right of a row (the Drop panels are narrower)
+        self._ctlW = class == SDrop and { dd = 112, tb = 104 } or { dd = 160, tb = 150 }
         self._opts = opts
         self._trove = Trove.new("SetsunaMenu")
         self._controls = {}
@@ -87764,6 +87793,8 @@ end
         self:_hookTheme()
         return self
     end
+    function SMenu.new(opts) return newMenu(SMenu, opts) end
+    function SDrop.new(opts) return newMenu(SDrop, opts) end
 
     -- Settings > Theme edits the script's theme tokens; follow the ones that mean something here
     function SMenu:_hookTheme()
@@ -88200,6 +88231,270 @@ end
         end)
         pcall(function() self._trove:Destroy() end)
         pcall(function() self._gui:Destroy() end)
+    end
+
+    --------------------------------------------------------------------------------------------------- Setsuna (Drop)
+    -- Drop mode of Setsuna's ClickGUI: one draggable, collapsible panel per category; a page is a row of the panel
+    -- and opens its settings right under itself. Same Menu surface and the same widgets as the Pop form.
+    local DROP_W, DROP_HEAD, DROP_MAX = 262, 38, 430
+
+    local function dropClamp(self, tab)
+        local g, p = self._g, tab._panel
+        if g == nil then return end
+        local x, y = p.Position.X.Offset, p.Position.Y.Offset
+        p.Position = UDim2.fromOffset(clamp(x, 0, math.max(0, g.sw - DROP_W)), clamp(y, 0, math.max(0, g.sh - DROP_HEAD)))
+    end
+
+    function SDrop:_buildShell()
+        local gui = mk("ScreenGui", { Name = "Setsuna Interface", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 100000,
+            ZIndexBehavior = Enum.ZIndexBehavior.Sibling, Enabled = false })
+        local placed = pcall(function() gui.Parent = gethui() end)
+        if not placed or gui.Parent == nil then gui.Parent = game:GetService("CoreGui") end
+        self._gui = gui
+        local dim = mk("TextButton", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, BorderSizePixel = 0, Modal = false }, gui)
+        self._dim = dim
+        local stage = mk("Frame", { BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 1 }, gui)
+        self._stage = stage
+        self._uiscale = mk("UIScale", {}, stage)
+        self._z = 10
+        dim.Activated:Connect(function() self:_closePopup() end)
+        gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() self:_relayout() end)
+        self:_relayout()
+    end
+
+    function SDrop:_relayout()
+        local gui = self._gui
+        local vw, vh = gui.AbsoluteSize.X, gui.AbsoluteSize.Y
+        if vw <= 0 or vh <= 0 then
+            local cam = workspace.CurrentCamera
+            if cam == nil then return end
+            vw, vh = cam.ViewportSize.X, cam.ViewportSize.Y
+        end
+        if vw <= 0 or vh <= 0 then return end
+        local k = clamp(math.min(vw / 1280, vh / 720), .65, 1.6)
+        self._k = k
+        self._uiscale.Scale = k
+        local sw, sh = vw / k, vh / k
+        self._stage.Size = UDim2.fromOffset(sw, sh)
+        self._g = { sw = sw, sh = sh, cx = sw / 2, cy = sh / 2, setW = DROP_W, panelW = DROP_W }
+        self:_arrange()
+        for _, tab in ipairs(self._tabs) do
+            dropClamp(self, tab)
+            self:_fitPanel(tab, false)
+        end
+        self:_closePopup()
+    end
+
+    -- panels the user has not moved sit in rows of headers along the top; the others stay where they were put
+    function SDrop:_arrange()
+        local g = self._g
+        if g == nil then return end
+        local perRow = math.max(1, math.floor((g.sw - 24) / (DROP_W + 10)))
+        for i, tab in ipairs(self._tabs) do
+            if not tab._moved then
+                local col, row = (i - 1) % perRow, math.floor((i - 1) / perRow)
+                tab._panel.Position = UDim2.fromOffset(14 + col * (DROP_W + 10), 52 + row * (DROP_HEAD + 10))
+            end
+        end
+    end
+
+    function SDrop:_front(tab)
+        self._z += 1
+        if self._z > 48 then
+            self._z = 10
+            for _, t in ipairs(self._tabs) do t._panel.ZIndex = 10 end
+            self._z = 11
+        end
+        tab._panel.ZIndex = self._z
+    end
+
+    -- height of a panel: its header, plus the list while open (at most DROP_MAX)
+    function SDrop:_fitPanel(tab, animate)
+        local p = tab._panel
+        local body = tab._body
+        local content = tab._layout.AbsoluteContentSize.Y
+        local target = DROP_HEAD
+        if tab._expanded then target = DROP_HEAD + math.min(content + 14, DROP_MAX) end
+        body.Visible = tab._expanded
+        local size = UDim2.fromOffset(DROP_W, target)
+        if animate then
+            tween(p, .22, { Size = size })
+        else
+            p.Size = size
+        end
+    end
+
+    function SDrop:_toggleTab(tab, open)
+        if open == nil then open = not tab._expanded end
+        tab._expanded = open
+        tab._chev.Text = open and "-" or "+"
+        self:_closePopup()
+        self:_fitPanel(tab, true)
+        self:_front(tab)
+    end
+
+    function SDrop:AddTab(o)
+        o = o or {}
+        local m = self
+        local tab = setmetatable({ _menu = self, Label = tostring(o.Label or "Tab"), Icon = o.Icon or false, _pages = {}, _expanded = false, _moved = false }, STab)
+        local panel = mk("Frame", { Size = UDim2.fromOffset(DROP_W, DROP_HEAD), BorderSizePixel = 0, ClipsDescendants = true, Active = true, ZIndex = 10 }, self._stage)
+        corner(panel, 10)
+        self:_paint(panel, "BackgroundColor3", "panel")
+        local st = mk("UIStroke", { Thickness = 1.4, Transparency = .3 }, panel)
+        self:_paint(st, "Color", "outline")
+        tab._panel = panel
+
+        local head = mk("TextButton", { Size = UDim2.new(1, 0, 0, DROP_HEAD), BorderSizePixel = 0, Text = "", AutoButtonColor = false, ZIndex = 3 }, panel)
+        self:_paint(head, "BackgroundColor3", "inner")
+        local img = imageOf(tab.Icon)
+        local icon = mk("ImageLabel", { Position = UDim2.fromOffset(12, 9), Size = UDim2.fromOffset(20, 20), BackgroundTransparency = 1, Image = img, Visible = img ~= "", ZIndex = 4 }, head)
+        self:_paint(icon, "ImageColor3", "acc")
+        local title = text(self, head, tab.Label, 15, "text", true)
+        title.Position = UDim2.fromOffset(img ~= "" and 40 or 14, 0)
+        title.Size = UDim2.new(1, -78, 1, 0)
+        title.ZIndex = 4
+        title.TextTruncate = Enum.TextTruncate.AtEnd
+        local chev = text(self, head, "+", 18, "value", true)
+        chev.AnchorPoint = Vector2.new(1, .5)
+        chev.Position = UDim2.new(1, -14, .5, 0)
+        chev.Size = UDim2.fromOffset(18, 22)
+        chev.TextXAlignment = Enum.TextXAlignment.Center
+        chev.ZIndex = 4
+        tab._chev = chev
+        local line = mk("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, 0), Size = UDim2.new(1, 0, 0, 1), BorderSizePixel = 0, BackgroundTransparency = .5, ZIndex = 4 }, head)
+        self:_paint(line, "BackgroundColor3", "acc")
+
+        local body = mk("ScrollingFrame", {
+            Position = UDim2.fromOffset(0, DROP_HEAD), Size = UDim2.new(1, 0, 1, -DROP_HEAD), BackgroundTransparency = 1, BorderSizePixel = 0,
+            ScrollBarThickness = 3, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y,
+            Visible = false, ZIndex = 2,
+        }, panel)
+        self:_paint(body, "ScrollBarImageColor3", "acc")
+        local layout = mk("UIListLayout", { Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Center }, body)
+        mk("UIPadding", { PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4) }, body)
+        tab._body, tab._layout = body, layout
+        layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            if tab._expanded then self:_fitPanel(tab, false) end
+        end)
+
+        -- drag by the header; a press that does not move is a click (open / close)
+        head.InputBegan:Connect(function(input)
+            if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+            self:_front(tab)
+            self:_closePopup()
+            local sx, sy = pointer(input)
+            local startPos = panel.Position
+            local moved = false
+            local moveConn, endConn
+            moveConn = UIS.InputChanged:Connect(function(i)
+                if i.UserInputType ~= Enum.UserInputType.MouseMovement and i.UserInputType ~= Enum.UserInputType.Touch then return end
+                local x, y = pointer(i)
+                local dx, dy = x - sx, y - sy
+                if not moved and math.abs(dx) + math.abs(dy) < 5 then return end
+                moved = true
+                tab._moved = true
+                local k = self._k
+                panel.Position = UDim2.fromOffset(startPos.X.Offset + dx / k, startPos.Y.Offset + dy / k)
+                dropClamp(self, tab)
+            end)
+            endConn = UIS.InputEnded:Connect(function(i)
+                if i == input or i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                    moveConn:Disconnect()
+                    endConn:Disconnect()
+                    if not moved then self:_toggleTab(tab) end
+                end
+            end)
+        end)
+
+        self._tabs[#self._tabs + 1] = tab
+        self:_arrange()
+        return tab
+    end
+
+    -- the settings of a page are a block of rows right under its row
+    function SDrop:_makeHost(page)
+        local tab = page._tab
+        local host = mk("Frame", { Size = UDim2.new(1, 0, 0, 0), BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = page._idx * 2 + 1, Visible = page._expanded == true }, tab._body)
+        local layout = mk("UIListLayout", { Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Center }, host)
+        mk("UIPadding", { PaddingTop = UDim.new(0, 3), PaddingBottom = UDim.new(0, 8) }, host)
+        local function size() host.Size = UDim2.new(1, 0, 0, layout.AbsoluteContentSize.Y + 11) end
+        layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(size)
+        size()
+        return host
+    end
+
+    function SDrop:_makePageRow(tab, page)
+        local m = self
+        page._idx = #tab._pages
+        local btn = mk("TextButton", { Size = UDim2.new(1, -8, 0, 36), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, LayoutOrder = page._idx * 2, BorderSizePixel = 0 }, tab._body)
+        corner(btn, 8)
+        local hover = mk("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0 }, btn)
+        corner(hover, 8)
+        m:_paint(hover, "BackgroundColor3", "hover")
+        local sel = mk("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = .75, BorderSizePixel = 0, Visible = false }, btn)
+        corner(sel, 8)
+        m:_paint(sel, "BackgroundColor3", "sel")
+        local lbl = text(m, btn, page.Label, 14, "dim", false)
+        lbl.Position = UDim2.fromOffset(12, 0)
+        lbl.Size = UDim2.new(1, -44, 1, 0)
+        lbl.TextTruncate = Enum.TextTruncate.AtEnd
+        lbl.ZIndex = 2
+        local chev = text(m, btn, "+", 15, "faint", true)
+        chev.AnchorPoint = Vector2.new(1, .5)
+        chev.Position = UDim2.new(1, -12, .5, 0)
+        chev.Size = UDim2.fromOffset(16, 20)
+        chev.TextXAlignment = Enum.TextXAlignment.Center
+        chev.ZIndex = 2
+        btn.MouseEnter:Connect(function() tween(hover, .12, { BackgroundTransparency = .45 }) tween(lbl, .12, { TextColor3 = m._pal.text }) end)
+        btn.MouseLeave:Connect(function() tween(hover, .12, { BackgroundTransparency = 1 }) tween(lbl, .12, { TextColor3 = m._pal.dim }) end)
+        btn.Activated:Connect(function()
+            m:_closePopup()
+            page._expanded = not page._expanded
+            sel.Visible = page._expanded
+            chev.Text = page._expanded and "-" or "+"
+            if page._expanded then
+                task.spawn(function()
+                    page:_realize()
+                    if page._scroll ~= nil then page._scroll.Visible = page._expanded end
+                end)
+            elseif page._scroll ~= nil then
+                page._scroll.Visible = false
+            end
+        end)
+        page._row = { btn = btn, sel = sel }
+    end
+
+    function SDrop:SetVisible(visible, instant)
+        visible = visible and true or false
+        local was = self.Visible
+        self:_closePopup()
+        if visible then
+            self._gui.Enabled = true
+            self._dim.Modal = true
+            self:_relayout()
+            if not was then
+                self._dim.BackgroundTransparency = 1
+                tween(self._dim, .3, { BackgroundTransparency = .55 })
+                if not self._opened and self._tabs[1] ~= nil then
+                    self._opened = true
+                    self:_toggleTab(self._tabs[1], true)
+                end
+                if not instant then
+                    for i, tab in ipairs(self._tabs) do
+                        local target = tab._panel.Position
+                        tab._panel.Position = target - UDim2.fromOffset(0, 46)
+                        task.delay((i - 1) * .04, function()
+                            if self.Visible then tween(tab._panel, .38, { Position = target }, Enum.EasingStyle.Back) end
+                        end)
+                    end
+                end
+            end
+        else
+            self._dim.Modal = false
+            self._gui.Enabled = false
+        end
+        self:_setVisibleState(visible)
+        return true
     end
 end
 
