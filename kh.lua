@@ -17,7 +17,7 @@ function K.RagebotStyle(picked)
     return picked
 end
 -- build marker: shows in the F9 console so you can tell which copy of the script is running
-K.Build = "2026-10-24 (33): Auto FW UE vs hackers, auto loadout retries 3 times, name / display name spoofer rewritten, FW Weapon Check (FW UE only), melee follows the knife rule, hide point stays under the instakill OOB, mouse keybinds, heavy attack cooldown override"
+K.Build = "2026-10-24 (34): auto loadout logs every step, Auto FW UE vs hackers, auto loadout retries 3 times, name / display name spoofer rewritten, FW Weapon Check (FW UE only), melee follows the knife rule, hide point stays under the instakill OOB, mouse keybinds, heavy attack cooldown override"
 warn("[Kicia Rebuild] build " .. K.Build)
 
 local Players = game:GetService("Players")
@@ -31485,8 +31485,17 @@ end
 local AUTO_LOADOUT_ATTEMPTS = 3
 local function fn37(arg, loadout)
 local function attempt(n)
-arg.LoadoutPicker:PickLoadoutAsync(loadout):catch(function(err)
+arg.LoadoutPicker:PickLoadoutAsync(loadout):andThen(function()
+K.Log("autoload", "try " .. n .. " ok: the server added the items")
+end):catch(function(err)
 local okItems, items = pcall(function() return arg.FighterState:GetItems() end)
+-- what the picker saw, written to the session log: item count + names, CanPickWeapons, alive, skin changer on
+local names = {}
+if okItems and type(items) == "table" then
+for _, item in items do table.insert(names, tostring(item.Name)) end
+end
+local okCan, canPick = pcall(v102, arg.FighterState.Inner, "CanPickWeapons")
+K.Log("autoload", string.format("try %d failed: %s | items=%d [%s] canPick=%s alive=%s skins=%s", n, tostring(err), #names, table.concat(names, ","), tostring(okCan and canPick), tostring(arg.FighterState.Character.State.Alive), tostring(K.Skins ~= nil)))
 if okItems and type(items) == "table" and #items >= 4 then
 return
 end
@@ -31568,6 +31577,7 @@ arg3:Connect(v115:GetPropertyChangedSignal({ "AutoVote", "Enabled" }), fn37)
 arg3:Connect(v115:GetPropertyChangedSignal({ "AutoBan", "Enabled" }), fn37)
 
 arg4:ListenPickWeaponsOpen(arg3, arg2.FighterState, function()
+K.Log("autoload", "pick page open, already handled this duel: " .. tostring(flag19))
 if flag19 then
 return
 end
@@ -31644,17 +31654,21 @@ end
 index2._TryAutoLoadout = function(arg, arg2, arg3)
 local autoLoadout = v115.Data.AutoLoadout
 if not autoLoadout.Enabled then
+K.Log("autoload", "off in the config, nothing picked")
 return
 end
 local mapName = arg3:GetMapName()
 local default = autoLoadout.PerMap and mapName ~= nil and autoLoadout.Loadouts[mapName] or autoLoadout.Loadouts.Default
 if default == nil or next(default) == nil then
+K.Log("autoload", "no loadout saved for map " .. tostring(mapName) .. " (PerMap=" .. tostring(autoLoadout.PerMap) .. "), nothing picked")
 return
 end
+K.Log("autoload", "start: map=" .. tostring(mapName) .. " multiple=" .. tostring(autoLoadout.MultipleLoadouts))
 
 if not autoLoadout.MultipleLoadouts then
 local n1 = default["1"]
 if n1 == nil then
+K.Log("autoload", "loadout 1 is empty, nothing picked")
 return
 end
 local flag19 = v86[34]
@@ -31667,6 +31681,7 @@ end
 end
 
 if not flag19 then
+K.Log("autoload", "a weapon of loadout 1 is banned in this duel, nothing picked")
 return
 end
 
@@ -31690,9 +31705,11 @@ end
 end
 
 if tbl18[1] == nil or tbl18[2] == nil or tbl18[3] == nil or tbl18[v86[26]] == nil then
+K.Log("autoload", string.format("slots missing after the ban filter (1=%s 2=%s 3=%s 4=%s), nothing picked", tostring(tbl18[1]), tostring(tbl18[2]), tostring(tbl18[3]), tostring(tbl18[v86[26]])))
 return
 end
 
+K.Log("autoload", string.format("picking %s / %s / %s / %s", tostring(tbl18[1]), tostring(tbl18[2]), tostring(tbl18[3]), tostring(tbl18[v86[26]])))
 fn37(arg2, tbl18)
 end
 
