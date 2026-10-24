@@ -11,10 +11,14 @@ local K = { connections = {}, cleanups = {}, destroyed = false }
 getgenv().KiciaRebuild = K
 -- The Ragebot Style as the code should see it.
 function K.RagebotStyle(picked)
+    -- configs saved before the rename still say SLEEPY
+    if picked == "SLEEPY" then
+        return "SOLIX"
+    end
     return picked
 end
 -- build marker: shows in the F9 console so you can tell which copy of the script is running
-K.Build = "2026-10-24 (36): UE Cosmetic Changer window (Overview), Auto FW UE removed, auto loadout logs every step, auto loadout retries 3 times, name / display name spoofer rewritten"
+K.Build = "2026-10-24 (35): Auto Ragebot Style (KH, FW UE vs hackers), auto loadout logs every step, auto loadout retries 3 times, name / display name spoofer rewritten, FW Weapon Check (FW UE only), melee follows the knife rule, hide point stays under the instakill OOB, mouse keybinds, heavy attack cooldown override"
 warn("[Kicia Rebuild] build " .. K.Build)
 
 local Players = game:GetService("Players")
@@ -20216,7 +20220,7 @@ return bd.c
 end
 end
 do -- be
-local function fn35()local I= tbl17 .i().atomic; tbl17 .aZ();local W,N,P= tbl17 .aU(), tbl17 .aW(), tbl17 .aY();return{Aimbot=W.buildConfig(),SilentAim=N.buildConfig(),Triggerbot=P.buildConfig(),Ragebot={Enabled=false,Keybind={State=false,Kind="Always",Bind=nil,ShowInList=true,Invisible=false},Stability=0.15,ShootFrames=1,Careful={EvadeBetweenShots=true,RetaliateOnly=true,RetaliateWindow=1.5},PrioritizeHackers=false,EvadeWhenHacking=false,StartDelay=false,FWWeaponCheck=false,DetectKnife=true,KnifeMode="Original",TargetHud={Enabled=false,Scale=100,ItemScale=100,PosX=50,PosY=15},UE={VoidSpam=true,NoVoid=false,KnifeCooldown08=false,AttackTime=0.1,HideTime=0.25,ShootAttempts=1,VoidDistance=2147483647,KnifeAttack="Heavy",KnifeLead=0,KnifeStand="Sphere"},Weapons={Priority=I({"Primary","Secondary","Melee"}),Enabled={Primary=true,Secondary=true,Melee=true},OnEmpty="SwapOrReload"},Evasion={Mode="Random",Random={AnchorFromCharacter=false,BaseRadius=100,RadiusRandomFactor=0.5},ProjectileBreaker={DepthForward={Min=0,Max=4},DepthForwardFrequency=5,DepthUp={Min=0,Max=5.5},DepthUpFrequency=5,RepositionInterval=0.3,FallbackAnchorFromCharacter=false,FallbackBaseRadius=100,FallbackRadiusRandomFactor=0.5},Translocate={Offset=-5}},UtilizeHealthLead=false},Flickbot={Enabled=false,Keybind={State=false,Kind="Hold",Bind=nil,ShowInList=true,Invisible=false},Shoot=false,ShotDelay=0,Cooldown=250,FlickDuration=110,Curvature=12,Humanness=30}};end
+local function fn35()local I= tbl17 .i().atomic; tbl17 .aZ();local W,N,P= tbl17 .aU(), tbl17 .aW(), tbl17 .aY();return{Aimbot=W.buildConfig(),SilentAim=N.buildConfig(),Triggerbot=P.buildConfig(),Ragebot={Enabled=false,Keybind={State=false,Kind="Always",Bind=nil,ShowInList=true,Invisible=false},Stability=0.15,ShootFrames=1,Careful={EvadeBetweenShots=true,RetaliateOnly=true,RetaliateWindow=1.5},Solix={Mode="Orbit",VoidSpam=true,VoidAttack=0.15,VoidHide=0.12,VoidCycle="Sequential",OrbitRadius=4,OrbitSpeed=45,OrbitHeight=2,OrbitRandomize=true,OrbitSpiral=false,InWallRange=90,InWallGlue=true,TranslocateOffset=2,AntiAim=true,AAPitch="Down",AAYaw="Spin",PreferredWeapon="Any",FireInterval=0.05,ShootFrames=1,EmptyMode="swap",AutoPrioritize=false,SendNotification=false,Waypoints=false,Stability=0.15,PrioritizeWhenHit=false,SwapAllowReserve=false,VoidWhileInactive=false,VoidWhileInvulnerable=false,VoidWhileReloading=false,VoidRadius=5,VoidSpread=0,VoidRandomness=0,OrbitHeightX=0.25,OrbitAngleX=-89,OrbitAngleY=-180,OrbitAngleZ=90,InWallStick=0.5,InWallHeight=-1,InWallFlip=false,AntiTranslocate=true,Desync=true,DesyncMode="Normal",AAPitchAngle=0,AAYawAngle=0,AAYawJitter="None",AAYawJitterAngle=0,ProjectileBreaker=false,PBDepthUp=2.5,PBDepthForward=2,Indicator=false,IndicatorColor=Color3.new(1,1,1),IndicatorTransparency=0},PrioritizeHackers=false,EvadeWhenHacking=false,StartDelay=false,FWWeaponCheck=false,DetectKnife=true,KnifeMode="Original",TargetHud={Enabled=false,Scale=100,ItemScale=100,PosX=50,PosY=15},UE={VoidSpam=true,NoVoid=false,KnifeCooldown08=false,AttackTime=0.1,HideTime=0.25,ShootAttempts=1,VoidDistance=2147483647,KnifeAttack="Heavy",KnifeLead=0,KnifeStand="Sphere"},Weapons={Priority=I({"Primary","Secondary","Melee"}),Enabled={Primary=true,Secondary=true,Melee=true},OnEmpty="SwapOrReload"},Evasion={Mode="Random",Random={AnchorFromCharacter=false,BaseRadius=100,RadiusRandomFactor=0.5},ProjectileBreaker={DepthForward={Min=0,Max=4},DepthForwardFrequency=5,DepthUp={Min=0,Max=5.5},DepthUpFrequency=5,RepositionInterval=0.3,FallbackAnchorFromCharacter=false,FallbackBaseRadius=100,FallbackRadiusRandomFactor=0.5},Translocate={Offset=-5}},UtilizeHealthLead=false},Flickbot={Enabled=false,Keybind={State=false,Kind="Hold",Bind=nil,ShowInList=true,Invisible=false},Shoot=false,ShotDelay=0,Cooldown=250,FlickDuration=110,Curvature=12,Humanness=30}};end
 
 tbl17.be = function()
 local be = tbl17.cache.be
@@ -24562,10 +24566,63 @@ return
 end
 local GuiThumbnailSpoofer = v115.new("player_spoofer.GuiThumbnailSpoofer")
 local tbl18 = {}
-local function fn37(...) end
-local function fn38(...) end
+-- fn37 / fn38 / fn40 were lost by the decompiler (empty stubs), so no thumbnail was ever rewritten: the
+-- avatar headshots (lobby bar under the avatar, leaderboard, chat ...) kept the real user's picture. Rebuilt
+-- from how fn39 / _Revert use the watch entry (OriginalImage, SpoofedImage and the two connections).
+-- fn37: (re)apply the spoof to one watched image. An Image that is not our own spoofed one is the game's
+-- new original, so it is remembered and rewritten through fn36 (nil when it is not a spoofed user's thumb).
+local function fn37(I)
+local N = tbl18[I]
+if N == nil then
+return
+end
+local current = I.Image
+if N.SpoofedImage ~= nil and current == N.SpoofedImage then
+local again = fn36(N.OriginalImage or "", arg._spoofsByUserId)
+if again == nil and N.OriginalImage ~= nil then
+-- that user is no longer spoofed: back to the real picture
+N.SpoofedImage = nil
+I.Image = N.OriginalImage
+return
+end
+if again == nil or again == current then
+return
+end
+N.SpoofedImage = again
+I.Image = again
+return
+end
+N.OriginalImage = current
+local spoofed = fn36(current, arg._spoofsByUserId)
+N.SpoofedImage = spoofed
+if spoofed ~= nil and spoofed ~= current then
+I.Image = spoofed
+end
+end
+-- fn38: put one image back to what the game set
+local function fn38(I, N)
+local originalImage = N.OriginalImage
+local spoofedImage = N.SpoofedImage
+if originalImage ~= nil and spoofedImage ~= nil and spoofedImage ~= originalImage and I.Image == spoofedImage then
+I.Image = originalImage
+end
+end
 local function fn39(I,W)local N= tbl18 [I];if N==nil then return;end; tbl18 [I]=nil;N.ImageChangedConnection:Disconnect();N.DestroyingConnection:Disconnect();if W then  fn38 (I,N);end;end
-local function fn40(...) end
+-- fn40: start watching an ImageLabel / ImageButton (every Image change goes through fn37)
+local function fn40(I)
+if tbl18[I] ~= nil then
+return
+end
+local N = { OriginalImage = nil, SpoofedImage = nil }
+N.ImageChangedConnection = I:GetPropertyChangedSignal("Image"):Connect(function()
+fn37(I)
+end)
+N.DestroyingConnection = I.Destroying:Connect(function()
+fn39(I, false)
+end)
+tbl18[I] = N
+fn37(I)
+end
 
 arg._loaded = {
 Trove = GuiThumbnailSpoofer,
@@ -24584,6 +24641,30 @@ fn40(arg4)
 end
 end)
 end)
+
+-- bU only hands over CoreGui, PlayerGui.MainGui, the leaderboard / queue boards and the characters. The
+-- in-match HUD (the team / score bar at the top with each player's headshot) is a GUI of its own under
+-- PlayerGui, so its icons were never watched: watch every GUI there too (fn40 skips images already watched).
+GuiThumbnailSpoofer:Add(task.spawn(function()
+local playerGui = cloneref(game:GetService("Players")).LocalPlayer:WaitForChild("PlayerGui", math.huge)
+local function watchGui(gui)
+if not gui:IsA("LayerCollector") then
+return
+end
+for _, v117 in gui:QueryDescendants("ImageLabel,ImageButton") do
+fn40(v117)
+end
+GuiThumbnailSpoofer:Connect(gui.DescendantAdded, function(arg4)
+if arg4:IsA("ImageLabel") or arg4:IsA("ImageButton") then
+fn40(arg4)
+end
+end)
+end
+for _, gui in playerGui:GetChildren() do
+watchGui(gui)
+end
+GuiThumbnailSpoofer:Connect(playerGui.ChildAdded, watchGui)
+end))
 end
 
 index2._Revert = function(arg)
@@ -59775,7 +59856,7 @@ return ie.c
 end
 end
 do -- ih
-local function fn35() tbl17 .aE();local cfgd= tbl17 .bG();local I= tbl17 .h6();local function l(W)I(W,"Enable Ragebot",{"Always","Toggle","Hold"},{"Ragebot"},true);local style=W:AddDropdown({Label="Ragebot Style",Tooltip="KH: Kicia's own ragebot. UE: the Unnamed Enhancements ragebot (void spam, backstab, gun and light attack). Picking UE hides the KH settings. Auto: plays as KH until the Hacker Detector flags an enemy, then switches this dropdown to FW UE and stays there. Careful: the LY hub's own ragebot in its Careful mode (its own targeting, teleport attack, evasion and reloads). Careful Settings, Weapon Strategy and Target HUD apply to it.",Options={"Original","UE","Careful","SLEEPY","FWUE"},Labels={Original="KH",UE="UE",Careful="Careful",SLEEPY="SLEEPY",FWUE="FW UE trash kh"},Config={"Ragebot","KnifeMode"}});W:AddToggle({Label="Round Start Delay",Tooltip="At the start of a round, hide in the void for a random 1-6 s first, then start attacking. Applies to every Ragebot Style.",Config={"Ragebot","StartDelay"}});W:AddToggle({Label="Prioritize Hackers",Config={"Ragebot","PrioritizeHackers"}});W:AddToggle({Label="Evade When Target Hacking",Config={"Ragebot","EvadeWhenHacking"}});W:AddButton({Label="Clear Hacker Tags",OnClick=function()local d=K.HackerDetector;local ok,n=pcall(function()return d and d:ClearTags() or nil;end);local text=(not ok or n==nil) and "Hacker detector is not ready" or string.format("Cleared %d hacker tag(s)",n);pcall(function()tbl17.aB().get():Notify(text);end);end});return style;end;local function kf(W)W:AddToggle({Label="Detect Knife",Config={"Ragebot","DetectKnife"}});W:AddSlider({Label="Stability",Min=0,Max=1.5,Step=0.001,Config={"Ragebot","Stability"}});W:AddSlider({Label="Shoot Frames",Min=1,Max=5,Config={"Ragebot","ShootFrames"}});end;local function cf(W)W:AddToggle({Label="Evade Between Shots",Tooltip="Slow weapons (shotgun, sniper, knife): evade in the gaps instead of standing on the target",Config={"Ragebot","Careful","EvadeBetweenShots"}});W:AddToggle({Label="Attack After Enemy",Tooltip="Only shoot an enemy in the gap right after it fired or swung, or while its weapon cools down or reloads",Config={"Ragebot","Careful","RetaliateOnly"}});W:AddSlider({Label="Gap Window",Tooltip="How long after its shot or swing an enemy can still be shot (its weapon cooldown or reload also counts)",Min=0.5,Max=5,Step=0.1,Suffix="s",Config={"Ragebot","Careful","RetaliateWindow"}});end;local function uf(W)W:AddToggle({Label="Never Void",Tooltip="Never hide in the void (UE style): no hide phase, and none while reloading, swapping, without a target or between knife stabs. You stay where you are.",Config={"Ragebot","UE","NoVoid"}});W:AddToggle({Label="Backstab Cooldown 0.8",Tooltip="On: the time between two backstabs is HeavyAttackCooldown x 0.8. Off: UE's own x 0.75.",Config={"Ragebot","UE","KnifeCooldown08"}});W:AddToggle({Label="Void Spam",Tooltip="Hide in the void between attack bursts (UE void spam). Used by the gun and the light attack, not by the backstab.",Config={"Ragebot","UE","VoidSpam"}});W:AddSlider({Label="Void Spam Attack",Tooltip="the amount of time attacking before hiding again (UE adds 0.1 s on top)",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","AttackTime"}});W:AddSlider({Label="Void Spam Hide",Tooltip="how long it stays in void for",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","HideTime"}});W:AddSlider({Label="Shoot Attempts",Tooltip="how many times it will try to fire your weapon (UE: ragebot_shoot_attempts)",Min=1,Max=2,Step=1,Config={"Ragebot","UE","ShootAttempts"}});W:AddDropdown({Label="Knife Attack",Tooltip="Heavy Backstab = UE attack mode knife. Light Attack = UE attack mode melee (fast light attacks with the knife).",Options={"Heavy","Light"},Labels={Heavy="Heavy Backstab",Light="Light Attack"},Config={"Ragebot","UE","KnifeAttack"}});end;local function I(W)local N={"Primary","Secondary","Melee"};for P,P in N,nil,nil do W:AddToggle({Label=string.format("%s Enabled",tostring(P)),Config={"Ragebot","Weapons","Enabled",P}});end;W:AddOrderedList({Label="Weapon Priority",Items=N,Default=N,Config={"Ragebot","Weapons","Priority"}});W:AddDropdown({Label="On Empty",Options={"Reload","Swap","SwapOrReload"},Labels={SwapOrReload="Swap or Reload"},Config={"Ragebot","Weapons","OnEmpty"}});end;local function W(N,P)local a=N:AddGroup({Source=P,Option="ProjectileBreaker"});a:AddRangeSlider({Label="Forward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForward"}});a:AddSlider({Label="Forward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForwardFrequency"}});a:AddRangeSlider({Label="Upward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUp"}});a:AddSlider({Label="Upward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUpFrequency"}});a:AddSlider({Label="Reposition Interval (s)",Min=0.05,Max=2,Step=0.01,Config={"Ragebot","Evasion","ProjectileBreaker","RepositionInterval"}});a:AddToggle({Label="Fallback Character Origin",Config={"Ragebot","Evasion","ProjectileBreaker","FallbackAnchorFromCharacter"}});a:AddSlider({Label="Fallback Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackBaseRadius"}});a:AddSlider({Label="Fallback Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackRadiusRandomFactor"}});end;local function N(P)local a=P:AddDropdown({Label="Evasion Mode",Options={"Off","Random","Translocate","ProjectileBreaker"},Labels={ProjectileBreaker="Projectile Breaker"},Config={"Ragebot","Evasion","Mode"}});local e=P:AddGroup({Source=a,Option="Random"});e:AddToggle({Label="Character Origin",Config={"Ragebot","Evasion","Random","AnchorFromCharacter"}});e:AddSlider({Label="Base Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","Random","BaseRadius"}});e:AddSlider({Label="Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","Random","RadiusRandomFactor"}});P:AddGroup({Source=a,Option="Translocate"}):AddSlider({Label="Offset",Min=-5,Max=5,Step=0.1,Config={"Ragebot","Evasion","Translocate","Offset"}});W(P,a);end;local function H(P)P:AddToggle({Label="Target HUD",Config={"Ragebot","TargetHud","Enabled"}});P:AddSlider({Label="Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","Scale"}});P:AddSlider({Label="Item Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","ItemScale"}});P:AddSlider({Label="Offset X (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosX"}});P:AddSlider({Label="Offset Y (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosY"}});end;return function(W)local style=l(W:AddSection({Title="Activation",Side="left"}));local khSection=W:AddSection({Title="KH Settings",Side="left"});kf(khSection);local carefulSection=W:AddSection({Title="Careful Settings",Side="left"});cf(carefulSection);local ueSection=W:AddSection({Title="UE Settings",Side="left"});uf(ueSection);local weaponSection=W:AddSection({Title="Weapon Strategy",Side="left"});I(weaponSection);local evasionSection=W:AddSection({Title="Evasion",Side="right"});N(evasionSection);local hudSection=W:AddSection({Title="Target HUD",Side="right"});H(hudSection);local fwSection=W:AddSection({Title="FW UE Settings",Side="left"});fwSection:AddToggle({Label="FW Weapon Check",Tooltip="Hide only while the weapon window is open. Slow weapons: the shot / swing cooldown must have at least 0.6 s left. Fast weapons (cooldown up to 0.3 s): the magazine must be nearly empty. Nobody may be reloading, and an enemy starting to reload sends you back to the void. No time limit on the wait.",Config={"Ragebot","FWWeaponCheck"}});local function applyStyle()local picked=style.Value;local isUE=picked=="UE";local isCareful=picked=="Careful";local isEmpty=picked=="SLEEPY" or picked=="FWUE";khSection:SetVisible(not isUE and not isCareful and not isEmpty);evasionSection:SetVisible(not isUE and not isCareful and not isEmpty);ueSection:SetVisible(isUE);carefulSection:SetVisible(isCareful);weaponSection:SetVisible(not isEmpty);hudSection:SetVisible(not isEmpty);fwSection:SetVisible(picked=="FWUE");end;applyStyle();pcall(function()style.ValueChanged:Connect(applyStyle);end);end;end
+local function fn35() tbl17 .aE();local cfgd= tbl17 .bG();local I= tbl17 .h6();local function l(W)I(W,"Enable Ragebot",{"Always","Toggle","Hold"},{"Ragebot"},true);local style=W:AddDropdown({Label="Ragebot Style",Tooltip="KH: Kicia's own ragebot. UE: the Unnamed Enhancements ragebot (void spam, backstab, gun and light attack). Picking UE hides the KH settings. Auto: plays as KH until the Hacker Detector flags an enemy, then switches this dropdown to FW UE and stays there. Careful: the LY hub's own ragebot in its Careful mode (its own targeting, teleport attack, evasion and reloads). Careful Settings, Weapon Strategy and Target HUD apply to it. Solix: the Polsec ragebot movement (orbit / in-wall / underground / translocate, void spam, anti-aim) on its own Heartbeat; Solix Settings apply to it.",Options={"Original","UE","Careful","SOLIX","FWUE"},Labels={Original="KH",UE="UE",Careful="Careful",SOLIX="Solix",FWUE="FW UE trash kh"},Config={"Ragebot","KnifeMode"}});W:AddToggle({Label="Round Start Delay",Tooltip="At the start of a round, hide in the void for a random 1-6 s first, then start attacking. Applies to every Ragebot Style.",Config={"Ragebot","StartDelay"}});W:AddToggle({Label="Prioritize Hackers",Config={"Ragebot","PrioritizeHackers"}});W:AddToggle({Label="Evade When Target Hacking",Config={"Ragebot","EvadeWhenHacking"}});W:AddButton({Label="Clear Hacker Tags",OnClick=function()local d=K.HackerDetector;local ok,n=pcall(function()return d and d:ClearTags() or nil;end);local text=(not ok or n==nil) and "Hacker detector is not ready" or string.format("Cleared %d hacker tag(s)",n);pcall(function()tbl17.aB().get():Notify(text);end);end});return style;end;local function kf(W)W:AddToggle({Label="Detect Knife",Config={"Ragebot","DetectKnife"}});W:AddSlider({Label="Stability",Min=0,Max=1.5,Step=0.001,Config={"Ragebot","Stability"}});W:AddSlider({Label="Shoot Frames",Min=1,Max=5,Config={"Ragebot","ShootFrames"}});end;local function cf(W)W:AddToggle({Label="Evade Between Shots",Tooltip="Slow weapons (shotgun, sniper, knife): evade in the gaps instead of standing on the target",Config={"Ragebot","Careful","EvadeBetweenShots"}});W:AddToggle({Label="Attack After Enemy",Tooltip="Only shoot an enemy in the gap right after it fired or swung, or while its weapon cools down or reloads",Config={"Ragebot","Careful","RetaliateOnly"}});W:AddSlider({Label="Gap Window",Tooltip="How long after its shot or swing an enemy can still be shot (its weapon cooldown or reload also counts)",Min=0.5,Max=5,Step=0.1,Suffix="s",Config={"Ragebot","Careful","RetaliateWindow"}});end;local function uf(W)W:AddToggle({Label="Never Void",Tooltip="Never hide in the void (UE style): no hide phase, and none while reloading, swapping, without a target or between knife stabs. You stay where you are.",Config={"Ragebot","UE","NoVoid"}});W:AddToggle({Label="Backstab Cooldown 0.8",Tooltip="On: the time between two backstabs is HeavyAttackCooldown x 0.8. Off: UE's own x 0.75.",Config={"Ragebot","UE","KnifeCooldown08"}});W:AddToggle({Label="Void Spam",Tooltip="Hide in the void between attack bursts (UE void spam). Used by the gun and the light attack, not by the backstab.",Config={"Ragebot","UE","VoidSpam"}});W:AddSlider({Label="Void Spam Attack",Tooltip="the amount of time attacking before hiding again (UE adds 0.1 s on top)",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","AttackTime"}});W:AddSlider({Label="Void Spam Hide",Tooltip="how long it stays in void for",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","HideTime"}});W:AddSlider({Label="Shoot Attempts",Tooltip="how many times it will try to fire your weapon (UE: ragebot_shoot_attempts)",Min=1,Max=2,Step=1,Config={"Ragebot","UE","ShootAttempts"}});W:AddDropdown({Label="Knife Attack",Tooltip="Heavy Backstab = UE attack mode knife. Light Attack = UE attack mode melee (fast light attacks with the knife).",Options={"Heavy","Light"},Labels={Heavy="Heavy Backstab",Light="Light Attack"},Config={"Ragebot","UE","KnifeAttack"}});end;local function I(W)local N={"Primary","Secondary","Melee"};for P,P in N,nil,nil do W:AddToggle({Label=string.format("%s Enabled",tostring(P)),Config={"Ragebot","Weapons","Enabled",P}});end;W:AddOrderedList({Label="Weapon Priority",Items=N,Default=N,Config={"Ragebot","Weapons","Priority"}});W:AddDropdown({Label="On Empty",Options={"Reload","Swap","SwapOrReload"},Labels={SwapOrReload="Swap or Reload"},Config={"Ragebot","Weapons","OnEmpty"}});end;local function W(N,P)local a=N:AddGroup({Source=P,Option="ProjectileBreaker"});a:AddRangeSlider({Label="Forward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForward"}});a:AddSlider({Label="Forward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForwardFrequency"}});a:AddRangeSlider({Label="Upward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUp"}});a:AddSlider({Label="Upward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUpFrequency"}});a:AddSlider({Label="Reposition Interval (s)",Min=0.05,Max=2,Step=0.01,Config={"Ragebot","Evasion","ProjectileBreaker","RepositionInterval"}});a:AddToggle({Label="Fallback Character Origin",Config={"Ragebot","Evasion","ProjectileBreaker","FallbackAnchorFromCharacter"}});a:AddSlider({Label="Fallback Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackBaseRadius"}});a:AddSlider({Label="Fallback Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackRadiusRandomFactor"}});end;local function N(P)local a=P:AddDropdown({Label="Evasion Mode",Options={"Off","Random","Translocate","ProjectileBreaker"},Labels={ProjectileBreaker="Projectile Breaker"},Config={"Ragebot","Evasion","Mode"}});local e=P:AddGroup({Source=a,Option="Random"});e:AddToggle({Label="Character Origin",Config={"Ragebot","Evasion","Random","AnchorFromCharacter"}});e:AddSlider({Label="Base Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","Random","BaseRadius"}});e:AddSlider({Label="Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","Random","RadiusRandomFactor"}});P:AddGroup({Source=a,Option="Translocate"}):AddSlider({Label="Offset",Min=-5,Max=5,Step=0.1,Config={"Ragebot","Evasion","Translocate","Offset"}});W(P,a);end;local function H(P)P:AddToggle({Label="Target HUD",Config={"Ragebot","TargetHud","Enabled"}});P:AddSlider({Label="Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","Scale"}});P:AddSlider({Label="Item Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","ItemScale"}});P:AddSlider({Label="Offset X (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosX"}});P:AddSlider({Label="Offset Y (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosY"}});end;return function(W)local style=l(W:AddSection({Title="Activation",Side="left"}));local khSection=W:AddSection({Title="KH Settings",Side="left"});kf(khSection);local carefulSection=W:AddSection({Title="Careful Settings",Side="left"});cf(carefulSection);local ueSection=W:AddSection({Title="UE Settings",Side="left"});uf(ueSection);local weaponSection=W:AddSection({Title="Weapon Strategy",Side="left"});I(weaponSection);local evasionSection=W:AddSection({Title="Evasion",Side="right"});N(evasionSection);local hudSection=W:AddSection({Title="Target HUD",Side="right"});H(hudSection);local solixSection=W:AddSection({Title="Solix Settings",Side="left"});solixSection:AddDropdown({Label="Movement Mode",Options={"Orbit","InWall","Underground","Translocate","Static"},Config={"Ragebot","Solix","Mode"}});solixSection:AddToggle({Label="Void Spam",Tooltip="Alternate between the void (under the target) and the hide spot",Config={"Ragebot","Solix","VoidSpam"}});solixSection:AddSlider({Label="Void Attack",Min=0.01,Max=2,Step=0.01,Suffix="s",Config={"Ragebot","Solix","VoidAttack"}});solixSection:AddSlider({Label="Void Hide",Min=0.01,Max=2,Step=0.01,Suffix="s",Config={"Ragebot","Solix","VoidHide"}});solixSection:AddDropdown({Label="Void Cycle",Options={"Sequential","Random","Ping-Pong"},Config={"Ragebot","Solix","VoidCycle"}});solixSection:AddSlider({Label="Orbit Radius",Min=0,Max=20,Step=0.5,Config={"Ragebot","Solix","OrbitRadius"}});solixSection:AddSlider({Label="Orbit Speed",Min=30,Max=120,Step=1,Config={"Ragebot","Solix","OrbitSpeed"}});solixSection:AddSlider({Label="Orbit Height",Min=-20,Max=20,Step=0.25,Config={"Ragebot","Solix","OrbitHeight"}});solixSection:AddToggle({Label="Orbit Randomize",Config={"Ragebot","Solix","OrbitRandomize"}});solixSection:AddToggle({Label="Orbit Spiral",Config={"Ragebot","Solix","OrbitSpiral"}});solixSection:AddSlider({Label="In-Wall Range",Min=15,Max=250,Step=1,Config={"Ragebot","Solix","InWallRange"}});solixSection:AddToggle({Label="In-Wall Glue",Config={"Ragebot","Solix","InWallGlue"}});solixSection:AddSlider({Label="Translocate Offset",Min=-5,Max=5,Step=0.1,Config={"Ragebot","Solix","TranslocateOffset"}});solixSection:AddToggle({Label="Anti-Aim",Config={"Ragebot","Solix","AntiAim"}});solixSection:AddDropdown({Label="Anti-Aim Pitch",Options={"Random","Down","Custom","HalfUp","HalfDown","Zero","Oscillate","Sine","Wave","Relative"},Config={"Ragebot","Solix","AAPitch"}});solixSection:AddSlider({Label="Pitch Angle",Tooltip="Custom: the pitch; Relative: added to the real pitch",Min=-180,Max=180,Step=1,Config={"Ragebot","Solix","AAPitchAngle"}});solixSection:AddDropdown({Label="Anti-Aim Yaw",Options={"Spin","Jitter","FastSpin","SlowSpin","Alternating","Sine","Random","Backward","Custom","Relative"},Config={"Ragebot","Solix","AAYaw"}});solixSection:AddSlider({Label="Yaw Angle",Tooltip="Spin: degrees per second (0 = 360); Custom: the yaw; Relative: added to the real yaw",Min=-720,Max=720,Step=1,Config={"Ragebot","Solix","AAYawAngle"}});solixSection:AddDropdown({Label="Yaw Jitter",Options={"None","Offset","Random"},Config={"Ragebot","Solix","AAYawJitter"}});solixSection:AddSlider({Label="Yaw Jitter Angle",Min=0,Max=180,Step=1,Config={"Ragebot","Solix","AAYawJitterAngle"}});solixSection:AddToggle({Label="Desync",Tooltip="The server gets the Solix position, your camera stays where you really are (render restore)",Config={"Ragebot","Solix","Desync"}});solixSection:AddDropdown({Label="Desync Mode",Tooltip="TargetRep: also point our PhysicsRepRootPart at the target while attacking (needs sethiddenproperty)",Options={"Normal","TargetRep"},Config={"Ragebot","Solix","DesyncMode"}});solixSection:AddToggle({Label="Anti-Translocate",Tooltip="A target hiding under the map / an out-of-bounds part: stand on its head (Translocate Offset above)",Config={"Ragebot","Solix","AntiTranslocate"}});solixSection:AddSlider({Label="Void Radius",Min=0,Max=50,Step=0.5,Config={"Ragebot","Solix","VoidRadius"}});solixSection:AddSlider({Label="Void Spread",Min=0,Max=50,Step=0.5,Config={"Ragebot","Solix","VoidSpread"}});solixSection:AddSlider({Label="Void Randomness",Min=0,Max=50,Step=0.5,Config={"Ragebot","Solix","VoidRandomness"}});solixSection:AddSlider({Label="Orbit Height X",Tooltip="Spiral: how far up and down it swings",Min=-20,Max=20,Step=0.25,Config={"Ragebot","Solix","OrbitHeightX"}});solixSection:AddSlider({Label="Orbit Angle X",Min=-180,Max=180,Step=1,Config={"Ragebot","Solix","OrbitAngleX"}});solixSection:AddSlider({Label="Orbit Angle Y",Min=-180,Max=180,Step=1,Config={"Ragebot","Solix","OrbitAngleY"}});solixSection:AddSlider({Label="Orbit Angle Z",Min=-180,Max=180,Step=1,Config={"Ragebot","Solix","OrbitAngleZ"}});solixSection:AddSlider({Label="In-Wall Stick",Tooltip="How far off the wall (negative: into it)",Min=-5,Max=3,Step=0.1,Config={"Ragebot","Solix","InWallStick"}});solixSection:AddSlider({Label="In-Wall Height",Min=-5,Max=4,Step=0.1,Config={"Ragebot","Solix","InWallHeight"}});solixSection:AddToggle({Label="In-Wall Flip",Tooltip="Look for the wall behind us instead of toward the target",Config={"Ragebot","Solix","InWallFlip"}});solixSection:AddDropdown({Label="Preferred Weapon",Tooltip="Keep this slot equipped while there is a target (Any: whatever is equipped)",Options={"Any","Primary","Melee"},Config={"Ragebot","Solix","PreferredWeapon"}});solixSection:AddSlider({Label="Fire Interval",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","Solix","FireInterval"}});solixSection:AddSlider({Label="Shoot Frames",Tooltip="Fire on this many frames in a row, then skip one (0: every frame)",Min=0,Max=30,Step=1,Config={"Ragebot","Solix","ShootFrames"}});solixSection:AddDropdown({Label="On Empty",Tooltip="Out of ammo: swap to a loaded gun (else reload), reload, go to melee, or nothing",Options={"swap","reload","melee","none"},Config={"Ragebot","Solix","EmptyMode"}});solixSection:AddToggle({Label="Auto Prioritize",Tooltip="Switch to whoever hit us last and stay on him for 5 s",Config={"Ragebot","Solix","AutoPrioritize"}});solixSection:AddToggle({Label="Send Notification",Tooltip="Popup when the target changes",Config={"Ragebot","Solix","SendNotification"}});solixSection:AddToggle({Label="Waypoints",Tooltip="With no target, walk the waypoints in order",Config={"Ragebot","Solix","Waypoints"}});solixSection:AddSlider({Label="Stability",Tooltip="Orbit / In-Wall ease toward their point instead of snapping (0: snap)",Min=0,Max=0.9,Step=0.05,Config={"Ragebot","Solix","Stability"}});solixSection:AddToggle({Label="Prioritize When Hit",Tooltip="Whoever hit us in the last 5 s counts as 10x closer in target selection",Config={"Ragebot","Solix","PrioritizeWhenHit"}});solixSection:AddToggle({Label="Swap To Melee If Dry",Tooltip="On Empty = swap and no gun has ammo left: go to melee instead of reloading",Config={"Ragebot","Solix","SwapAllowReserve"}});solixSection:AddToggle({Label="Void While Inactive",Tooltip="Keep the void cycle running when there is no target",Config={"Ragebot","Solix","VoidWhileInactive"}});solixSection:AddToggle({Label="Void While Invulnerable",Tooltip="Target under a ForceField: sit in the void until it is gone (never fired at either way)",Config={"Ragebot","Solix","VoidWhileInvulnerable"}});solixSection:AddToggle({Label="Void While Reloading",Tooltip="Sit in the void while the gun reloads (works without Void Spam too)",Config={"Ragebot","Solix","VoidWhileReloading"}});solixSection:AddToggle({Label="Projectile Breaker",Tooltip="Hide phase: sunk into a map surface instead of the void",Config={"Ragebot","Solix","ProjectileBreaker"}});solixSection:AddSlider({Label="PB Depth Up",Min=0,Max=5.5,Step=0.1,Config={"Ragebot","Solix","PBDepthUp"}});solixSection:AddSlider({Label="PB Depth Forward",Min=0,Max=4,Step=0.1,Config={"Ragebot","Solix","PBDepthForward"}});local solixInd=solixSection:AddToggle({Label="Indicator",Tooltip="Status line on the left of the screen",Config={"Ragebot","Solix","Indicator"}});solixSection:AddColor({Row=solixInd.Row,Config={"Ragebot","Solix","IndicatorColor"}});solixSection:AddSlider({Label="Indicator Transparency",Min=0,Max=1,Step=0.05,Config={"Ragebot","Solix","IndicatorTransparency"}});solixSection:AddButton({Label="Add Waypoint Here",OnClick=function()pcall(function() tbl17 .SLX().Waypoints.add_current();end);end});solixSection:AddButton({Label="Clear Waypoints",OnClick=function()pcall(function() tbl17 .SLX().Waypoints.clear();end);end});solixSection:AddButton({Label="Copy Waypoints JSON",OnClick=function()pcall(function() tbl17 .SLX().Waypoints.copy();end);end});local fwSection=W:AddSection({Title="FW UE Settings",Side="left"});fwSection:AddToggle({Label="FW Weapon Check",Tooltip="Hide only while the weapon window is open. Slow weapons: the shot / swing cooldown must have at least 0.6 s left. Fast weapons (cooldown up to 0.3 s): the magazine must be nearly empty. Nobody may be reloading, and an enemy starting to reload sends you back to the void. No time limit on the wait.",Config={"Ragebot","FWWeaponCheck"}});local function applyStyle()local picked=style.Value;local isUE=picked=="UE";local isCareful=picked=="Careful";local isEmpty=picked=="SOLIX" or picked=="FWUE";solixSection:SetVisible(picked=="SOLIX");khSection:SetVisible(not isUE and not isCareful and not isEmpty);evasionSection:SetVisible(not isUE and not isCareful and not isEmpty);ueSection:SetVisible(isUE);carefulSection:SetVisible(isCareful);weaponSection:SetVisible(not isEmpty);hudSection:SetVisible(not isEmpty);fwSection:SetVisible(picked=="FWUE");end;applyStyle();pcall(function()style.ValueChanged:Connect(applyStyle);end);end;end
 
 tbl17.ih = function()
 local ih = tbl17.cache.ih
@@ -68635,6 +68716,12 @@ end
 end
 end)
 
+-- used by the Solix style (module SLX)
+rage.isDeflecting = rageIsDeflecting
+rage.isTranslocated = rageIsTranslocated
+rage.setPhysics = rageSetPhysics
+rage.setCFrame = rageSetCFrame
+
 return rage
 end
 
@@ -68647,6 +68734,1762 @@ tbl17.cache.LYC = lyc
 end
 
 return lyc.c
+end
+end
+do -- SLX
+local function fn35()
+-- Solix ragebot style (Ragebot.KnifeMode == "SOLIX"): the Polsec ragebot movement (ragebot-movement.lua,
+-- hand-ported from polsec-inner-luraph.lua). It runs on its own Heartbeat while the ragebot key is on and
+-- Solix is picked; KH's planner stands aside then (jO Update). It moves (orbit / in-wall / ...), fires the
+-- equipped weapon at the target (9), picks the target by priority (10), walks waypoints with no target (11)
+-- and swaps or reloads an empty gun (12); guards (13), a status indicator (14) and the projectile breaker
+-- (15) come from the later Polsec file.
+-- Changes from the standalone file: normalize_void_cycle_type is defined before sync_config uses it, the
+-- spin yaws work in degrees before rad(), Underground sits a fixed depth under its anchor instead of sinking
+-- 50 studs every frame, Translocate skips the frame when we already stand on the target, and the pitch / yaw
+-- modes come from the config.
+local config = tbl17.bG()
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local LocalPlayer = Players.LocalPlayer
+local clamp = math.clamp
+local rad = math.rad
+local cos = math.cos
+local sin = math.sin
+local random = math.random
+local abs = math.abs
+local pi = math.pi
+local huge = math.huge
+local cleanup = {}
+
+local Config = {
+	enabled = false,
+	void_spam = false,
+	void_type = "Normal",
+	void_cycle_type = "Sequential",
+	void_attack = 0.1,
+	void_hide = 0.1,
+	void_delay_time = 1,
+	void_radius = 5,
+	void_random_spread = 0,
+	void_randomness = 0,
+	movement_mode = "Orbit",
+	orbit_height_x = 0.25,
+	orbit_height_y = 1.75,
+	orbit_radius = 3,
+	orbit_speed = 30,
+	orbit_randomize = false,
+	orbit_angle_x = -89.246,
+	orbit_angle_y = -179.791,
+	orbit_angle_z = 89.789,
+	orbit_spiral_enabled = false,
+	in_wall_stick = -1,
+	in_wall_height = -1,
+	in_wall_range = 90,
+	in_wall_flip = false,
+	in_wall_glue = false,
+	translocate_offset = 0,
+	anti_translocate = false,
+	underground_depth = 50,
+	desync_enabled = true,
+	desync_mode = "Normal", -- "Normal" / "TargetRep"
+	anti_aim_enabled = false,
+	anti_aim_pitch_mode = "Down",
+	anti_aim_yaw_mode = "Spin",
+	anti_aim_pitch_angle = 0,
+	anti_aim_yaw_angle = 0,
+	anti_aim_yaw_jitter = "None",
+	anti_aim_yaw_jitter_angle = 0,
+	-- preferred weapon: "Melee" / "Primary" / "Any"
+	preferred_weapon = "Any",
+	-- attack / fire
+	shoot_frames = 1,
+	fire_interval = 0.05,
+	-- priority
+	auto_prioritize = false,
+	send_notification = false,
+	priority_settings = { "attackers", "closest" },
+	-- empty / swap or reload: "swap" / "reload" / "none" / "melee"
+	empty_mode = "swap",
+	-- waypoints: walk them while there is no target
+	waypoints_enabled = false,
+	-- movement smoothing for Orbit / In-Wall: 0 = snap, 0.9 = very soft
+	stability = 0.15,
+	-- the attacker bonus in target selection only counts with this on
+	prioritize_when_hit = false,
+	-- "swap" with no loaded gun left: go to melee instead of reloading
+	swap_allow_reserve = false,
+	-- conditional guards
+	should_void_while_inactive = false,
+	should_void_while_invulnerable = false,
+	void_while_reloading = false,
+	-- indicator
+	indicator_enabled = false,
+	label_color = Color3.new(1, 1, 1),
+	label_transparency = 0,
+	signature = "Solix",
+	-- projectile breaker: hide inside a nearby surface instead of the void
+	pb_enabled = false,
+	pb_depth_up = 2.5,
+	pb_depth_forward = 2,
+	pb_pool_max = 30,
+}
+
+local Runtime = {
+	void_phase = nil,
+	void_timer = 0,
+	void_cycle_index = 0,
+	void_cycle_direction = 1,
+	void_spam_initialized = false,
+	orbit_time = 0,
+	underground_anchor = nil,
+	aa_yaw_started_at = 0,
+	aa_jitter_flip = false,
+	physics_glue_active = false,
+	sync_active = false,
+	current_target_player = nil,
+	void_hide_cframe = nil,
+	target_invincible = false,
+	is_on_map = true,
+	spawn_protected = false,
+	pb_pool = {},
+	indicator_at = 0,
+}
+
+local function get_character()
+	return LocalPlayer and LocalPlayer.Character
+end
+
+local function get_hrp()
+	local char = get_character()
+	return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+local function is_alive()
+	local char = get_character()
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	return hum ~= nil and hum.Health > 0
+end
+
+-- 1. Config sync --------------------------------------------------------------
+
+local function pick(v)
+	if type(v) == "table" then
+		return v.Value or v.Selected or v[1]
+	end
+	return v
+end
+
+local function normalize_void_cycle_type(v)
+	v = pick(v)
+	local valid = { Sequential = true, Random = true, ["Ping-Pong"] = true }
+	return valid[v] and v or "Sequential"
+end
+
+local function sync_config(flags)
+	if flags.ragebot_void_spam ~= nil then
+		Config.void_spam = flags.ragebot_void_spam == true
+	end
+	if flags.ragebot_void_hide ~= nil then
+		Config.void_hide = clamp(tonumber(flags.ragebot_void_hide) or 0.1, 0.01, 2)
+	end
+	if flags.ragebot_void_attack ~= nil then
+		Config.void_attack = clamp(tonumber(flags.ragebot_void_attack) or 0.1, 0.01, 2)
+	end
+	if flags.ragebot_void_cycle_type ~= nil then
+		Config.void_cycle_type = normalize_void_cycle_type(flags.ragebot_void_cycle_type)
+	end
+	if flags.ragebot_translocate_offset ~= nil then
+		Config.translocate_offset = clamp(tonumber(flags.ragebot_translocate_offset) or 0, -5, 5)
+	end
+	if flags.ragebot_mode ~= nil then
+		local v = pick(flags.ragebot_mode)
+		local valid = { Orbit = true, InWall = true, Underground = true, Translocate = true, Static = true }
+		Config.movement_mode = valid[v] and v or "Static"
+	end
+	if flags.ragebot_in_wall_range ~= nil then
+		Config.in_wall_range = clamp(tonumber(flags.ragebot_in_wall_range) or 90, 15, 250)
+	end
+	if flags.ragebot_in_wall_glue ~= nil then
+		Config.in_wall_glue = flags.ragebot_in_wall_glue == true
+	end
+	if flags.ragebot_orbit_height_y ~= nil then
+		Config.orbit_height_y = clamp(tonumber(flags.ragebot_orbit_height_y) or 1.75, -100, 100)
+	end
+	if flags.ragebot_orbit_radius ~= nil then
+		Config.orbit_radius = clamp(tonumber(flags.ragebot_orbit_radius) or 3, 0, 20)
+	end
+	if flags.ragebot_orbit_speed ~= nil then
+		Config.orbit_speed = clamp(tonumber(flags.ragebot_orbit_speed) or 30, 30, 120)
+	end
+	if flags.ragebot_orbit_randomize ~= nil then
+		Config.orbit_randomize = flags.ragebot_orbit_randomize == true
+	end
+	if flags.ragebot_orbit_spiral_enabled ~= nil then
+		Config.orbit_spiral_enabled = flags.ragebot_orbit_spiral_enabled == true
+	end
+	if flags.anti_aim_enabled ~= nil then
+		Config.anti_aim_enabled = flags.anti_aim_enabled == true
+	end
+	if flags.anti_aim_pitch_mode ~= nil then
+		Config.anti_aim_pitch_mode = pick(flags.anti_aim_pitch_mode)
+	end
+	if flags.anti_aim_yaw_mode ~= nil then
+		Config.anti_aim_yaw_mode = pick(flags.anti_aim_yaw_mode)
+	end
+	if flags.ragebot_preferred_weapon ~= nil then
+		local v = pick(flags.ragebot_preferred_weapon)
+		Config.preferred_weapon = (v == "Melee" or v == "Primary") and v or "Any"
+	end
+	if flags.ragebot_shoot_frames ~= nil then
+		Config.shoot_frames = clamp(tonumber(flags.ragebot_shoot_frames) or 1, 0, 30)
+	end
+	if flags.ragebot_fire_interval ~= nil then
+		Config.fire_interval = clamp(tonumber(flags.ragebot_fire_interval) or 0.05, 0.01, 1)
+	end
+	if flags.ragebot_auto_prioritize ~= nil then
+		Config.auto_prioritize = flags.ragebot_auto_prioritize == true
+	end
+	if flags.ragebot_send_notification ~= nil then
+		Config.send_notification = flags.ragebot_send_notification == true
+	end
+	if flags.ragebot_empty_mode ~= nil then
+		local v = pick(flags.ragebot_empty_mode)
+		local valid = { none = true, reload = true, swap = true, melee = true }
+		Config.empty_mode = valid[v] and v or "swap"
+	end
+	if flags.ragebot_waypoints ~= nil then
+		Config.waypoints_enabled = flags.ragebot_waypoints == true
+	end
+	if flags.ragebot_stability ~= nil then
+		Config.stability = clamp(tonumber(flags.ragebot_stability) or 0.15, 0, 0.9)
+	end
+	if flags.ragebot_prioritize_when_hit ~= nil then
+		Config.prioritize_when_hit = flags.ragebot_prioritize_when_hit == true
+	end
+	if flags.ragebot_swap_allow_reserve ~= nil then
+		Config.swap_allow_reserve = flags.ragebot_swap_allow_reserve == true
+	end
+	if flags.ragebot_should_void_while_inactive ~= nil then
+		Config.should_void_while_inactive = flags.ragebot_should_void_while_inactive == true
+	end
+	if flags.ragebot_should_void_while_invulnerable ~= nil then
+		Config.should_void_while_invulnerable = flags.ragebot_should_void_while_invulnerable == true
+	end
+	-- the settings the Polsec menu has that were hidden before
+	if flags.ragebot_void_radius ~= nil then
+		Config.void_radius = clamp(tonumber(flags.ragebot_void_radius) or 5, 0, 50)
+	end
+	if flags.ragebot_void_random_spread ~= nil then
+		Config.void_random_spread = clamp(tonumber(flags.ragebot_void_random_spread) or 0, 0, 50)
+	end
+	if flags.ragebot_void_randomness ~= nil then
+		Config.void_randomness = clamp(tonumber(flags.ragebot_void_randomness) or 0, 0, 50)
+	end
+	if flags.ragebot_orbit_height_x ~= nil then
+		Config.orbit_height_x = clamp(tonumber(flags.ragebot_orbit_height_x) or 0.25, -100, 100)
+	end
+	if flags.ragebot_orbit_angle_x ~= nil then
+		Config.orbit_angle_x = clamp(tonumber(flags.ragebot_orbit_angle_x) or -89.246, -180, 180)
+	end
+	if flags.ragebot_orbit_angle_y ~= nil then
+		Config.orbit_angle_y = clamp(tonumber(flags.ragebot_orbit_angle_y) or -179.791, -180, 180)
+	end
+	if flags.ragebot_orbit_angle_z ~= nil then
+		Config.orbit_angle_z = clamp(tonumber(flags.ragebot_orbit_angle_z) or 89.789, -180, 180)
+	end
+	if flags.ragebot_in_wall_stick ~= nil then
+		Config.in_wall_stick = clamp(tonumber(flags.ragebot_in_wall_stick) or -1, -huge, 3)
+	end
+	if flags.ragebot_in_wall_height ~= nil then
+		Config.in_wall_height = clamp(tonumber(flags.ragebot_in_wall_height) or -1, -5, 4)
+	end
+	if flags.ragebot_in_wall_flip ~= nil then
+		Config.in_wall_flip = flags.ragebot_in_wall_flip == true
+	end
+	if flags.ragebot_anti_translocate ~= nil then
+		Config.anti_translocate = flags.ragebot_anti_translocate == true
+	end
+	if flags.ragebot_desync ~= nil then
+		Config.desync_enabled = flags.ragebot_desync == true
+	end
+	if flags.ragebot_desync_mode ~= nil then
+		Config.desync_mode = pick(flags.ragebot_desync_mode) == "TargetRep" and "TargetRep" or "Normal"
+	end
+	if flags.anti_aim_pitch_angle ~= nil then
+		Config.anti_aim_pitch_angle = clamp(tonumber(flags.anti_aim_pitch_angle) or 0, -180, 180)
+	end
+	if flags.anti_aim_yaw_angle ~= nil then
+		Config.anti_aim_yaw_angle = clamp(tonumber(flags.anti_aim_yaw_angle) or 0, -720, 720)
+	end
+	if flags.anti_aim_yaw_jitter ~= nil then
+		local v = pick(flags.anti_aim_yaw_jitter)
+		Config.anti_aim_yaw_jitter = (v == "Offset" or v == "Random") and v or "None"
+	end
+	if flags.anti_aim_yaw_jitter_angle ~= nil then
+		Config.anti_aim_yaw_jitter_angle = clamp(tonumber(flags.anti_aim_yaw_jitter_angle) or 0, 0, 180)
+	end
+	if flags.ragebot_void_while_reloading ~= nil then
+		Config.void_while_reloading = flags.ragebot_void_while_reloading == true
+	end
+	if flags.ragebot_indicator_enabled ~= nil then
+		Config.indicator_enabled = flags.ragebot_indicator_enabled == true
+	end
+	if typeof(flags.ragebot_label_color) == "Color3" then
+		Config.label_color = flags.ragebot_label_color
+	end
+	if flags.ragebot_label_transparency ~= nil then
+		Config.label_transparency = clamp(tonumber(flags.ragebot_label_transparency) or 0, 0, 1)
+	end
+	if flags.ragebot_pb_enabled ~= nil then
+		Config.pb_enabled = flags.ragebot_pb_enabled == true
+	end
+	if flags.ragebot_pb_depth_up ~= nil then
+		Config.pb_depth_up = clamp(tonumber(flags.ragebot_pb_depth_up) or 2.5, 0, 5.5)
+	end
+	if flags.ragebot_pb_depth_forward ~= nil then
+		Config.pb_depth_forward = clamp(tonumber(flags.ragebot_pb_depth_forward) or 2, 0, 4)
+	end
+end
+
+-- Solix Settings (config Ragebot.Solix) in the flag names the Polsec code reads
+local function syncSettings()
+	local s = config.Data.Ragebot.Solix
+	if type(s) ~= "table" then
+		return
+	end
+	sync_config({
+		ragebot_mode = s.Mode,
+		ragebot_void_spam = s.VoidSpam,
+		ragebot_void_attack = s.VoidAttack,
+		ragebot_void_hide = s.VoidHide,
+		ragebot_void_cycle_type = s.VoidCycle,
+		ragebot_orbit_radius = s.OrbitRadius,
+		ragebot_orbit_speed = s.OrbitSpeed,
+		ragebot_orbit_height_y = s.OrbitHeight,
+		ragebot_orbit_randomize = s.OrbitRandomize,
+		ragebot_orbit_spiral_enabled = s.OrbitSpiral,
+		ragebot_in_wall_range = s.InWallRange,
+		ragebot_in_wall_glue = s.InWallGlue,
+		ragebot_translocate_offset = s.TranslocateOffset,
+		anti_aim_enabled = s.AntiAim,
+		anti_aim_pitch_mode = s.AAPitch,
+		anti_aim_yaw_mode = s.AAYaw,
+		ragebot_preferred_weapon = s.PreferredWeapon,
+		ragebot_shoot_frames = s.ShootFrames,
+		ragebot_fire_interval = s.FireInterval,
+		ragebot_auto_prioritize = s.AutoPrioritize,
+		ragebot_send_notification = s.SendNotification,
+		ragebot_empty_mode = s.EmptyMode,
+		ragebot_waypoints = s.Waypoints,
+		ragebot_stability = s.Stability,
+		ragebot_prioritize_when_hit = s.PrioritizeWhenHit,
+		ragebot_swap_allow_reserve = s.SwapAllowReserve,
+		ragebot_should_void_while_inactive = s.VoidWhileInactive,
+		ragebot_should_void_while_invulnerable = s.VoidWhileInvulnerable,
+		ragebot_void_while_reloading = s.VoidWhileReloading,
+		ragebot_void_radius = s.VoidRadius,
+		ragebot_void_random_spread = s.VoidSpread,
+		ragebot_void_randomness = s.VoidRandomness,
+		ragebot_orbit_height_x = s.OrbitHeightX,
+		ragebot_orbit_angle_x = s.OrbitAngleX,
+		ragebot_orbit_angle_y = s.OrbitAngleY,
+		ragebot_orbit_angle_z = s.OrbitAngleZ,
+		ragebot_in_wall_stick = s.InWallStick,
+		ragebot_in_wall_height = s.InWallHeight,
+		ragebot_in_wall_flip = s.InWallFlip,
+		ragebot_anti_translocate = s.AntiTranslocate,
+		ragebot_desync = s.Desync,
+		ragebot_desync_mode = s.DesyncMode,
+		anti_aim_pitch_angle = s.AAPitchAngle,
+		anti_aim_yaw_angle = s.AAYawAngle,
+		anti_aim_yaw_jitter = s.AAYawJitter,
+		anti_aim_yaw_jitter_angle = s.AAYawJitterAngle,
+		ragebot_indicator_enabled = s.Indicator,
+		ragebot_label_color = s.IndicatorColor,
+		ragebot_label_transparency = s.IndicatorTransparency,
+		ragebot_pb_enabled = s.ProjectileBreaker,
+		ragebot_pb_depth_up = s.PBDepthUp,
+		ragebot_pb_depth_forward = s.PBDepthForward,
+	})
+end
+
+-- Target: the closest living enemy. The game keeps teams in the TeamID attribute (Player.Team stays nil).
+local function isEnemy(player)
+	if player == LocalPlayer then
+		return false
+	end
+	local myId, theirId = LocalPlayer:GetAttribute("TeamID"), player:GetAttribute("TeamID")
+	if myId ~= nil and theirId ~= nil then
+		return myId ~= theirId
+	end
+	return true
+end
+
+local function enemy_candidates()
+	local list = {}
+	for _, player in ipairs(Players:GetPlayers()) do
+		if isEnemy(player) then
+			local char = player.Character
+			local hrp = char and char:FindFirstChild("HumanoidRootPart")
+			local hum = char and char:FindFirstChildOfClass("Humanoid")
+			if hrp and hum and hum.Health > 0 then
+				list[#list + 1] = player
+			end
+		end
+	end
+	return list
+end
+
+local function notify(text)
+	pcall(function()
+		tbl17.aB().get():Notify("Solix: " .. text)
+	end)
+end
+
+-- 2. Void Attack / Hide / Spam -----------------------------------------------
+
+local function void_get_next_position(target_pos)
+	local radius = Config.void_radius
+	local spread = Config.void_random_spread
+	local randomness = Config.void_randomness
+	local base_offset = Vector3.new(0, -200, 0)
+	if radius > 0 then
+		local angle = Runtime.void_cycle_index * (2 * pi / 8)
+		if Config.void_cycle_type == "Random" then
+			angle = random() * 2 * pi
+		end
+		base_offset = Vector3.new(cos(angle) * radius, -200, sin(angle) * radius)
+	end
+	if spread > 0 then
+		base_offset = base_offset + Vector3.new((random() * 2 - 1) * spread, 0, (random() * 2 - 1) * spread)
+	end
+	if randomness > 0 then
+		base_offset = base_offset + Vector3.new(
+			(random() * 2 - 1) * randomness,
+			(random() * 2 - 1) * randomness * 0.5,
+			(random() * 2 - 1) * randomness
+		)
+	end
+	if Config.void_cycle_type == "Sequential" then
+		Runtime.void_cycle_index = (Runtime.void_cycle_index + 1) % 8
+	elseif Config.void_cycle_type == "Ping-Pong" then
+		Runtime.void_cycle_index = Runtime.void_cycle_index + Runtime.void_cycle_direction
+		if Runtime.void_cycle_index >= 7 then Runtime.void_cycle_direction = -1 end
+		if Runtime.void_cycle_index <= 0 then Runtime.void_cycle_direction = 1 end
+	end
+	return (target_pos or Vector3.zero) + base_offset
+end
+
+-- 13. Conditional Guards -------------------------------------------------------
+-- should_run: alive, on the map (Y above -500) and not spawn protected ourselves. A target under a
+-- ForceField is invincible: never fired at, and with Void While Invulnerable we sit in the void until it is
+-- gone. Without a target the void cycle only runs with Void While Inactive.
+
+local Guards = {}
+
+local function has_forcefield(player)
+	local char = player and player.Character
+	return char ~= nil and char:FindFirstChildOfClass("ForceField") ~= nil
+end
+
+function Guards.is_local_on_map()
+	local hrp = get_hrp()
+	return hrp ~= nil and hrp.Position.Y > -500
+end
+
+function Guards.should_run()
+	return is_alive() and Runtime.is_on_map and not Runtime.spawn_protected
+end
+
+function Guards.target_has_spawn_protection(player)
+	return has_forcefield(player)
+end
+
+-- 15. Projectile Breaker ---------------------------------------------------------
+-- From polsec-inner-luraph.lua (the closure around ragebot_ensure_exploit_runtime): the pool is filled from
+-- the game's raycast whitelist (LocalFighter:GetRaycastWhitelist(true), i.e. the parts tagged
+-- RaycastWhitelist<EnvironmentID>, with their descendants), at most 64 parts looked at per pass and 30
+-- surfaces kept; barrier parts are skipped, each part gives its top surface (ragebot_exploit_extract_surface),
+-- the hide point is sunk into it (ragebot_exploit_surface_cframe) and dropped when it overlaps a barrier
+-- (ragebot_exploit_pb_probe_blocked). KH's own ProjectileBreaker (module jH) is the same algorithm in the
+-- clear, so the bodies the Luraph build keeps encrypted are taken from there.
+
+local CollectionService = game:GetService("CollectionService")
+local surfacePoint = tbl17.jG()
+local pbRandom = Random.new()
+local pbOverlap = OverlapParams.new()
+pbOverlap.FilterType = Enum.RaycastFilterType.Exclude
+pbOverlap.FilterDescendantsInstances = {}
+local PB_PROBE_SIZE = Vector3.new(5, 5, 5)
+local PB_PARTS_PER_PASS = 64
+
+local ProjectileBreaker = { env = nil, candidates = nil, cursor = 1, processed = {}, next_collect_at = 0 }
+
+-- barriers: the map's out-of-bounds walls and kill bricks
+function ProjectileBreaker.is_barrier_part(part)
+	return part.Name == "Barriers" or part:HasTag("OutOfBoundsPart") or part:HasTag("KillBrick")
+end
+
+-- the surface frame (Right / Up / Forward) at a point with the given normal, Forward pointing away from the part
+local function surface_frame(position, normal, part)
+	local up = normal.Unit
+	local along = part.Position - position
+	local flat = along - up * along:Dot(up)
+	if flat.Magnitude < 0.0001 then
+		local look = part.CFrame.LookVector
+		flat = look - up * look:Dot(up)
+		if flat.Magnitude < 0.0001 then
+			flat = Vector3.xAxis - up * up:Dot(Vector3.xAxis)
+		end
+	end
+	local right = flat.Unit:Cross(up).Unit
+	return { SurfacePosition = position, Right = right, Up = up, Forward = up:Cross(right).Unit }
+end
+
+-- a visible part of some size: the first upward-facing point found from 8 random far-away directions, then
+-- straight above
+function ProjectileBreaker.extract_surface(part)
+	if part.Transparency == 1 then
+		return nil
+	end
+	local size = part.Size
+	if size.X * size.Y * size.Z < 64 then
+		return nil
+	end
+	local reach = size.Magnitude + 1000
+	for _ = 1, 8 do
+		local point, normal = surfacePoint(part, part.Position + pbRandom:NextUnitVector() * reach)
+		if normal ~= nil and normal.Y >= 0.98 then
+			return surface_frame(point, normal, part)
+		end
+	end
+	local point, normal = surfacePoint(part, part.Position + Vector3.yAxis * reach)
+	if normal ~= nil and normal.Y >= 0.98 then
+		return surface_frame(point, normal, part)
+	end
+	return nil
+end
+
+-- DepthUp under the surface, DepthForward along it
+function ProjectileBreaker.surface_cframe(surface, depth_up, depth_forward)
+	return CFrame.fromMatrix(
+		surface.SurfacePosition - surface.Up * 0.01 - surface.Up * depth_up + surface.Forward * depth_forward,
+		surface.Right, surface.Up, -surface.Forward
+	)
+end
+
+function ProjectileBreaker.pb_probe_blocked(position)
+	for _, part in Workspace:GetPartBoundsInBox(CFrame.new(position), PB_PROBE_SIZE, pbOverlap) do
+		if ProjectileBreaker.is_barrier_part(part) then
+			return true
+		end
+	end
+	return false
+end
+
+function ProjectileBreaker.reset(env)
+	ProjectileBreaker.env = env
+	ProjectileBreaker.candidates = nil
+	ProjectileBreaker.cursor = 1
+	ProjectileBreaker.processed = {}
+	ProjectileBreaker.next_collect_at = 0
+	Runtime.pb_pool = {}
+end
+
+function ProjectileBreaker.collect_candidates(env)
+	local list = {}
+	for _, root in CollectionService:GetTagged("RaycastWhitelist" .. tostring(env)) do
+		if not (root:IsA("BasePart") and ProjectileBreaker.is_barrier_part(root)) then
+			list[#list + 1] = root
+			for _, child in root:GetDescendants() do
+				list[#list + 1] = child
+			end
+		end
+	end
+	ProjectileBreaker.candidates = list
+	ProjectileBreaker.cursor = 1
+end
+
+-- one pass: up to 64 new parts or ~1 ms, until the pool holds pb_pool_max surfaces
+function ProjectileBreaker.scan()
+	local env = LocalPlayer:GetAttribute("EnvironmentID")
+	if env == nil then
+		return
+	end
+	if env ~= ProjectileBreaker.env then
+		ProjectileBreaker.reset(env)
+	end
+	local pool = Runtime.pb_pool
+	if #pool >= Config.pb_pool_max then
+		return
+	end
+	local now = os.clock()
+	local list = ProjectileBreaker.candidates
+	-- parts that stream in later: look again at most every 2 s once a full pass came up short
+	if list == nil or (ProjectileBreaker.cursor > #list and now >= ProjectileBreaker.next_collect_at) then
+		ProjectileBreaker.collect_candidates(env)
+		ProjectileBreaker.next_collect_at = now + 2
+		list = ProjectileBreaker.candidates
+	end
+	local processed = ProjectileBreaker.processed
+	local looked = 0
+	local deadline = now + 0.001
+	local cursor = ProjectileBreaker.cursor
+	while cursor <= #list do
+		local part = list[cursor]
+		cursor = cursor + 1
+		if not processed[part] then
+			processed[part] = true
+			if part:IsA("BasePart") and part.Parent ~= nil and not ProjectileBreaker.is_barrier_part(part) then
+				looked = looked + 1
+				local surface = ProjectileBreaker.extract_surface(part)
+				if surface ~= nil and not ProjectileBreaker.pb_probe_blocked(
+					ProjectileBreaker.surface_cframe(surface, Config.pb_depth_up, Config.pb_depth_forward).Position
+				) then
+					pool[#pool + 1] = surface
+					if #pool >= Config.pb_pool_max then
+						break
+					end
+				end
+				if looked >= PB_PARTS_PER_PASS or os.clock() >= deadline then
+					break
+				end
+			end
+		end
+	end
+	ProjectileBreaker.cursor = cursor
+end
+
+-- a hide point inside a random pool surface, or nil while the pool is still empty (the void is used then)
+function ProjectileBreaker.pick()
+	ProjectileBreaker.scan()
+	local pool = Runtime.pb_pool
+	if #pool == 0 then
+		return nil
+	end
+	return ProjectileBreaker.surface_cframe(pool[pbRandom:NextInteger(1, #pool)], Config.pb_depth_up, Config.pb_depth_forward)
+end
+
+-- The void cycle, the way kh's UE style times it: "attack" (VoidAttack s) at the target with the movement
+-- mode, then "hide" (VoidHide s) in the void, or inside a surface with Projectile Breaker. The Polsec file had
+-- the two the other way round and only put us in the void for one frame before the movement mode moved us
+-- back. Returns true while hiding: movement and firing sit those frames out.
+local function void_tick(dt, target_hrp, always_hide)
+	local hrp = get_hrp()
+	if not hrp then
+		return false
+	end
+	Runtime.void_timer = Runtime.void_timer + dt
+	if always_hide then
+		if Runtime.void_phase ~= "hide" then
+			Runtime.void_phase = "hide"
+			Runtime.void_hide_cframe = nil
+		end
+		Runtime.void_timer = 0
+	elseif Runtime.void_phase == "hide" then
+		if Runtime.void_timer >= Config.void_hide then
+			Runtime.void_phase = "attack"
+			Runtime.void_timer = 0
+		end
+	elseif Runtime.void_timer >= Config.void_attack then
+		Runtime.void_phase = "hide"
+		Runtime.void_timer = 0
+		Runtime.void_hide_cframe = nil
+	end
+	if Runtime.void_phase ~= "hide" then
+		return false
+	end
+	if not Runtime.void_hide_cframe then
+		local around = target_hrp and target_hrp.Position or hrp.Position
+		Runtime.void_hide_cframe = (Config.pb_enabled and ProjectileBreaker.pick())
+			or CFrame.new(void_get_next_position(around))
+	end
+	hrp.CFrame = Runtime.void_hide_cframe
+	return true
+end
+
+local function init_void_spam_state()
+	if Runtime.void_spam_initialized then
+		return
+	end
+	Runtime.void_spam_initialized = true
+	Runtime.void_phase = "attack"
+	Runtime.void_timer = 0
+	Runtime.void_cycle_index = 0
+	Runtime.void_cycle_direction = 1
+	Runtime.void_hide_cframe = nil
+end
+
+-- Stability: Orbit / In-Wall ease toward their point instead of snapping (0 = snap)
+local function place(hrp, cframe)
+	if Config.stability > 0 then
+		-- from last frame's server position: with Desync the root is back on the real one by now
+		cframe = (Runtime.last_server_cframe or hrp.CFrame):Lerp(cframe, 1 - Config.stability)
+	end
+	hrp.CFrame = cframe
+end
+
+-- 3. Orbit -------------------------------------------------------------------
+
+local function orbit_tick(dt, target_hrp)
+	local hrp = get_hrp()
+	if not hrp then
+		return
+	end
+	local pivot = target_hrp and target_hrp.Position or hrp.Position
+	Runtime.orbit_time = Runtime.orbit_time + dt * Config.orbit_speed
+	local t = Runtime.orbit_time
+	local r = Config.orbit_radius
+	local hx = Config.orbit_height_x
+	local hy = Config.orbit_height_y
+	local x_pos = cos(rad(t)) * r
+	local z_pos = sin(rad(t)) * r
+	local y_pos = hy
+	if Config.orbit_spiral_enabled then
+		local spiral_t = t * 0.1
+		r = r + sin(spiral_t) * (r * 0.5)
+		x_pos = cos(rad(t)) * r
+		z_pos = sin(rad(t)) * r
+		y_pos = hy + sin(spiral_t * 2) * abs(hx)
+	end
+	if Config.orbit_randomize then
+		x_pos = x_pos + (random() * 2 - 1) * 0.5
+		z_pos = z_pos + (random() * 2 - 1) * 0.5
+		y_pos = y_pos + (random() * 2 - 1) * 0.25
+	end
+	local angle_cf = CFrame.Angles(rad(Config.orbit_angle_x), rad(Config.orbit_angle_y), rad(Config.orbit_angle_z))
+	local orbit_pos = pivot + angle_cf:VectorToWorldSpace(Vector3.new(x_pos, y_pos, z_pos))
+	place(hrp, CFrame.new(orbit_pos, pivot))
+end
+
+-- 4. In-Wall -----------------------------------------------------------------
+
+local function in_wall_tick(dt, target_hrp)
+	local hrp = get_hrp()
+	if not hrp or not target_hrp then
+		return
+	end
+	local dir = target_hrp.Position - hrp.Position
+	dir = Vector3.new(dir.X, 0, dir.Z)
+	if dir.Magnitude < 0.01 then
+		return
+	end
+	dir = dir.Unit
+	if Config.in_wall_flip then
+		dir = -dir
+	end
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { get_character() }
+	local result = Workspace:Raycast(hrp.Position, dir * Config.in_wall_range, params)
+	if result then
+		local wall_pos = result.Position + result.Normal * Config.in_wall_stick
+		wall_pos = Vector3.new(wall_pos.X, wall_pos.Y + Config.in_wall_height, wall_pos.Z)
+		place(hrp, CFrame.new(wall_pos, wall_pos + dir))
+	end
+end
+
+-- 5. Desync ------------------------------------------------------------------
+-- Polsec keeps two positions: the one the server gets (orbit / void / wall ...) and the "visual" one the
+-- camera sees (void_hide_visual_cframe, read from ragebot_get_void_csync_root). kh splits them the same way
+-- for Careful: the root is moved in Heartbeat, which is what gets replicated, and put back on the real
+-- CFrame in RenderPriority.First, before the camera reads it. With Desync on, Solix does that too, so we
+-- keep walking and looking from where we really are while the server sees the Solix position.
+-- Desync Mode "TargetRep" (Polsec's desync_resolve_mode TargetRep: the rep target is the target's root)
+-- also points our PhysicsRepRootPart at the target while attacking, the way Careful's glue does.
+
+local okLy, ly = pcall(tbl17.LYC)
+if not okLy then
+	ly = nil
+end
+local RESTORE_NAME = "KHSolix_Restore"
+local Desync = { active = false, owner = nil, visual_cframe = nil, root = nil, last_good = nil, bound = false, rep_root = nil }
+
+local function write_cframe(part, cframe)
+	if ly and ly.setCFrame then
+		ly.setCFrame(part, cframe)
+	else
+		part.CFrame = cframe
+	end
+end
+
+local function far(position)
+	return abs(position.X) > 1e5 or abs(position.Y) > 1e5 or abs(position.Z) > 1e5
+end
+
+-- RenderPriority.First: the camera sees the real position
+local function restore_visual()
+	local hrp = Desync.root
+	local cframe = Desync.visual_cframe
+	Desync.visual_cframe = nil
+	if not hrp or hrp.Parent == nil or not cframe then
+		return
+	end
+	-- the lobby sits at an extreme coordinate on purpose: never pull a character back there
+	if LocalPlayer:GetAttribute("EnvironmentID") == nil then
+		return
+	end
+	Runtime.last_server_cframe = hrp.CFrame
+	if far(cframe.Position) and Desync.last_good then
+		cframe = Desync.last_good
+	end
+	write_cframe(hrp, cframe)
+	if not far(cframe.Position) then
+		Desync.last_good = cframe
+	end
+end
+
+function Desync.bind(on)
+	if on == Desync.bound then
+		return
+	end
+	Desync.bound = on
+	pcall(function()
+		RunService:UnbindFromRenderStep(RESTORE_NAME)
+	end)
+	if on then
+		pcall(function()
+			RunService:BindToRenderStep(RESTORE_NAME, Enum.RenderPriority.First.Value, restore_visual)
+		end)
+	end
+end
+
+-- start of every step: remember where we really are. A move from an earlier Heartbeat that was never drawn
+-- (Heartbeat can run twice per frame) is undone first, so the server position is never taken as the real one.
+function Desync.capture(hrp)
+	if Desync.root ~= hrp then
+		Desync.root = hrp
+		Desync.visual_cframe = nil
+		Desync.last_good = nil
+		Runtime.last_server_cframe = nil
+	end
+	if Desync.visual_cframe then
+		write_cframe(hrp, Desync.visual_cframe)
+	else
+		Desync.visual_cframe = hrp.CFrame
+	end
+	Desync.active = true
+	Desync.owner = "ragebot"
+	Desync.bind(true)
+end
+
+function Desync.set_rep(hrp, part)
+	if not (ly and ly.setRepRoot) then
+		return
+	end
+	if part then
+		if Desync.rep_root ~= part and ly.setRepRoot(hrp, part) then
+			Desync.rep_root = part
+		end
+	elseif Desync.rep_root then
+		ly.setRepRoot(hrp, nil)
+		Desync.rep_root = nil
+	end
+end
+
+function Desync.clear()
+	local hrp = Desync.root
+	if hrp and hrp.Parent then
+		Desync.set_rep(hrp, nil)
+		if Desync.visual_cframe and LocalPlayer:GetAttribute("EnvironmentID") ~= nil then
+			write_cframe(hrp, Desync.visual_cframe)
+		end
+	end
+	Desync.rep_root = nil
+	Desync.visual_cframe = nil
+	Desync.active = false
+	Desync.owner = nil
+	Desync.bind(false)
+	Runtime.last_server_cframe = nil
+end
+
+-- 6. Anti-Aim ----------------------------------------------------------------
+
+local AntiAim = {}
+
+function AntiAim.solve(original_cf)
+	local _, yaw_in, _ = original_cf:ToEulerAnglesYXZ()
+	local pitch_in = math.asin(clamp(-original_cf.LookVector.Y, -1, 1))
+	local t = tick()
+	local pitch_out = 0
+	local yaw_out = 0
+	local pitch_mode = Config.anti_aim_pitch_mode
+	local yaw_mode = Config.anti_aim_yaw_mode
+	local custom_pitch = tonumber(Config.anti_aim_pitch_angle) or 0
+	local custom_yaw = tonumber(Config.anti_aim_yaw_angle) or 0
+
+	if pitch_mode == "Random" then
+		pitch_out = rad(random(-180, 180))
+	elseif pitch_mode == "Down" then
+		pitch_out = 3.12413936106985
+	elseif pitch_mode == "Custom" then
+		pitch_out = rad(custom_pitch)
+	elseif pitch_mode == "HalfUp" then
+		pitch_out = 1.5533430342749532
+	elseif pitch_mode == "HalfDown" then
+		pitch_out = -1.5533430342749532
+	elseif pitch_mode == "Oscillate" then
+		pitch_out = sin(t * 10) * 2
+	elseif pitch_mode == "Sine" then
+		pitch_out = sin(t * 2) * 2
+	elseif pitch_mode == "Wave" then
+		pitch_out = sin(sin(sin(sin(t * 16) + t * 8) + t * 4) * 2) * 2
+	elseif pitch_mode == "Relative" then
+		pitch_out = pitch_in + rad(custom_pitch)
+	end
+	-- "Zero" (and anything unknown) stays 0
+
+	local is_spin_type = yaw_mode == "Spin" or yaw_mode == "Jitter" or yaw_mode == "FastSpin"
+		or yaw_mode == "SlowSpin" or yaw_mode == "Alternating" or yaw_mode == "Sine"
+	if is_spin_type then
+		if Runtime.aa_yaw_started_at <= 0 then
+			Runtime.aa_yaw_started_at = t
+		end
+		Runtime.aa_jitter_flip = not Runtime.aa_jitter_flip
+		local base_speed = abs(custom_yaw)
+		local elapsed = t - Runtime.aa_yaw_started_at
+		-- degrees per second, wrapped at 360 and only then turned into radians
+		if yaw_mode == "Spin" then
+			yaw_out = rad((elapsed * (base_speed > 0 and base_speed or 360)) % 360)
+		elseif yaw_mode == "FastSpin" then
+			yaw_out = rad((elapsed * 720) % 360)
+		elseif yaw_mode == "SlowSpin" then
+			yaw_out = rad((elapsed * 90) % 360)
+		elseif yaw_mode == "Alternating" then
+			yaw_out = Runtime.aa_jitter_flip and rad(90) or rad(-90)
+		elseif yaw_mode == "Sine" then
+			yaw_out = sin(elapsed * 2) * 2
+		elseif yaw_mode == "Jitter" then
+			yaw_out = rad((elapsed * 360) % 360)
+			if Runtime.aa_jitter_flip then
+				yaw_out = -yaw_out
+			end
+		end
+	elseif yaw_mode == "Random" then
+		yaw_out = rad(random(-360, 360))
+	elseif yaw_mode == "Backward" then
+		yaw_out = yaw_in + pi
+	elseif yaw_mode == "Custom" then
+		yaw_out = rad(custom_yaw)
+	elseif yaw_mode == "Relative" then
+		yaw_out = yaw_in + rad(custom_yaw)
+	end
+
+	-- Yaw Jitter on top: Offset flips +-angle every frame, Random adds up to +-angle (degrees)
+	local jitter_mode = Config.anti_aim_yaw_jitter
+	if jitter_mode == "Offset" or jitter_mode == "Random" then
+		if not is_spin_type then
+			Runtime.aa_jitter_flip = not Runtime.aa_jitter_flip
+		end
+		local jitter_angle = rad(abs(tonumber(Config.anti_aim_yaw_jitter_angle) or 0))
+		if jitter_mode == "Offset" then
+			yaw_out = yaw_out + (Runtime.aa_jitter_flip and -jitter_angle or jitter_angle)
+		else
+			yaw_out = yaw_out + (random(2) == 2 and 1 or -1) * random() * jitter_angle
+		end
+	end
+
+	local jitter_vec = Random.new():NextUnitVector()
+	return CFrame.Angles(pitch_out + jitter_vec.X * 0.001, yaw_out + jitter_vec.Y * 0.001, 0)
+end
+
+-- 7. Physics Glue ------------------------------------------------------------
+
+local function glue_tick()
+	local hrp = get_hrp()
+	if not hrp then
+		return
+	end
+	Runtime.physics_glue_active = true
+	hrp.AssemblyLinearVelocity = Vector3.zero
+	hrp.AssemblyAngularVelocity = Vector3.zero
+end
+
+-- 9. Attack / Fire -------------------------------------------------------------
+-- The Polsec file fires through mechanics_fire_item_input / fighter:StartShooting(): Rivals has neither, and
+-- its fighter was never set. Here the shot is the game's own UseItem packet, built the way the Careful style
+-- builds it (rageFire): guns StartShooting with an aim CFrame from where we stand to the hitbox, the knife
+-- StartAiming (heavy) and other melee StartShooting with the melee camera layout. It fires from wherever the
+-- movement put us (orbit next to the target, the void, the wall ...).
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RESTRICTED = {
+	Grenade = true, Flashbang = true, ["Smoke Grenade"] = true, Molotov = true,
+	Satchel = true, ["Jump Pad"] = true, Medkit = true, ["War Horn"] = true,
+	["Subspace Tripmine"] = true, Warpstone = true, ["Riot Shield"] = true,
+}
+local Encode, ToEnum
+
+local function encoders()
+	if Encode and ToEnum then
+		return true
+	end
+	pcall(function()
+		local modules = ReplicatedStorage:WaitForChild("Modules", 5)
+		Encode = require(modules:WaitForChild("Utility", 5))
+		ToEnum = require(modules:WaitForChild("EnumLibrary", 5))
+	end)
+	return Encode ~= nil and ToEnum ~= nil
+end
+
+local function local_fighter()
+	local ok, fc = pcall(function()
+		return require(LocalPlayer.PlayerScripts.Controllers.FighterController)
+	end)
+	return ok and fc and fc.LocalFighter or nil
+end
+
+-- name, isMelee, isKnife, isRevolver, attack cooldown: read from the item's Info like rageWeaponInfo
+local function weapon_info(item)
+	local info
+	pcall(function() info = item.Info end)
+	local name
+	pcall(function() name = (info and info.Name) or item:Get("Name") end)
+	local isRaycast = info and info.IsRaycast == true
+	local isMelee = (info and info.Type == "Melee")
+		or (info ~= nil and info.AttackReach ~= nil and info.MaxAmmo == nil and not isRaycast)
+	local isRevolver = name == "Revolver" or (info ~= nil and info.QuickShotCooldown ~= nil)
+	local cd = (info and (info.HeavyAttackCooldown or info.AttackCooldown or info.ShootCooldown)) or 0
+	return name, isMelee == true, isMelee == true and name == "Knife", isRevolver, cd
+end
+
+local function item_ammo(item)
+	local ammo = 0
+	pcall(function() ammo = item:Get("Ammo") or 0 end)
+	return ammo
+end
+
+-- ragebot_warm_hitbox_cache (polsec-inner-luraph.lua): the head hitbox is cached per character and falls
+-- back HitboxHead -> HitboxHeadSmall -> PhysicalHitboxHead -> Head. Snipers use the Small hitbox class in
+-- Rivals (kh's hitbox profiles: Sniper = HitboxHeadSmall / HitboxBodySmall), so they ask for the small one.
+local hitboxCache = setmetatable({}, { __mode = "k" })
+
+local function hitbox(character, small)
+	local cache = hitboxCache[character]
+	if not cache then
+		cache = {}
+		hitboxCache[character] = cache
+	end
+	local key = small and "HitboxHeadSmall" or "HitboxHead"
+	local part = cache[key]
+	if part and part.Parent then
+		return part
+	end
+	if small then
+		part = character:FindFirstChild("HitboxHeadSmall") or character:FindFirstChild("HitboxHead")
+	else
+		part = character:FindFirstChild("HitboxHead") or character:FindFirstChild("HitboxHeadSmall")
+	end
+	part = part or character:FindFirstChild("PhysicalHitboxHead") or character:FindFirstChild("Head")
+		or character:FindFirstChild("HumanoidRootPart")
+	cache[key] = part
+	return part
+end
+
+local Attack = {
+	last_fire_at = 0,
+	shoot_frame_counter = 0,
+	melee_cool_until = 0,
+}
+
+local EmptySwap
+
+function Attack.try_fire(target_player)
+	local now = tick()
+	if now - Attack.last_fire_at < clamp(Config.fire_interval, 0.01, 1) then
+		return false
+	end
+	local fighter = local_fighter()
+	local item = fighter and fighter.EquippedItem
+	local char = target_player and target_player.Character
+	local hrp = get_hrp()
+	if not item or not char or not hrp or not encoders() then
+		return false
+	end
+	local name, isMelee, isKnife, isRevolver, cd = weapon_info(item)
+	if name and RESTRICTED[name] then
+		return false
+	end
+	if isMelee and now < Attack.melee_cool_until then
+		return false
+	end
+	if not isMelee then
+		-- the server is still reloading: hold fire
+		local reloading = false
+		pcall(function()
+			local rc = item:GetAttribute("_reload_cooldown")
+			local sc = item:GetAttribute("_shoot_cooldown_no_ammo")
+			reloading = (type(rc) == "number" and now < rc) or (type(sc) == "number" and now < sc)
+		end)
+		if reloading then
+			return false
+		end
+		if item_ammo(item) <= 0 then
+			EmptySwap.on_ammo_empty(item)
+			return false
+		end
+	end
+	local objId
+	pcall(function() objId = item:Get("ObjectID") end)
+	local part = hitbox(char, type(name) == "string" and string.find(name, "Sniper") ~= nil)
+	if not objId or not part then
+		return false
+	end
+
+	local shootPos = hrp.Position
+	local targetPos = part.Position
+	local startCF, endCF
+	local hitCF = CFrame.new(0.43, 0.25, 0.42)
+	if isMelee then
+		local eye = shootPos + Vector3.new(0, 1.75, 0)
+		local look = (targetPos - eye).Magnitude > 1e-3 and CFrame.lookAt(eye, targetPos) or CFrame.new(eye)
+		startCF = look
+		endCF = look + look.LookVector * 0.1
+		hitCF = CFrame.Angles(0, pi / 2, 0)
+	else
+		local aim = (targetPos - shootPos).Magnitude > 1e-3 and CFrame.new(shootPos, targetPos) or CFrame.new(shootPos)
+		startCF, endCF = aim, aim
+	end
+	local shot = {
+		[utf8.char(0)] = Encode:EncodeCFrame(startCF),
+		[utf8.char(1)] = Encode:EncodeCFrame(endCF),
+		[utf8.char(2)] = part,
+		[utf8.char(3)] = Encode:EncodeCFrame(hitCF),
+	}
+	local packet = isRevolver and { [utf8.char(1)] = shot, [utf8.char(2)] = false, [utf8.char(3)] = true }
+		or (isMelee and { [utf8.char(1)] = shot })
+		or { [utf8.char(1)] = shot, [utf8.char(2)] = true }
+	local ok = pcall(function()
+		ReplicatedStorage.Remotes.Replication.Fighter.UseItem:FireServer(
+			objId,
+			ToEnum:ToEnum(isKnife and "StartAiming" or "StartShooting"),
+			packet,
+			nil
+		)
+	end)
+	if ok then
+		Attack.last_fire_at = now
+		if isMelee then
+			Attack.melee_cool_until = now + math.max(cd, 0.05)
+		end
+	end
+	return ok
+end
+
+-- shoot_frames: fire on N frames in a row, then skip one; 0 = every frame the fire interval allows
+function Attack.tick(target_player)
+	if Config.shoot_frames <= 0 then
+		Attack.try_fire(target_player)
+		return
+	end
+	if Attack.shoot_frame_counter < Config.shoot_frames then
+		Attack.try_fire(target_player)
+		Attack.shoot_frame_counter = Attack.shoot_frame_counter + 1
+	else
+		Attack.shoot_frame_counter = 0
+	end
+end
+
+-- Preferred weapon: keep the slot equipped while there is a target (index 1 = Primary, 3 = Melee).
+local swap_cool_until = 0
+
+local function equip_index(index)
+	local now = tick()
+	if now < swap_cool_until then
+		return false
+	end
+	local fighter = local_fighter()
+	local items = fighter and (rawget(fighter, "Items") or fighter.Items)
+	if type(items) ~= "table" or items[index] == nil or type(fighter.EquipItem) ~= "function" then
+		return false
+	end
+	if fighter.EquippedItem == items[index] then
+		return true
+	end
+	swap_cool_until = now + 0.5
+	return pcall(fighter.EquipItem, fighter, index)
+end
+
+local function keep_preferred_weapon()
+	if Config.preferred_weapon == "Primary" then
+		equip_index(1)
+	elseif Config.preferred_weapon == "Melee" then
+		equip_index(3)
+	end
+end
+
+-- 10. Priority -------------------------------------------------------------------
+-- "attackers" puts whoever hit us last (inside 5 s) first, "closest" is the distance itself. Rivals does not
+-- say who hit us, so on a health drop the attacker is taken to be the enemy looking at us most directly.
+
+local Priority = { last_attacker = nil, last_hit_time = 0, last_health = nil, last_target = nil }
+
+function Priority.on_hit(attacker_player)
+	Priority.last_attacker = attacker_player
+	Priority.last_hit_time = tick()
+	if Config.auto_prioritize and attacker_player then
+		Runtime.current_target_player = attacker_player
+	end
+end
+
+function Priority.guess_attacker(candidates)
+	local my_hrp = get_hrp()
+	if not my_hrp then
+		return nil
+	end
+	local best, best_dot = nil, 0.8
+	for _, player in ipairs(candidates) do
+		local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		if hrp then
+			local to_me = my_hrp.Position - hrp.Position
+			if to_me.Magnitude > 0.01 then
+				local dot = hrp.CFrame.LookVector:Dot(to_me.Unit)
+				if dot > best_dot then
+					best, best_dot = player, dot
+				end
+			end
+		end
+	end
+	return best
+end
+
+function Priority.watch_health(candidates)
+	local char = get_character()
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if not hum then
+		Priority.last_health = nil
+		return
+	end
+	local health = hum.Health
+	if Priority.last_health and health < Priority.last_health then
+		local attacker = Priority.guess_attacker(candidates)
+		if attacker then
+			Priority.on_hit(attacker)
+		end
+	end
+	Priority.last_health = health
+end
+
+function Priority.select_target(candidates)
+	if #candidates == 0 then
+		return nil
+	end
+	local my_hrp = get_hrp()
+	if not my_hrp then
+		return candidates[1]
+	end
+	local now = tick()
+	local best, best_score = nil, huge
+	for _, player in ipairs(candidates) do
+		local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		if hrp then
+			local score = (hrp.Position - my_hrp.Position).Magnitude
+			for _, rule in ipairs(Config.priority_settings) do
+				if rule == "attackers" and Config.prioritize_when_hit and player == Priority.last_attacker
+					and now - Priority.last_hit_time < 5 then
+					score = score * 0.1
+				end
+			end
+			if score < best_score then
+				best, best_score = player, score
+			end
+		end
+	end
+	return best
+end
+
+-- 11. Waypoints --------------------------------------------------------------------
+-- Points are { x, y, z, angles }. With Waypoints on and no target, we walk them in order (Humanoid:MoveTo).
+
+local WaypointSystem = { points = {}, current_index = 0 }
+
+function WaypointSystem.add(x, y, z, angles)
+	table.insert(WaypointSystem.points, { x = x, y = y, z = z, angles = angles or 0 })
+end
+
+function WaypointSystem.add_current()
+	local hrp = get_hrp()
+	if not hrp then
+		return
+	end
+	local pos = hrp.Position
+	local _, y_rot, _ = hrp.CFrame:ToEulerAnglesYXZ()
+	WaypointSystem.add(pos.X, pos.Y, pos.Z, math.deg(y_rot))
+end
+
+function WaypointSystem.remove(index)
+	if index >= 1 and index <= #WaypointSystem.points then
+		table.remove(WaypointSystem.points, index)
+	end
+end
+
+function WaypointSystem.clear()
+	WaypointSystem.points = {}
+	WaypointSystem.current_index = 0
+end
+
+function WaypointSystem.teleport_to(index)
+	local wp = WaypointSystem.points[index]
+	local hrp = get_hrp()
+	if wp and hrp then
+		hrp.CFrame = CFrame.new(wp.x, wp.y, wp.z) * CFrame.Angles(0, rad(wp.angles), 0)
+	end
+end
+
+function WaypointSystem.get_next()
+	if #WaypointSystem.points == 0 then
+		return nil
+	end
+	WaypointSystem.current_index = (WaypointSystem.current_index % #WaypointSystem.points) + 1
+	return WaypointSystem.points[WaypointSystem.current_index]
+end
+
+function WaypointSystem.export_json()
+	local parts = {}
+	for _, wp in ipairs(WaypointSystem.points) do
+		parts[#parts + 1] = string.format('{"x":%.2f,"y":%.2f,"z":%.2f,"angles":%.2f}', wp.x, wp.y, wp.z, wp.angles)
+	end
+	return "[" .. table.concat(parts, ",") .. "]"
+end
+
+function WaypointSystem.import_json(json_str)
+	local HttpService = game:GetService("HttpService")
+	local ok, data = pcall(HttpService.JSONDecode, HttpService, json_str)
+	if not ok or type(data) ~= "table" then
+		return false
+	end
+	WaypointSystem.clear()
+	for _, wp in ipairs(data) do
+		if type(wp) == "table" and wp.x and wp.y and wp.z then
+			WaypointSystem.add(tonumber(wp.x) or 0, tonumber(wp.y) or 0, tonumber(wp.z) or 0, tonumber(wp.angles) or 0)
+		end
+	end
+	return true
+end
+
+function WaypointSystem.copy()
+	local clip = K.fn("setclipboard") or K.fn("toclipboard")
+	if clip then
+		pcall(clip, WaypointSystem.export_json())
+	end
+end
+
+function WaypointSystem.update()
+	local hrp = get_hrp()
+	local char = get_character()
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if not hrp or not hum or #WaypointSystem.points == 0 then
+		return
+	end
+	local wp = WaypointSystem.points[WaypointSystem.current_index] or WaypointSystem.get_next()
+	if not wp then
+		return
+	end
+	local target = Vector3.new(wp.x, wp.y, wp.z)
+	if (hrp.Position - target).Magnitude < 3 then
+		wp = WaypointSystem.get_next()
+		target = Vector3.new(wp.x, wp.y, wp.z)
+	end
+	hum:MoveTo(target)
+end
+
+-- 12. Empty / Swap or Reload --------------------------------------------------------
+-- What happens when the equipped gun is out of ammo: "reload" sends StartReloading (the packet Careful
+-- sends), "swap" equips another gun that still has ammo (falls back to reload), "melee" equips slot 3,
+-- "none" does nothing.
+
+EmptySwap = { reload_until = 0 }
+
+function EmptySwap.reload(item)
+	local now = tick()
+	if now < EmptySwap.reload_until or not encoders() then
+		return
+	end
+	local objId
+	pcall(function() objId = item:Get("ObjectID") end)
+	if not objId then
+		return
+	end
+	EmptySwap.reload_until = now + 0.5
+	pcall(function()
+		local reloadEncoded = ToEnum:ToEnum("Reload")
+		ReplicatedStorage.Remotes.Replication.Fighter.UseItem:FireServer(
+			objId, ToEnum:ToEnum("StartReloading"),
+			{ [utf8.char(1)] = reloadEncoded, [utf8.char(2)] = reloadEncoded },
+			nil
+		)
+	end)
+end
+
+function EmptySwap.swap_to_loaded(item)
+	local fighter = local_fighter()
+	local items = fighter and (rawget(fighter, "Items") or fighter.Items)
+	if type(items) == "table" then
+		for index, other in ipairs(items) do
+			if other ~= item then
+				local name, isMelee = weapon_info(other)
+				if not isMelee and not (name and RESTRICTED[name]) and item_ammo(other) > 0 then
+					if equip_index(index) then
+						return
+					end
+				end
+			end
+		end
+	end
+	if Config.swap_allow_reserve then
+		EmptySwap.swap_to_melee()
+	else
+		EmptySwap.reload(item)
+	end
+end
+
+function EmptySwap.swap_to_melee()
+	equip_index(3)
+end
+
+-- ragebot_is_reload_void_active: the equipped gun is reloading (the server's reload attributes, or a reload
+-- we just sent). In Polsec this puts us in the void whether void spam is on or not.
+function Guards.is_reload_void_active()
+	local fighter = local_fighter()
+	local item = fighter and fighter.EquippedItem
+	if not item then
+		return false
+	end
+	local _, isMelee = weapon_info(item)
+	if isMelee then
+		return false
+	end
+	local now = tick()
+	if now < EmptySwap.reload_until then
+		return true
+	end
+	local reloading = false
+	pcall(function()
+		local rc = item:GetAttribute("_reload_cooldown")
+		local sc = item:GetAttribute("_shoot_cooldown_no_ammo")
+		reloading = (type(rc) == "number" and now < rc) or (type(sc) == "number" and now < sc)
+	end)
+	return reloading
+end
+
+function EmptySwap.on_ammo_empty(item)
+	local mode = Config.empty_mode
+	if mode == "reload" then
+		EmptySwap.reload(item)
+	elseif mode == "swap" then
+		EmptySwap.swap_to_loaded(item)
+	elseif mode == "melee" then
+		EmptySwap.swap_to_melee()
+	end
+end
+
+-- 8. Heartbeat ---------------------------------------------------------------
+
+local function get_target_hrp()
+	local target = Runtime.current_target_player
+	local char = target and target.Character
+	return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+-- 14. Indicator ------------------------------------------------------------------
+-- One status line ("Solix [ON] Orbit Void:hide T:name") in a small box on the left of the screen. The
+-- Polsec file never made the Status label it writes to, so its indicator stayed empty.
+
+local Indicator = { holder = nil, labels = {} }
+
+function Indicator.create()
+	if Indicator.holder then
+		return
+	end
+	local screen = Instance.new("ScreenGui")
+	screen.Name = "SolixIndicator"
+	screen.ResetOnSpawn = false
+	screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	local holder = Instance.new("Frame")
+	holder.Name = "Holder"
+	holder.Size = UDim2.new(0, 260, 0, 22)
+	holder.Position = UDim2.new(0, 10, 0.5, -11)
+	holder.BackgroundTransparency = 0.5
+	holder.BackgroundColor3 = Color3.new(0, 0, 0)
+	holder.BorderSizePixel = 0
+	holder.Parent = screen
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 6)
+	corner.Parent = holder
+	local label = Instance.new("TextLabel")
+	label.Name = "Status"
+	label.Size = UDim2.new(1, -10, 1, 0)
+	label.Position = UDim2.new(0, 5, 0, 0)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.Code
+	label.TextSize = 13
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Text = ""
+	label.Parent = holder
+	screen.Parent = K.hudParent()
+	Indicator.holder = holder
+	Indicator.labels.Status = label
+end
+
+function Indicator.update(target)
+	Indicator.create()
+	local label = Indicator.labels.Status
+	if not label then
+		return
+	end
+	local parts = { Config.signature, "[ON]", Config.movement_mode }
+	if Runtime.void_phase then
+		parts[#parts + 1] = "Void:" .. Runtime.void_phase
+	end
+	if target then
+		parts[#parts + 1] = "T:" .. target.Name .. (Runtime.target_invincible and " (FF)" or "")
+	end
+	label.Text = table.concat(parts, " ")
+	label.TextColor3 = Config.label_color
+	label.TextTransparency = Config.label_transparency
+end
+
+function Indicator.destroy()
+	if Indicator.holder then
+		pcall(function()
+			Indicator.holder.Parent:Destroy()
+		end)
+	end
+	Indicator.holder = nil
+	Indicator.labels = {}
+end
+
+local function on_inactive()
+	Runtime.void_phase = nil
+	Runtime.void_timer = 0
+	Runtime.void_spam_initialized = false
+	Runtime.void_hide_cframe = nil
+	Runtime.target_invincible = false
+	Indicator.destroy()
+	Runtime.underground_anchor = nil
+	Runtime.aa_yaw_started_at = 0
+	Runtime.current_target_player = nil
+	Attack.shoot_frame_counter = 0
+	Priority.last_health = nil
+	Priority.last_target = nil
+	if Desync.active and Desync.owner == "ragebot" then
+		Desync.clear()
+	end
+	Runtime.physics_glue_active = false
+end
+
+local function step(dt)
+	-- the map / spawn-protection state is read before the guard (the Polsec file read it after, so once off
+	-- the map it never ran again)
+	Runtime.is_on_map = Guards.is_local_on_map()
+	Runtime.spawn_protected = has_forcefield(LocalPlayer)
+	if not Guards.should_run() then
+		on_inactive()
+		return
+	end
+	local candidates = enemy_candidates()
+	Priority.watch_health(candidates)
+	local target = Priority.select_target(candidates)
+	-- Auto Prioritize: stay on whoever hit us for 5 s, as long as he is still a living enemy
+	local attacker = Priority.last_attacker
+	if Config.auto_prioritize and attacker and tick() - Priority.last_hit_time < 5 and table.find(candidates, attacker) then
+		target = attacker
+	end
+	Runtime.current_target_player = target
+	if target ~= Priority.last_target then
+		Priority.last_target = target
+		if target and Config.send_notification then
+			notify("target " .. target.DisplayName)
+		end
+	end
+	local target_hrp = get_target_hrp()
+	local hrp = get_hrp()
+	if not hrp then
+		return
+	end
+	-- the real position, before anything moves us (Polsec: allow_void_manipulation -> apply_desync)
+	if Config.desync_enabled and (Config.void_spam or Config.void_while_reloading or Config.movement_mode ~= "Static") then
+		Desync.capture(hrp)
+	elseif Desync.active then
+		Desync.clear()
+	end
+
+	-- invincible, as Polsec's indicator counts it: spawn protection or a deflect (katana / riot shield)
+	Runtime.target_invincible = target ~= nil and (Guards.target_has_spawn_protection(target)
+		or (ly ~= nil and ly.isDeflecting ~= nil and ly.isDeflecting(target) == true))
+	local hiding = false
+	if Config.pb_enabled then
+		ProjectileBreaker.scan()
+	end
+	local reload_void = Config.void_while_reloading and target ~= nil and Guards.is_reload_void_active()
+	if Config.void_spam or reload_void then
+		local should_void = true
+		if not target and not Config.should_void_while_inactive then
+			should_void = false
+		end
+		if Runtime.target_invincible and not Config.should_void_while_invulnerable then
+			should_void = false
+		end
+		if reload_void then
+			should_void = true
+		end
+		if should_void then
+			init_void_spam_state()
+			hiding = void_tick(dt, target_hrp, Runtime.target_invincible or reload_void)
+		else
+			Runtime.void_spam_initialized = false
+			Runtime.void_phase = nil
+		end
+	end
+
+	local mode = hiding and "Hidden" or Config.movement_mode
+	-- Anti-Translocate: a target hiding under an OutOfBoundsPart (or far below / out of the map) cannot be
+	-- reached by the movement modes; stand on it instead, Translocate Offset above its head hitbox
+	if not hiding and Config.anti_translocate and target and target_hrp and ly and ly.isTranslocated
+		and ly.isTranslocated(target) then
+		mode = "AntiTranslocate"
+		local head = hitbox(target.Character, false) or target_hrp
+		hrp.CFrame = CFrame.new(head.Position + Vector3.new(0, Config.translocate_offset, 0))
+	end
+	if mode == "Orbit" then
+		orbit_tick(dt, target_hrp)
+	elseif mode == "InWall" then
+		in_wall_tick(dt, target_hrp)
+	elseif mode == "Underground" then
+		local anchor = target_hrp and target_hrp.Position or Runtime.underground_anchor or hrp.Position
+		Runtime.underground_anchor = anchor
+		hrp.CFrame = CFrame.new(anchor - Vector3.new(0, Config.underground_depth, 0))
+	elseif mode == "Translocate" and target_hrp then
+		local delta = target_hrp.Position - hrp.Position
+		if delta.Magnitude > 0.01 then
+			hrp.CFrame = CFrame.new(target_hrp.Position + delta.Unit * Config.translocate_offset)
+		end
+	end
+
+	if Config.in_wall_glue and mode == "InWall" then
+		glue_tick()
+	else
+		Runtime.physics_glue_active = false
+	end
+
+	if Config.anti_aim_enabled then
+		hrp.CFrame = CFrame.new(hrp.Position) * AntiAim.solve(hrp.CFrame)
+	end
+
+	local attacking = target_hrp ~= nil and not hiding and not Runtime.target_invincible
+	if Config.desync_enabled and Config.desync_mode == "TargetRep" and attacking then
+		Desync.set_rep(hrp, target_hrp)
+	else
+		Desync.set_rep(hrp, nil)
+	end
+	if not Desync.active then
+		Runtime.last_server_cframe = hrp.CFrame
+	end
+
+	if attacking then
+		keep_preferred_weapon()
+		Attack.tick(target)
+	else
+		Attack.shoot_frame_counter = 0
+		if not target and Config.waypoints_enabled then
+			WaypointSystem.update()
+		end
+	end
+
+	if Config.indicator_enabled then
+		local now = os.clock()
+		if now - Runtime.indicator_at >= 0.1 then
+			Runtime.indicator_at = now
+			Indicator.update(target)
+		end
+	elseif Indicator.holder then
+		Indicator.destroy()
+	end
+end
+
+local active = false
+local syncAt = 0
+local solixHeartbeat = RunService.Heartbeat:Connect(function(dt)
+	local want = tbl17.ragebotKeyOn == true and K.RagebotStyle(config.Data.Ragebot.KnifeMode) == "SOLIX"
+	if want ~= active then
+		active = want
+		Config.enabled = want
+		if want then
+			syncSettings()
+			-- Careful's physics setup: sender rate 120, no fallen-parts kill, and the game's OutOfBounds kill
+			-- check blinded (void / under-map positions would kill us otherwise)
+			if ly and ly.setPhysics then
+				pcall(ly.setPhysics, true)
+			end
+		else
+			pcall(on_inactive)
+			if ly and ly.setPhysics then
+				pcall(ly.setPhysics, false)
+			end
+			if tbl17.ragebotKeyOn then
+				-- still on with another style: give it back the physics the controller set for it
+				local setFlag = K.fn("setfflag") or K.fn("set_fflag")
+				if setFlag then
+					pcall(setFlag, "DFIntS2PhysicsSenderRate", "120")
+				end
+				pcall(function()
+					workspace.FallenPartsDestroyHeight = 0 / 0
+				end)
+			end
+		end
+	end
+	if not active then
+		return
+	end
+	local now = os.clock()
+	if now - syncAt >= 0.25 then
+		syncAt = now
+		pcall(syncSettings)
+	end
+	local ok, err = pcall(step, dt)
+	if not ok then
+		warn("[Kicia Rebuild] Solix heartbeat error: " .. tostring(err))
+	end
+end)
+table.insert(cleanup, solixHeartbeat)
+
+K.onUnload(function()
+	for index = #cleanup, 1, -1 do
+		pcall(cleanup[index].Disconnect, cleanup[index])
+	end
+	pcall(on_inactive)
+	pcall(Desync.clear)
+	if active and ly and ly.setPhysics then
+		pcall(ly.setPhysics, false)
+	end
+end)
+
+return {
+	Config = Config,
+	Runtime = Runtime,
+	AntiAim = AntiAim,
+	Desync = Desync,
+	Attack = Attack,
+	Priority = Priority,
+	Waypoints = WaypointSystem,
+	EmptySwap = EmptySwap,
+	Guards = Guards,
+	Indicator = Indicator,
+	ProjectileBreaker = ProjectileBreaker,
+}
+end
+
+tbl17.SLX = function()
+local slx = tbl17.cache.SLX
+
+if not slx then
+slx = { c = fn35() }
+tbl17.cache.SLX = slx
+end
+
+return slx.c
 end
 end
 do -- jO
@@ -68680,6 +70523,11 @@ local okLYC, lyRage = pcall(tbl17.LYC)
 if not okLYC then
 warn("[Kicia Rebuild] Careful style (LY ragebot) failed to load: " .. tostring(lyRage))
 lyRage = nil
+end
+-- Solix style (Polsec ragebot movement); same: a failure there stays there
+local okSLX, slxErr = pcall(tbl17.SLX)
+if not okSLX then
+warn("[Kicia Rebuild] Solix style failed to load: " .. tostring(slxErr))
 end
 
 -- Target HUD for the Careful style: the card takes kh's fighter state, so LY's current target (a
@@ -68801,7 +70649,8 @@ end
 -- these flags (its only flag is S2PhysicsSenderRate = 120, proto 201), so the UE style leaves them at the
 -- values used while the ragebot is off.
 index2._ApplyHistoryFlags = function(arg, enabled)
-local khHistory = enabled and not isUE() and K.RagebotStyle(v115.Data.Ragebot.KnifeMode) ~= "Careful"
+local khStyle = K.RagebotStyle(v115.Data.Ragebot.KnifeMode)
+local khHistory = enabled and not isUE() and khStyle ~= "Careful" and khStyle ~= "SOLIX"
 v107(v108, "DFIntAssemblyHistoryBufferSize", khHistory and "2147483648" or "15")
 v107(v108, "DFIntAssemblyHistorySkipSize", khHistory and v86[18] or "8")
 arg._historyStyle = K.RagebotStyle(v115.Data.Ragebot.KnifeMode)
@@ -69011,6 +70860,18 @@ pcall(carefulTargetHud, arg)
 return
 end
 arg._lyCareful = false
+-- Solix style (module SLX, the Polsec ragebot movement) runs on its own Heartbeat too: same deal as Careful.
+if K.RagebotStyle(v115.Data.Ragebot.KnifeMode) == "SOLIX" then
+if arg._enabled and arg._historyStyle ~= "SOLIX" then
+arg:_ApplyHistoryFlags(true)
+end
+if not arg._solix then
+arg._solix = true
+arg:_Reset()
+end
+return
+end
+arg._solix = false
 local innerContext = arg._innerContext
 if innerContext == nil then
 arg:_Reset()
@@ -75525,6 +77386,7 @@ local function setupUESkins()
 				local r = kinds[kind]
 				out[kind] = { enabled = r.enabled, name = r.name, random = r.random, inverted = r.inverted }
 			end
+			out.off = kinds.off == true
 			records[weapon] = out
 		end
 		pcall(function()
@@ -75560,6 +77422,7 @@ local function setupUESkins()
 		for weapon, kinds in pairs(data.Records) do
 			if type(weapon) == "string" and type(kinds) == "table" then
 				local records = recordsFor(weapon, true)
+				records.off = kinds.off == true
 				for _, kind in ipairs(KINDS) do
 					local saved = kinds[kind]
 					if type(saved) == "table" then
@@ -75588,7 +77451,7 @@ local function setupUESkins()
 			UE.Applied[weapon] = applied
 		end
 		for _, kind in ipairs(KINDS) do
-			local record = UE.Enabled and records and records[kind] or nil
+			local record = UE.Enabled and records and not records.off and records[kind] or nil
 			local name = record and record.enabled and pick(kind, weapon, record) or nil
 			if name ~= nil then
 				local choice
@@ -75691,16 +77554,22 @@ local function setupUESkins()
 		return "rbxassetid://89204837120267"
 	end
 
-	function UE.BuildPanel(l, onChanged)
+	function UE.BuildPanel(l, onChanged, onClosed)
 		local UserInputService = game:GetService("UserInputService")
 		local gethui_ = K.fn("gethui")
 		local parent = gethui_ and gethui_() or game:GetService("CoreGui")
+		local MODES = { "skin", "wrap", "charm", "finisher" }
 		local mode = "skin"
 		local weaponFilter, cosmeticFilter = "", ""
 		local weapons = weaponList()
 		if UE.Weapon == nil or table.find(weapons, UE.Weapon) == nil then
 			UE.Weapon = weapons[1]
 		end
+		local BACK = Color3.fromRGB(12, 12, 12)
+		local BOX = Color3.fromRGB(22, 22, 22)
+		local EDGE = Color3.fromRGB(48, 48, 48)
+		local TEXT = Color3.fromRGB(235, 235, 235)
+		local GREEN = Color3.fromRGB(70, 120, 60)
 
 		local gui = Instance.new("ScreenGui")
 		gui.Name = "KiciaUECosmeticChanger"
@@ -75711,31 +77580,37 @@ local function setupUESkins()
 		gui.Parent = parent
 
 		local main = Instance.new("Frame")
-		main.Size = UDim2.fromOffset(669, 616)
-		main.Position = UDim2.new(0.5, -334, 0.5, -308)
-		main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+		main.Size = UDim2.fromOffset(653, 658)
+		main.Position = UDim2.new(0.5, -326, 0.5, -329)
+		main.BackgroundColor3 = BACK
 		main.BorderSizePixel = 0
 		main.Parent = gui
 		local mainStroke = Instance.new("UIStroke")
-		mainStroke.Color = Color3.fromRGB(45, 45, 45)
+		mainStroke.Color = EDGE
 		mainStroke.Parent = main
 
-		local function label(text, y, height, size)
+		local function stroke(item)
+			local line = Instance.new("UIStroke")
+			line.Color = EDGE
+			line.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+			line.Parent = item
+		end
+
+		local function label(text, y, height, size, align)
 			local item = Instance.new("TextLabel")
 			item.BackgroundTransparency = 1
 			item.Position = UDim2.fromOffset(10, y)
 			item.Size = UDim2.new(1, -20, 0, height)
-			item.Font = Enum.Font.Gotham
+			item.Font = Enum.Font.Code
 			item.TextSize = size or 13
-			item.TextColor3 = Color3.fromRGB(220, 220, 220)
-			item.TextXAlignment = Enum.TextXAlignment.Left
+			item.TextColor3 = TEXT
+			item.TextXAlignment = align or Enum.TextXAlignment.Left
 			item.Text = text
 			item.Parent = main
 			return item
 		end
 
-		local title = label("Cosmetic Changer", 0, 30, 14)
-		title.Font = Enum.Font.GothamBold
+		local title = label("Cosmetic Changer", 0, 30, 15, Enum.TextXAlignment.Center)
 		local dragging, dragStart, startPos = false, nil, nil
 		title.Active = true
 		title.InputBegan:Connect(function(input)
@@ -75761,19 +77636,20 @@ local function setupUESkins()
 			local box = Instance.new("TextBox")
 			box.Position = UDim2.fromOffset(10, y + 18)
 			box.Size = UDim2.new(1, -20, 0, 24)
-			box.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+			box.BackgroundColor3 = BOX
 			box.BorderSizePixel = 0
 			box.ClearTextOnFocus = false
-			box.Font = Enum.Font.Gotham
+			box.Font = Enum.Font.Code
 			box.TextSize = 13
-			box.TextColor3 = Color3.fromRGB(235, 235, 235)
+			box.TextColor3 = TEXT
 			box.PlaceholderText = placeholder
 			box.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
 			box.Text = ""
 			box.TextXAlignment = Enum.TextXAlignment.Left
 			box.Parent = main
+			stroke(box)
 			local pad = Instance.new("UIPadding")
-			pad.PaddingLeft = UDim.new(0, 6)
+			pad.PaddingLeft = UDim.new(0, 8)
 			pad.Parent = box
 			box:GetPropertyChangedSignal("Text"):Connect(function()
 				callback(string.lower(box.Text))
@@ -75785,19 +77661,20 @@ local function setupUESkins()
 			local frame = Instance.new("ScrollingFrame")
 			frame.Position = UDim2.fromOffset(10, y)
 			frame.Size = UDim2.new(1, -20, 0, 207)
-			frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+			frame.BackgroundColor3 = BOX
 			frame.BorderSizePixel = 0
 			frame.ScrollBarThickness = 0
 			frame.CanvasSize = UDim2.new(1, 0, 0, 0)
 			frame.AutomaticCanvasSize = Enum.AutomaticSize.Y
 			frame.ClipsDescendants = true
 			frame.Parent = main
+			stroke(frame)
 			local layout = Instance.new("UIGridLayout")
-			layout.FillDirectionMaxCells = 7
+			layout.FillDirectionMaxCells = 6
 			layout.FillDirection = Enum.FillDirection.Horizontal
 			layout.SortOrder = Enum.SortOrder.LayoutOrder
-			layout.CellPadding = UDim2.fromOffset(4, 4)
-			layout.CellSize = UDim2.new(0.142857, -4, 0, 62)
+			layout.CellPadding = UDim2.fromOffset(2, 2)
+			layout.CellSize = UDim2.new(0.1666, -2, 0, 102)
 			layout.Parent = frame
 			return frame
 		end
@@ -75805,58 +77682,63 @@ local function setupUESkins()
 		local weaponGrid, cosmeticGrid
 		local rebuildWeapons, rebuildCosmetics
 
-		-- 4230: ImageButton + centred image + name + hover overlay
-		local function tile(parentFrame, order, image, caption, selected, tinted, onClick)
+		-- 4230: ImageButton + centred image + name + hover overlay; a right click is the weapon toggle
+		local function tile(parentFrame, order, image, caption, tint, dim, onClick, onRightClick)
 			local button = Instance.new("ImageButton")
 			button.LayoutOrder = order
 			button.AutoButtonColor = false
 			button.BorderSizePixel = 0
 			button.Image = "rbxassetid://0"
-			button.BackgroundColor3 = tinted and ACCENT or Color3.fromRGB(51, 51, 51)
-			button.BackgroundTransparency = tinted and 0.55 or 0.85
+			button.BackgroundColor3 = tint or Color3.fromRGB(51, 51, 51)
+			button.BackgroundTransparency = tint and 0.45 or 0.85
 			button.ZIndex = 2
 			button.Parent = parentFrame
-			local picture = Instance.new("ImageLabel")
-			picture.AnchorPoint = Vector2.new(0.5, 0.5)
-			picture.Position = UDim2.fromScale(0.5, 0.42)
-			picture.Size = UDim2.fromScale(0.8, 0.6)
-			picture.BackgroundTransparency = 1
-			picture.ScaleType = Enum.ScaleType.Fit
-			picture.Image = image
-			picture.ZIndex = 3
-			picture.Parent = button
-			local text = Instance.new("TextLabel")
-			text.AnchorPoint = Vector2.new(0.5, 1)
-			text.Position = UDim2.fromScale(0.5, 1)
-			text.Size = UDim2.new(1, -4, 0, 14)
-			text.BackgroundTransparency = 1
-			text.Font = Enum.Font.Gotham
-			text.TextSize = 10
-			text.TextTruncate = Enum.TextTruncate.AtEnd
-			text.TextColor3 = Color3.fromRGB(235, 235, 235)
-			text.Text = caption
-			text.ZIndex = 5
-			text.Parent = button
 			local hover = Instance.new("ImageLabel")
-			hover.AnchorPoint = Vector2.new(0.5, 0)
-			hover.Position = UDim2.fromScale(0.5, 0)
-			hover.Size = UDim2.fromScale(1, 1)
+			hover.AnchorPoint = Vector2.new(0.5, 0.5)
+			hover.Position = UDim2.fromScale(0.5, 0.5)
+			hover.Size = UDim2.fromScale(0.62, 0.8)
 			hover.BackgroundTransparency = 1
 			hover.Image = "rbxassetid://13188153054"
 			hover.ImageTransparency = 0.75
 			hover.ImageColor3 = Color3.new(0, 0, 0)
-			hover.Visible = false
-			hover.ZIndex = 4
+			hover.ZIndex = 3
 			hover.Parent = button
-			if selected then
-				local stroke = Instance.new("UIStroke")
-				stroke.Color = ACCENT
-				stroke.Thickness = 1.5
-				stroke.Parent = button
-			end
-			button.MouseEnter:Connect(function() hover.Visible = true end)
-			button.MouseLeave:Connect(function() hover.Visible = false end)
+			local picture = Instance.new("ImageLabel")
+			picture.AnchorPoint = Vector2.new(0.5, 0.5)
+			picture.Position = UDim2.fromScale(0.5, 0.46)
+			picture.Size = UDim2.fromScale(0.92, 0.78)
+			picture.BackgroundTransparency = 1
+			picture.ScaleType = Enum.ScaleType.Fit
+			picture.Image = image
+			picture.ImageTransparency = dim and 0.6 or 0
+			picture.ZIndex = 4
+			picture.Parent = button
+			local text = Instance.new("TextLabel")
+			text.AnchorPoint = Vector2.new(0.5, 1)
+			text.Position = UDim2.fromScale(0.5, 0.97)
+			text.Size = UDim2.new(1, -6, 0, 24)
+			text.BackgroundTransparency = 1
+			text.Font = Enum.Font.GothamBold
+			text.TextScaled = true
+			text.TextColor3 = dim and Color3.fromRGB(130, 130, 130) or Color3.new(1, 1, 1)
+			text.TextStrokeTransparency = 0.5
+			text.Text = caption
+			text.ZIndex = 5
+			text.Parent = button
+			local limit = Instance.new("UITextSizeConstraint")
+			limit.MaxTextSize = #caption <= 12 and 20 or 11
+			limit.MinTextSize = 8
+			limit.Parent = text
+			button.MouseEnter:Connect(function()
+				button.BackgroundTransparency = 0.6
+			end)
+			button.MouseLeave:Connect(function()
+				button.BackgroundTransparency = tint and 0.45 or 0.85
+			end)
 			button.MouseButton1Click:Connect(onClick)
+			if onRightClick then
+				button.MouseButton2Click:Connect(onRightClick)
+			end
 			return button
 		end
 
@@ -75873,6 +77755,16 @@ local function setupUESkins()
 			return records and records[mode] or nil
 		end
 
+		local function changed()
+			UE.Save()
+			if UE.Enabled then
+				pcall(UE.ApplyAll, l)
+			end
+			if onChanged then
+				onChanged()
+			end
+		end
+
 		rebuildWeapons = function()
 			clear(weaponGrid)
 			local order = 0
@@ -75885,17 +77777,18 @@ local function setupUESkins()
 					if skin and skin.enabled and not skin.random and skin.name ~= nil and skin.name ~= STOCK then
 						shown = skin.name
 					end
-					local active = false
-					if records then
-						for _, kind in ipairs(KINDS) do
-							active = active or records[kind].enabled
-						end
-					end
-					tile(weaponGrid, order, imageFor(shown), weapon, weapon == UE.Weapon, active, function()
+					local off = records ~= nil and records.off == true
+					tile(weaponGrid, order, imageFor(shown), weapon, weapon == UE.Weapon and GREEN or nil, off, function()
 						UE.Weapon = weapon
 						UE.Save()
 						rebuildWeapons()
 						rebuildCosmetics()
+					end, function()
+						-- right click: toggle the skin changer for this weapon
+						local rec = recordsFor(weapon, true)
+						rec.off = not rec.off
+						changed()
+						rebuildWeapons()
 					end)
 				end
 			end
@@ -75908,11 +77801,10 @@ local function setupUESkins()
 				return
 			end
 			local record = currentRecord(weapon)
-			local entries = {}
+			local entries = { { name = "RANDOM", caption = "Random", random = true } }
 			if mode == "skin" then
 				entries[#entries + 1] = { name = STOCK, caption = weapon }
 			end
-			entries[#entries + 1] = { name = "RANDOM", caption = "Random", random = true }
 			for _, name in ipairs(pool(mode, weapon)) do
 				entries[#entries + 1] = { name = name, caption = name }
 			end
@@ -75936,7 +77828,7 @@ local function setupUESkins()
 					else
 						image = imageFor(entry.name)
 					end
-					tile(cosmeticGrid, order, image, entry.caption, selected, selected, function()
+					tile(cosmeticGrid, order, image, entry.caption, selected and GREEN or nil, false, function()
 						local rec = recordsFor(weapon, true)[mode]
 						if entry.random then
 							if rec.enabled and rec.random then
@@ -75949,15 +77841,9 @@ local function setupUESkins()
 						else
 							rec.enabled, rec.random, rec.name = true, false, entry.name
 						end
-						UE.Save()
-						if UE.Enabled then
-							pcall(UE.ApplyWeapon, l, weapon)
-						end
+						changed()
 						rebuildWeapons()
 						rebuildCosmetics()
-						if onChanged then
-							onChanged()
-						end
 					end)
 				end
 			end
@@ -75974,61 +77860,95 @@ local function setupUESkins()
 		end)
 		cosmeticGrid = scroller(335)
 
-		-- "inverted" (only in wrap mode, UE's dependency box) and the mode picker
-		local invertedButton = Instance.new("TextButton")
-		invertedButton.Position = UDim2.fromOffset(10, 552)
-		invertedButton.Size = UDim2.fromOffset(120, 24)
-		invertedButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-		invertedButton.BorderSizePixel = 0
-		invertedButton.Font = Enum.Font.Gotham
-		invertedButton.TextSize = 13
-		invertedButton.TextColor3 = Color3.fromRGB(235, 235, 235)
-		invertedButton.Parent = main
-		local function paintInverted()
-			local records = recordsFor(UE.Weapon, false)
-			local on = records ~= nil and records.wrap.inverted == true
-			invertedButton.Text = (on and "[x] " or "[ ] ") .. "inverted"
-			invertedButton.Visible = mode == "wrap"
+		local function wideButton(text, x, y, width, callback)
+			local button = Instance.new("TextButton")
+			button.Position = UDim2.fromOffset(x, y)
+			button.Size = UDim2.fromOffset(width, 24)
+			button.BackgroundColor3 = BOX
+			button.BorderSizePixel = 0
+			button.AutoButtonColor = true
+			button.Font = Enum.Font.Code
+			button.TextSize = 13
+			button.TextColor3 = TEXT
+			button.Text = text
+			button.Parent = main
+			stroke(button)
+			button.MouseButton1Click:Connect(callback)
+			return button
 		end
-		invertedButton.MouseButton1Click:Connect(function()
+
+		-- mode picker: "skin >" like UE's dropdown (a click goes to the next mode)
+		local modeButton = wideButton("", 10, 550, 633, function() end)
+		modeButton.TextXAlignment = Enum.TextXAlignment.Left
+		local arrow = Instance.new("TextLabel")
+		arrow.BackgroundTransparency = 1
+		arrow.Size = UDim2.new(1, -8, 1, 0)
+		arrow.Font = Enum.Font.Code
+		arrow.TextSize = 13
+		arrow.TextColor3 = TEXT
+		arrow.TextXAlignment = Enum.TextXAlignment.Right
+		arrow.Text = ">"
+		arrow.Parent = modeButton
+		local pad = Instance.new("UIPadding")
+		pad.PaddingLeft = UDim.new(0, 8)
+		pad.Parent = modeButton
+		local invertedButton
+		local function paintMode()
+			modeButton.Text = mode
+			invertedButton.Visible = mode == "wrap"
+			local records = recordsFor(UE.Weapon, false)
+			invertedButton.Text = ((records ~= nil and records.wrap.inverted == true) and "[x] " or "[ ] ") .. "inverted"
+		end
+		invertedButton = wideButton("", 10, 524, 140, function()
 			if UE.Weapon == nil then
 				return
 			end
 			local wrap = recordsFor(UE.Weapon, true).wrap
 			wrap.inverted = not wrap.inverted
-			UE.Save()
-			if UE.Enabled then
-				pcall(UE.ApplyWeapon, l, UE.Weapon)
-			end
-			paintInverted()
+			changed()
+			paintMode()
+		end)
+		invertedButton.Visible = false
+		modeButton.MouseButton1Click:Connect(function()
+			local index = table.find(MODES, mode) or 1
+			mode = MODES[index % #MODES + 1]
+			paintMode()
+			rebuildCosmetics()
 		end)
 
-		local modeButtons = {}
-		local function paintModes()
-			for name, button in pairs(modeButtons) do
-				button.BackgroundColor3 = name == mode and ACCENT or Color3.fromRGB(30, 30, 30)
+		wideButton("apply selected to all", 10, 578, 633, function()
+			local source = UE.Weapon and recordsFor(UE.Weapon, false)
+			if source == nil then
+				return
 			end
-			paintInverted()
-		end
-		for index, name in ipairs({ "skin", "wrap", "charm", "finisher" }) do
-			local button = Instance.new("TextButton")
-			button.Position = UDim2.fromOffset(10 + (index - 1) * 163, 584)
-			button.Size = UDim2.fromOffset(159, 24)
-			button.BorderSizePixel = 0
-			button.Font = Enum.Font.Gotham
-			button.TextSize = 13
-			button.TextColor3 = Color3.fromRGB(235, 235, 235)
-			button.Text = name
-			button.Parent = main
-			button.MouseButton1Click:Connect(function()
-				mode = name
-				paintModes()
-				rebuildCosmetics()
-			end)
-			modeButtons[name] = button
-		end
+			for _, weapon in ipairs(weapons) do
+				if weapon ~= UE.Weapon then
+					local target = recordsFor(weapon, true)
+					local from = source[mode]
+					local to = target[mode]
+					to.enabled, to.name, to.random, to.inverted = from.enabled, from.name, from.random, from.inverted
+				end
+			end
+			changed()
+			rebuildWeapons()
+		end)
+		wideButton("reset to defaults", 10, 606, 314, function()
+			UE.Records = {}
+			changed()
+			rebuildWeapons()
+			rebuildCosmetics()
+			paintMode()
+		end)
+		wideButton("close", 329, 606, 314, function()
+			gui.Enabled = false
+			if onClosed then
+				onClosed()
+			end
+		end)
+		label("right click a weapon to toggle the skin changer for it.", 634, 18, 12, Enum.TextXAlignment.Center).TextColor3 =
+			Color3.fromRGB(150, 150, 150)
 
-		paintModes()
+		paintMode()
 		rebuildWeapons()
 		rebuildCosmetics()
 
@@ -76038,12 +77958,13 @@ local function setupUESkins()
 			if on then
 				rebuildWeapons()
 				rebuildCosmetics()
+				paintMode()
 			end
 		end
 		function panel.Refresh()
 			rebuildWeapons()
 			rebuildCosmetics()
-			paintInverted()
+			paintMode()
 		end
 		K.onUnload(function()
 			gui:Destroy()
@@ -76054,6 +77975,7 @@ local function setupUESkins()
 	function UE.BuildUI(l, grid, refresh, runtimeToggle, loadoutToggle)
 		local section = grid:AddSection({ Title = "Cosmetic Changer (UE)", Side = "right" })
 		local panel
+		local showToggle
 		local status = section:AddLabel({ Label = "", TextColor = Color3.fromRGB(255, 190, 90) })
 		local function updateStatus()
 			status:SetLabel(UE.Enabled and "UE Cosmetic Changer is on."
@@ -76082,12 +78004,14 @@ local function setupUESkins()
 			end,
 		})
 
-		section:AddToggle({
+		showToggle = section:AddToggle({
 			Label = "Show Cosmetic Changer",
 			Tooltip = "Opens UE's Cosmetic Changer window: weapon filter, cosmetic filter, skin / wrap / charm / finisher.",
 			OnChanged = function(on)
 				if panel == nil then
-					local ok, result = pcall(UE.BuildPanel, l)
+					local ok, result = pcall(UE.BuildPanel, l, nil, function()
+						showToggle:Set(false, true)
+					end)
 					if not ok then
 						warn("[Kicia Rebuild] UE Cosmetic Changer window failed: " .. tostring(result))
 						return
