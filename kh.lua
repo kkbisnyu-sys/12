@@ -10,7 +10,7 @@ if not game:IsLoaded() then game.Loaded:Wait() end
 local K = { connections = {}, cleanups = {}, destroyed = false }
 getgenv().KiciaRebuild = K
 -- build marker: shows in the F9 console so you can tell which copy of the script is running
-K.Build = "2026-10-24 (31): name / display name spoofer rewritten, FW Weapon Check (FW UE only), melee follows the knife rule, hide point stays under the instakill OOB, mouse keybinds, heavy attack cooldown override"
+K.Build = "2026-10-24 (32): auto loadout retries 3 times, name / display name spoofer rewritten, FW Weapon Check (FW UE only), melee follows the knife rule, hide point stays under the instakill OOB, mouse keybinds, heavy attack cooldown override"
 warn("[Kicia Rebuild] build " .. K.Build)
 
 local Players = game:GetService("Players")
@@ -31472,6 +31472,27 @@ local weaponPool = v102(data, "WeaponPool")
 return v102(data, "WeaponPoolFilterType") == "Blacklist" and table.find(weaponPool, arg2) ~= nil
 end
 
+-- Picks the loadout, at most AUTO_LOADOUT_ATTEMPTS times: the pick is refused when the page has only just opened
+-- (CanPickWeapons not set yet), and a refusal used to be swallowed, so that duel kept the default loadout. A try that
+-- failed because the loadout is already there (4 items) ends quietly; the last failure is printed to the F9 console.
+local AUTO_LOADOUT_ATTEMPTS = 3
+local function fn37(arg, loadout)
+local function attempt(n)
+arg.LoadoutPicker:PickLoadoutAsync(loadout):catch(function(err)
+local okItems, items = pcall(function() return arg.FighterState:GetItems() end)
+if okItems and type(items) == "table" and #items >= 4 then
+return
+end
+if n < AUTO_LOADOUT_ATTEMPTS then
+task.delay(0.4, attempt, n + 1)
+else
+warn("[Kicia Rebuild] auto loadout failed after " .. n .. " tries: " .. tostring(err))
+end
+end)
+end
+attempt(1)
+end
+
 local index2 = {}
 index2.__index = index2
 
@@ -31642,8 +31663,7 @@ if not flag19 then
 return
 end
 
-arg2.LoadoutPicker:PickLoadoutAsync(n1):catch(function()
-end)
+fn37(arg2, n1)
 
 return
 end
@@ -31666,8 +31686,7 @@ if tbl18[1] == nil or tbl18[2] == nil or tbl18[3] == nil or tbl18[v86[26]] == ni
 return
 end
 
-arg2.LoadoutPicker:PickLoadoutAsync(tbl18):catch(function()
-end)
+fn37(arg2, tbl18)
 end
 
 return index2
