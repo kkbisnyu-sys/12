@@ -9,8 +9,15 @@ if not game:IsLoaded() then game.Loaded:Wait() end
 
 local K = { connections = {}, cleanups = {}, destroyed = false }
 getgenv().KiciaRebuild = K
+-- Auto FW UE: while os.clock() < K.AutoFWUEUntil (set by the hacker watcher, Ragebot > Auto FW UE) every place that
+-- asks for the Ragebot Style gets "FWUE"; otherwise the style picked in the menu
+K.AutoFWUEUntil = 0
+function K.RagebotStyle(picked)
+    if os.clock() < K.AutoFWUEUntil then return "FWUE" end
+    return picked
+end
 -- build marker: shows in the F9 console so you can tell which copy of the script is running
-K.Build = "2026-10-24 (32): auto loadout retries 3 times, name / display name spoofer rewritten, FW Weapon Check (FW UE only), melee follows the knife rule, hide point stays under the instakill OOB, mouse keybinds, heavy attack cooldown override"
+K.Build = "2026-10-24 (33): Auto FW UE vs hackers, auto loadout retries 3 times, name / display name spoofer rewritten, FW Weapon Check (FW UE only), melee follows the knife rule, hide point stays under the instakill OOB, mouse keybinds, heavy attack cooldown override"
 warn("[Kicia Rebuild] build " .. K.Build)
 
 local Players = game:GetService("Players")
@@ -20212,7 +20219,7 @@ return bd.c
 end
 end
 do -- be
-local function fn35()local I= tbl17 .i().atomic; tbl17 .aZ();local W,N,P= tbl17 .aU(), tbl17 .aW(), tbl17 .aY();return{Aimbot=W.buildConfig(),SilentAim=N.buildConfig(),Triggerbot=P.buildConfig(),Ragebot={Enabled=false,Keybind={State=false,Kind="Always",Bind=nil,ShowInList=true,Invisible=false},Stability=0.15,ShootFrames=1,Careful={EvadeBetweenShots=true,RetaliateOnly=true,RetaliateWindow=1.5},PrioritizeHackers=false,EvadeWhenHacking=false,StartDelay=false,FWWeaponCheck=false,DetectKnife=true,KnifeMode="Original",TargetHud={Enabled=false,Scale=100,ItemScale=100,PosX=50,PosY=15},UE={VoidSpam=true,NoVoid=false,KnifeCooldown08=false,AttackTime=0.1,HideTime=0.25,ShootAttempts=1,VoidDistance=2147483647,KnifeAttack="Heavy",KnifeLead=0,KnifeStand="Sphere"},Weapons={Priority=I({"Primary","Secondary","Melee"}),Enabled={Primary=true,Secondary=true,Melee=true},OnEmpty="SwapOrReload"},Evasion={Mode="Random",Random={AnchorFromCharacter=false,BaseRadius=100,RadiusRandomFactor=0.5},ProjectileBreaker={DepthForward={Min=0,Max=4},DepthForwardFrequency=5,DepthUp={Min=0,Max=5.5},DepthUpFrequency=5,RepositionInterval=0.3,FallbackAnchorFromCharacter=false,FallbackBaseRadius=100,FallbackRadiusRandomFactor=0.5},Translocate={Offset=-5}},UtilizeHealthLead=false},Flickbot={Enabled=false,Keybind={State=false,Kind="Hold",Bind=nil,ShowInList=true,Invisible=false},Shoot=false,ShotDelay=0,Cooldown=250,FlickDuration=110,Curvature=12,Humanness=30}};end
+local function fn35()local I= tbl17 .i().atomic; tbl17 .aZ();local W,N,P= tbl17 .aU(), tbl17 .aW(), tbl17 .aY();return{Aimbot=W.buildConfig(),SilentAim=N.buildConfig(),Triggerbot=P.buildConfig(),Ragebot={Enabled=false,Keybind={State=false,Kind="Always",Bind=nil,ShowInList=true,Invisible=false},Stability=0.15,ShootFrames=1,Careful={EvadeBetweenShots=true,RetaliateOnly=true,RetaliateWindow=1.5},PrioritizeHackers=false,EvadeWhenHacking=false,StartDelay=false,FWWeaponCheck=false,DetectKnife=true,KnifeMode="Original",AutoFWUE={Enabled=false,Notify=true,Return=true,HoldSeconds=20},TargetHud={Enabled=false,Scale=100,ItemScale=100,PosX=50,PosY=15},UE={VoidSpam=true,NoVoid=false,KnifeCooldown08=false,AttackTime=0.1,HideTime=0.25,ShootAttempts=1,VoidDistance=2147483647,KnifeAttack="Heavy",KnifeLead=0,KnifeStand="Sphere"},Weapons={Priority=I({"Primary","Secondary","Melee"}),Enabled={Primary=true,Secondary=true,Melee=true},OnEmpty="SwapOrReload"},Evasion={Mode="Random",Random={AnchorFromCharacter=false,BaseRadius=100,RadiusRandomFactor=0.5},ProjectileBreaker={DepthForward={Min=0,Max=4},DepthForwardFrequency=5,DepthUp={Min=0,Max=5.5},DepthUpFrequency=5,RepositionInterval=0.3,FallbackAnchorFromCharacter=false,FallbackBaseRadius=100,FallbackRadiusRandomFactor=0.5},Translocate={Offset=-5}},UtilizeHealthLead=false},Flickbot={Enabled=false,Keybind={State=false,Kind="Hold",Bind=nil,ShowInList=true,Invisible=false},Shoot=false,ShotDelay=0,Cooldown=250,FlickDuration=110,Curvature=12,Humanness=30}};end
 
 tbl17.be = function()
 local be = tbl17.cache.be
@@ -49325,7 +49332,7 @@ arg._color = color
 end)
 end
 
-index2.Update = function(l,I)if not l._isEnabled then local R=v115.Data.Ragebot;if not(R.EvadeWhenHacking or R.PrioritizeHackers)then return;end;end;for W,W in l._fighters.StateByPlayer,nil,nil do if l._notifiedStateSet[W]then continue;end;if l:_IsHacking(W,I)then l:_ClassifyHacker(W);end;end;end
+index2.Update = function(l,I)if not l._isEnabled then local R=v115.Data.Ragebot;if not(R.EvadeWhenHacking or R.PrioritizeHackers or (R.AutoFWUE and R.AutoFWUE.Enabled))then return;end;end;for W,W in l._fighters.StateByPlayer,nil,nil do if l._notifiedStateSet[W]then continue;end;if l:_IsHacking(W,I)then l:_ClassifyHacker(W);end;end;end
 
 index2._ClassifyHacker = function(arg, arg2)
 if not arg._playerTags:Add(arg2.Player, "Hacker") then
@@ -59754,7 +59761,7 @@ return ie.c
 end
 end
 do -- ih
-local function fn35() tbl17 .aE();local I= tbl17 .h6();local function l(W)I(W,"Enable Ragebot",{"Always","Toggle","Hold"},{"Ragebot"},true);local style=W:AddDropdown({Label="Ragebot Style",Tooltip="KH: Kicia's own ragebot. UE: the Unnamed Enhancements ragebot (void spam, backstab, gun and light attack). Picking UE hides the KH settings. Careful: the LY hub's own ragebot in its Careful mode (its own targeting, teleport attack, evasion and reloads). Careful Settings, Weapon Strategy and Target HUD apply to it.",Options={"Original","UE","Careful","SLEEPY","FWUE"},Labels={Original="KH",UE="UE",Careful="Careful",SLEEPY="SLEEPY",FWUE="FW UE trash kh"},Config={"Ragebot","KnifeMode"}});W:AddToggle({Label="Round Start Delay",Tooltip="At the start of a round, hide in the void for a random 1-6 s first, then start attacking. Applies to every Ragebot Style.",Config={"Ragebot","StartDelay"}});W:AddToggle({Label="Prioritize Hackers",Config={"Ragebot","PrioritizeHackers"}});W:AddToggle({Label="Evade When Target Hacking",Config={"Ragebot","EvadeWhenHacking"}});W:AddButton({Label="Clear Hacker Tags",OnClick=function()local d=K.HackerDetector;local ok,n=pcall(function()return d and d:ClearTags() or nil;end);local text=(not ok or n==nil) and "Hacker detector is not ready" or string.format("Cleared %d hacker tag(s)",n);pcall(function()tbl17.aB().get():Notify(text);end);end});return style;end;local function kf(W)W:AddToggle({Label="Detect Knife",Config={"Ragebot","DetectKnife"}});W:AddSlider({Label="Stability",Min=0,Max=1.5,Step=0.001,Config={"Ragebot","Stability"}});W:AddSlider({Label="Shoot Frames",Min=1,Max=5,Config={"Ragebot","ShootFrames"}});end;local function cf(W)W:AddToggle({Label="Evade Between Shots",Tooltip="Slow weapons (shotgun, sniper, knife): evade in the gaps instead of standing on the target",Config={"Ragebot","Careful","EvadeBetweenShots"}});W:AddToggle({Label="Attack After Enemy",Tooltip="Only shoot an enemy in the gap right after it fired or swung, or while its weapon cools down or reloads",Config={"Ragebot","Careful","RetaliateOnly"}});W:AddSlider({Label="Gap Window",Tooltip="How long after its shot or swing an enemy can still be shot (its weapon cooldown or reload also counts)",Min=0.5,Max=5,Step=0.1,Suffix="s",Config={"Ragebot","Careful","RetaliateWindow"}});end;local function uf(W)W:AddToggle({Label="Never Void",Tooltip="Never hide in the void (UE style): no hide phase, and none while reloading, swapping, without a target or between knife stabs. You stay where you are.",Config={"Ragebot","UE","NoVoid"}});W:AddToggle({Label="Backstab Cooldown 0.8",Tooltip="On: the time between two backstabs is HeavyAttackCooldown x 0.8. Off: UE's own x 0.75.",Config={"Ragebot","UE","KnifeCooldown08"}});W:AddToggle({Label="Void Spam",Tooltip="Hide in the void between attack bursts (UE void spam). Used by the gun and the light attack, not by the backstab.",Config={"Ragebot","UE","VoidSpam"}});W:AddSlider({Label="Void Spam Attack",Tooltip="the amount of time attacking before hiding again (UE adds 0.1 s on top)",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","AttackTime"}});W:AddSlider({Label="Void Spam Hide",Tooltip="how long it stays in void for",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","HideTime"}});W:AddSlider({Label="Shoot Attempts",Tooltip="how many times it will try to fire your weapon (UE: ragebot_shoot_attempts)",Min=1,Max=2,Step=1,Config={"Ragebot","UE","ShootAttempts"}});W:AddDropdown({Label="Knife Attack",Tooltip="Heavy Backstab = UE attack mode knife. Light Attack = UE attack mode melee (fast light attacks with the knife).",Options={"Heavy","Light"},Labels={Heavy="Heavy Backstab",Light="Light Attack"},Config={"Ragebot","UE","KnifeAttack"}});end;local function I(W)local N={"Primary","Secondary","Melee"};for P,P in N,nil,nil do W:AddToggle({Label=string.format("%s Enabled",tostring(P)),Config={"Ragebot","Weapons","Enabled",P}});end;W:AddOrderedList({Label="Weapon Priority",Items=N,Default=N,Config={"Ragebot","Weapons","Priority"}});W:AddDropdown({Label="On Empty",Options={"Reload","Swap","SwapOrReload"},Labels={SwapOrReload="Swap or Reload"},Config={"Ragebot","Weapons","OnEmpty"}});end;local function W(N,P)local a=N:AddGroup({Source=P,Option="ProjectileBreaker"});a:AddRangeSlider({Label="Forward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForward"}});a:AddSlider({Label="Forward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForwardFrequency"}});a:AddRangeSlider({Label="Upward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUp"}});a:AddSlider({Label="Upward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUpFrequency"}});a:AddSlider({Label="Reposition Interval (s)",Min=0.05,Max=2,Step=0.01,Config={"Ragebot","Evasion","ProjectileBreaker","RepositionInterval"}});a:AddToggle({Label="Fallback Character Origin",Config={"Ragebot","Evasion","ProjectileBreaker","FallbackAnchorFromCharacter"}});a:AddSlider({Label="Fallback Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackBaseRadius"}});a:AddSlider({Label="Fallback Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackRadiusRandomFactor"}});end;local function N(P)local a=P:AddDropdown({Label="Evasion Mode",Options={"Off","Random","Translocate","ProjectileBreaker"},Labels={ProjectileBreaker="Projectile Breaker"},Config={"Ragebot","Evasion","Mode"}});local e=P:AddGroup({Source=a,Option="Random"});e:AddToggle({Label="Character Origin",Config={"Ragebot","Evasion","Random","AnchorFromCharacter"}});e:AddSlider({Label="Base Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","Random","BaseRadius"}});e:AddSlider({Label="Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","Random","RadiusRandomFactor"}});P:AddGroup({Source=a,Option="Translocate"}):AddSlider({Label="Offset",Min=-5,Max=5,Step=0.1,Config={"Ragebot","Evasion","Translocate","Offset"}});W(P,a);end;local function H(P)P:AddToggle({Label="Target HUD",Config={"Ragebot","TargetHud","Enabled"}});P:AddSlider({Label="Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","Scale"}});P:AddSlider({Label="Item Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","ItemScale"}});P:AddSlider({Label="Offset X (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosX"}});P:AddSlider({Label="Offset Y (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosY"}});end;return function(W)local style=l(W:AddSection({Title="Activation",Side="left"}));local khSection=W:AddSection({Title="KH Settings",Side="left"});kf(khSection);local carefulSection=W:AddSection({Title="Careful Settings",Side="left"});cf(carefulSection);local ueSection=W:AddSection({Title="UE Settings",Side="left"});uf(ueSection);local weaponSection=W:AddSection({Title="Weapon Strategy",Side="left"});I(weaponSection);local evasionSection=W:AddSection({Title="Evasion",Side="right"});N(evasionSection);local hudSection=W:AddSection({Title="Target HUD",Side="right"});H(hudSection);local fwSection=W:AddSection({Title="FW UE Settings",Side="left"});fwSection:AddToggle({Label="FW Weapon Check",Tooltip="Hide only while the weapon window is open. Slow weapons: the shot / swing cooldown must have at least 0.6 s left. Fast weapons (cooldown up to 0.3 s): the magazine must be nearly empty. Nobody may be reloading, and an enemy starting to reload sends you back to the void. No time limit on the wait.",Config={"Ragebot","FWWeaponCheck"}});local function applyStyle()local picked=style.Value;local isUE=picked=="UE";local isCareful=picked=="Careful";local isEmpty=picked=="SLEEPY" or picked=="FWUE";khSection:SetVisible(not isUE and not isCareful and not isEmpty);evasionSection:SetVisible(not isUE and not isCareful and not isEmpty);ueSection:SetVisible(isUE);carefulSection:SetVisible(isCareful);weaponSection:SetVisible(not isEmpty);hudSection:SetVisible(not isEmpty);fwSection:SetVisible(picked=="FWUE");end;applyStyle();pcall(function()style.ValueChanged:Connect(applyStyle);end);end;end
+local function fn35() tbl17 .aE();local cfgd= tbl17 .bG();local I= tbl17 .h6();local function l(W)I(W,"Enable Ragebot",{"Always","Toggle","Hold"},{"Ragebot"},true);local style=W:AddDropdown({Label="Ragebot Style",Tooltip="KH: Kicia's own ragebot. UE: the Unnamed Enhancements ragebot (void spam, backstab, gun and light attack). Picking UE hides the KH settings. Careful: the LY hub's own ragebot in its Careful mode (its own targeting, teleport attack, evasion and reloads). Careful Settings, Weapon Strategy and Target HUD apply to it.",Options={"Original","UE","Careful","SLEEPY","FWUE"},Labels={Original="KH",UE="UE",Careful="Careful",SLEEPY="SLEEPY",FWUE="FW UE trash kh"},Config={"Ragebot","KnifeMode"}});W:AddToggle({Label="Round Start Delay",Tooltip="At the start of a round, hide in the void for a random 1-6 s first, then start attacking. Applies to every Ragebot Style.",Config={"Ragebot","StartDelay"}});W:AddToggle({Label="Prioritize Hackers",Config={"Ragebot","PrioritizeHackers"}});W:AddToggle({Label="Evade When Target Hacking",Config={"Ragebot","EvadeWhenHacking"}});W:AddButton({Label="Clear Hacker Tags",OnClick=function()local d=K.HackerDetector;local ok,n=pcall(function()return d and d:ClearTags() or nil;end);local text=(not ok or n==nil) and "Hacker detector is not ready" or string.format("Cleared %d hacker tag(s)",n);pcall(function()tbl17.aB().get():Notify(text);end);end});return style;end;local function kf(W)W:AddToggle({Label="Detect Knife",Config={"Ragebot","DetectKnife"}});W:AddSlider({Label="Stability",Min=0,Max=1.5,Step=0.001,Config={"Ragebot","Stability"}});W:AddSlider({Label="Shoot Frames",Min=1,Max=5,Config={"Ragebot","ShootFrames"}});end;local function cf(W)W:AddToggle({Label="Evade Between Shots",Tooltip="Slow weapons (shotgun, sniper, knife): evade in the gaps instead of standing on the target",Config={"Ragebot","Careful","EvadeBetweenShots"}});W:AddToggle({Label="Attack After Enemy",Tooltip="Only shoot an enemy in the gap right after it fired or swung, or while its weapon cools down or reloads",Config={"Ragebot","Careful","RetaliateOnly"}});W:AddSlider({Label="Gap Window",Tooltip="How long after its shot or swing an enemy can still be shot (its weapon cooldown or reload also counts)",Min=0.5,Max=5,Step=0.1,Suffix="s",Config={"Ragebot","Careful","RetaliateWindow"}});end;local function uf(W)W:AddToggle({Label="Never Void",Tooltip="Never hide in the void (UE style): no hide phase, and none while reloading, swapping, without a target or between knife stabs. You stay where you are.",Config={"Ragebot","UE","NoVoid"}});W:AddToggle({Label="Backstab Cooldown 0.8",Tooltip="On: the time between two backstabs is HeavyAttackCooldown x 0.8. Off: UE's own x 0.75.",Config={"Ragebot","UE","KnifeCooldown08"}});W:AddToggle({Label="Void Spam",Tooltip="Hide in the void between attack bursts (UE void spam). Used by the gun and the light attack, not by the backstab.",Config={"Ragebot","UE","VoidSpam"}});W:AddSlider({Label="Void Spam Attack",Tooltip="the amount of time attacking before hiding again (UE adds 0.1 s on top)",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","AttackTime"}});W:AddSlider({Label="Void Spam Hide",Tooltip="how long it stays in void for",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","HideTime"}});W:AddSlider({Label="Shoot Attempts",Tooltip="how many times it will try to fire your weapon (UE: ragebot_shoot_attempts)",Min=1,Max=2,Step=1,Config={"Ragebot","UE","ShootAttempts"}});W:AddDropdown({Label="Knife Attack",Tooltip="Heavy Backstab = UE attack mode knife. Light Attack = UE attack mode melee (fast light attacks with the knife).",Options={"Heavy","Light"},Labels={Heavy="Heavy Backstab",Light="Light Attack"},Config={"Ragebot","UE","KnifeAttack"}});end;local function I(W)local N={"Primary","Secondary","Melee"};for P,P in N,nil,nil do W:AddToggle({Label=string.format("%s Enabled",tostring(P)),Config={"Ragebot","Weapons","Enabled",P}});end;W:AddOrderedList({Label="Weapon Priority",Items=N,Default=N,Config={"Ragebot","Weapons","Priority"}});W:AddDropdown({Label="On Empty",Options={"Reload","Swap","SwapOrReload"},Labels={SwapOrReload="Swap or Reload"},Config={"Ragebot","Weapons","OnEmpty"}});end;local function W(N,P)local a=N:AddGroup({Source=P,Option="ProjectileBreaker"});a:AddRangeSlider({Label="Forward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForward"}});a:AddSlider({Label="Forward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForwardFrequency"}});a:AddRangeSlider({Label="Upward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUp"}});a:AddSlider({Label="Upward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUpFrequency"}});a:AddSlider({Label="Reposition Interval (s)",Min=0.05,Max=2,Step=0.01,Config={"Ragebot","Evasion","ProjectileBreaker","RepositionInterval"}});a:AddToggle({Label="Fallback Character Origin",Config={"Ragebot","Evasion","ProjectileBreaker","FallbackAnchorFromCharacter"}});a:AddSlider({Label="Fallback Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackBaseRadius"}});a:AddSlider({Label="Fallback Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackRadiusRandomFactor"}});end;local function N(P)local a=P:AddDropdown({Label="Evasion Mode",Options={"Off","Random","Translocate","ProjectileBreaker"},Labels={ProjectileBreaker="Projectile Breaker"},Config={"Ragebot","Evasion","Mode"}});local e=P:AddGroup({Source=a,Option="Random"});e:AddToggle({Label="Character Origin",Config={"Ragebot","Evasion","Random","AnchorFromCharacter"}});e:AddSlider({Label="Base Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","Random","BaseRadius"}});e:AddSlider({Label="Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","Random","RadiusRandomFactor"}});P:AddGroup({Source=a,Option="Translocate"}):AddSlider({Label="Offset",Min=-5,Max=5,Step=0.1,Config={"Ragebot","Evasion","Translocate","Offset"}});W(P,a);end;local function H(P)P:AddToggle({Label="Target HUD",Config={"Ragebot","TargetHud","Enabled"}});P:AddSlider({Label="Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","Scale"}});P:AddSlider({Label="Item Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","ItemScale"}});P:AddSlider({Label="Offset X (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosX"}});P:AddSlider({Label="Offset Y (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosY"}});end;return function(W)local style=l(W:AddSection({Title="Activation",Side="left"}));local khSection=W:AddSection({Title="KH Settings",Side="left"});kf(khSection);local carefulSection=W:AddSection({Title="Careful Settings",Side="left"});cf(carefulSection);local ueSection=W:AddSection({Title="UE Settings",Side="left"});uf(ueSection);local weaponSection=W:AddSection({Title="Weapon Strategy",Side="left"});I(weaponSection);local evasionSection=W:AddSection({Title="Evasion",Side="right"});N(evasionSection);local hudSection=W:AddSection({Title="Target HUD",Side="right"});H(hudSection);local fwSection=W:AddSection({Title="FW UE Settings",Side="left"});local autoSection=W:AddSection({Title="Auto FW UE",Side="left"});autoSection:AddToggle({Label="Switch To FW UE Vs Hackers",Tooltip="Watches the enemies with the Hacker Detector's verdict (view pitch past tau, or speed over 200 for 0.25 s). While one of them is flagged, the Ragebot Style is FW UE whatever you picked; with nobody flagged it is the style you picked. The Hacker Detector does not have to be on.",Config={"Ragebot","AutoFWUE","Enabled"}});autoSection:AddToggle({Label="Notify On Switch",Tooltip="Pop-up when the style switches to FW UE and when it goes back.",Config={"Ragebot","AutoFWUE","Notify"}});autoSection:AddToggle({Label="Switch Back When Hacker Is Gone",Tooltip="On: back to your own style once no enemy is flagged (after the time below). Off: stays on FW UE until you turn this feature off.",Config={"Ragebot","AutoFWUE","Return"}});autoSection:AddSlider({Label="Keep FW UE For (s)",Min=0,Max=120,Step=1,Config={"Ragebot","AutoFWUE","HoldSeconds"}});fwSection:AddToggle({Label="FW Weapon Check",Tooltip="Hide only while the weapon window is open. Slow weapons: the shot / swing cooldown must have at least 0.6 s left. Fast weapons (cooldown up to 0.3 s): the magazine must be nearly empty. Nobody may be reloading, and an enemy starting to reload sends you back to the void. No time limit on the wait.",Config={"Ragebot","FWWeaponCheck"}});local function applyStyle()local picked=style.Value;local isUE=picked=="UE";local isCareful=picked=="Careful";local isEmpty=picked=="SLEEPY" or picked=="FWUE";khSection:SetVisible(not isUE and not isCareful and not isEmpty);evasionSection:SetVisible(not isUE and not isCareful and not isEmpty);ueSection:SetVisible(isUE);carefulSection:SetVisible(isCareful);weaponSection:SetVisible(not isEmpty);hudSection:SetVisible(not isEmpty);fwSection:SetVisible(picked=="FWUE" or (cfgd.Data.Ragebot.AutoFWUE~=nil and cfgd.Data.Ragebot.AutoFWUE.Enabled==true));end;applyStyle();pcall(function()style.ValueChanged:Connect(applyStyle);end);pcall(function()cfgd:GetPropertyChangedSignal({"Ragebot","AutoFWUE","Enabled"}):Connect(applyStyle);end);end;end
 
 tbl17.ih = function()
 local ih = tbl17.cache.ih
@@ -63399,7 +63406,7 @@ local M = {}
 
 -- UE ragebot style is picked with Ragebot.KnifeMode == "UE" (the dropdown is labelled "Ragebot Style": KH / UE / Careful)
 function M.IsUE()
-return config.Data.Ragebot.KnifeMode == "UE"
+return K.RagebotStyle(config.Data.Ragebot.KnifeMode) == "UE"
 end
 
 -- UE-style settings (menu section "UE Settings"); the defaults are UE's own values
@@ -64061,7 +64068,7 @@ return setmetatable({ _partGlue = arg, _shootLock = v116.new(), _hitboxWindowUnt
 end
 
 index2.Plan = function(arg, arg2, arg3, arg4, gluedOurPart, arg5)
-if v115.Data.Ragebot.KnifeMode == "UE" then
+if K.RagebotStyle(v115.Data.Ragebot.KnifeMode) == "UE" then
 arg._partGlue:Free(gluedOurPart)
 if arg4.Name == "Knife" and not ueS.KnifeLight() then
 return arg:_PlanUE(arg3, arg4, arg2)
@@ -64911,7 +64918,7 @@ return { compute = function(arg, arg2)
 if not arg2 then
 return v116(arg.Position, 10000, 1e9)
 end
-if v115.Data.Ragebot.KnifeMode == "FWUE" then
+if K.RagebotStyle(v115.Data.Ragebot.KnifeMode) == "FWUE" then
 local cf, radius = fwueTranslocate()
 if cf ~= nil then
 return cf, radius
@@ -65090,7 +65097,7 @@ local v117 = nil
 -- applies, since that one is kh's own menu switch and the user can see it.
 local ragebotData = v115.Data.Ragebot
 local ueData = ragebotData.UE
-local ueKnifeMode = ragebotData.KnifeMode == "UE" and (ueData == nil or ueData.KnifeAttack ~= "Light")
+local ueKnifeMode = K.RagebotStyle(ragebotData.KnifeMode) == "UE" and (ueData == nil or ueData.KnifeAttack ~= "Light")
 local ueKnife = nil
 
 for _, v118 in arg.ItemBehaviors:GetItems(), nil, nil do
@@ -68566,7 +68573,7 @@ end
 local active = false
 local syncAt = 0
 local carefulHeartbeat = RunService.Heartbeat:Connect(function(dt)
-local want = tbl17.ragebotKeyOn == true and config.Data.Ragebot.KnifeMode == "Careful"
+local want = tbl17.ragebotKeyOn == true and K.RagebotStyle(config.Data.Ragebot.KnifeMode) == "Careful"
 if want ~= active then
 active = want
 rage.Enabled = want
@@ -68780,10 +68787,10 @@ end
 -- these flags (its only flag is S2PhysicsSenderRate = 120, proto 201), so the UE style leaves them at the
 -- values used while the ragebot is off.
 index2._ApplyHistoryFlags = function(arg, enabled)
-local khHistory = enabled and not isUE() and v115.Data.Ragebot.KnifeMode ~= "Careful"
+local khHistory = enabled and not isUE() and K.RagebotStyle(v115.Data.Ragebot.KnifeMode) ~= "Careful"
 v107(v108, "DFIntAssemblyHistoryBufferSize", khHistory and "2147483648" or "15")
 v107(v108, "DFIntAssemblyHistorySkipSize", khHistory and v86[18] or "8")
-arg._historyStyle = v115.Data.Ragebot.KnifeMode
+arg._historyStyle = K.RagebotStyle(v115.Data.Ragebot.KnifeMode)
 end
 
 -- Diagnostics: every 5 s one line in the session log (K.Log) saying what the ragebot did with its frames, so
@@ -68896,7 +68903,7 @@ parts[#parts + 1] = k .. "=" .. v
 end
 table.sort(parts)
 K.Log("rage", string.format("5s: style=%s item=%s frames=%d no-target=%d target-no-shot=%d [%s] shots=%d | last target %s at %.0f studs, head-to-root gap %.0f | repRoot=%s mode=%s",
-tostring(v115.Data.Ragebot.KnifeMode), tostring(rageDbg.item), rageDbg.frames, rageDbg.noTarget, rageDbg.noShot,
+tostring(K.RagebotStyle(v115.Data.Ragebot.KnifeMode)), tostring(rageDbg.item), rageDbg.frames, rageDbg.noTarget, rageDbg.noShot,
 table.concat(parts, " "), rageDbg.shots, rageDbg.lastName, rageDbg.lastDist, tonumber(rageDbg.headGap) or -1,
 tostring(K.RepRootProperty), tostring(v115.Data.Ragebot.Evasion.Mode)))
 if rageDbg.shots > 0 or rageDbg.hits > 0 or rageDbg.gameHits > 0 then
@@ -68977,7 +68984,7 @@ tbl17.ragebotUpdateSeen = true
 end
 -- Careful style is the LY hub's ragebot (module LYC) on its own Heartbeat: KH's planner lets go once and
 -- then stays out of it. LY never touches the assembly history flags, so they go back to the off values.
-if v115.Data.Ragebot.KnifeMode == "Careful" then
+if K.RagebotStyle(v115.Data.Ragebot.KnifeMode) == "Careful" then
 if arg._enabled and arg._historyStyle ~= "Careful" then
 arg:_ApplyHistoryFlags(true)
 end
@@ -69000,7 +69007,7 @@ if fighterState.EnvironmentId == nil or not arg._enabled then
 arg:_Reset()
 return
 end
-if arg._historyStyle ~= v115.Data.Ragebot.KnifeMode then
+if arg._historyStyle ~= K.RagebotStyle(v115.Data.Ragebot.KnifeMode) then
 arg:_ApplyHistoryFlags(true)
 end
 local state = fighterState.Character.State
@@ -69030,7 +69037,7 @@ local clientCFrame = characterController:GetClientCFrame()
 -- back to the void. Both times are fixed (no menu), the same for every enemy: there is no UE / KH
 -- detection any more.
 local mode = v115.Data.Ragebot.Evasion.Mode
-local fwue = v115.Data.Ragebot.KnifeMode == "FWUE"
+local fwue = K.RagebotStyle(v115.Data.Ragebot.KnifeMode) == "FWUE"
 local fwVoid = false
 if fwue then
 local FW_VOID_SECONDS = 4
@@ -72176,6 +72183,54 @@ v147:Add(tbl17.jt().new(v193))
 local v197 = v147:Add(v124.new(v190, decoratorFactory))
 local v198 = v147:Add(v148.new(v190, playerTags))
 K.HackerDetector = v198
+
+-- Auto FW UE watcher (menu: Ragebot > Auto FW UE). Every frame it asks the Hacker Detector's tags whether an enemy in
+-- our arena is flagged "Hacker" (view pitch past tau, or speed over 200 for 0.25 s; the other hub's
+-- getgenv().InstanceHackerFlagged counts too). While one is, K.AutoFWUEUntil is pushed ahead by HoldSeconds, which
+-- makes K.RagebotStyle() answer "FWUE"; once none is left and the hold has run out it answers the picked style again.
+-- Return off: the first hacker switches to FW UE until the toggle is turned off.
+do
+    local autoConfig = tbl17.bG()
+    local autoRun = cloneref(game:GetService("RunService"))
+    local autoActive = false
+    local function autoNotify(text, detail)
+        pcall(function()
+            tbl17.aB().get():Notify({ { Text = text, Accent = true }, { Text = detail } }, { Color = autoConfig.Data.HackerDetector.Color, Lifetime = 5 })
+        end)
+    end
+    v147:Add(autoRun.Heartbeat:Connect(function()
+        local auto = autoConfig.Data.Ragebot.AutoFWUE
+        if auto == nil or not auto.Enabled then
+            if autoActive then
+                autoActive = false
+                K.AutoFWUEUntil = 0
+            end
+            return
+        end
+        local found
+        local detector = K.HackerDetector
+        local flagged = getgenv().InstanceHackerFlagged
+        pcall(function()
+            for player in pairs(detector._fighters.EnemyByPlayer) do
+                if detector._playerTags:Has(player, "Hacker") or (type(flagged) == "table" and flagged[player] == true) then
+                    found = player
+                    break
+                end
+            end
+        end)
+        local now = os.clock()
+        if found ~= nil then
+            K.AutoFWUEUntil = auto.Return == false and math.huge or now + math.max(auto.HoldSeconds or 0, 0.25)
+            if not autoActive then
+                autoActive = true
+                if auto.Notify then autoNotify(found.DisplayName or found.Name, " is hacking - Ragebot Style FW UE") end
+            end
+        elseif autoActive and now >= K.AutoFWUEUntil then
+            autoActive = false
+            if auto.Notify then autoNotify("Auto FW UE", " - back to your Ragebot Style") end
+        end
+    end))
+end
 local v199 = v147:Add(v164.new(v190))
 v185(storeProfiles, v147, v199)
 local v200 = v147:Add(v138.new(v190, v199))
