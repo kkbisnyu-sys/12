@@ -84590,7 +84590,8 @@ end
 --  (ui_style.txt replaces the old ui_mode.txt, so a Classic choice saved before Starlight became the default is ignored.)
 --==========================================================================
 do
-    local MODE_FILE = "kiciarebuild/ui_style.txt"
+    -- one file per account (like the rest of its settings, in K.AccountDir), so each account keeps its own menu form
+    local MODE_FILE = K.AccountDir .. "/ui_style.txt"
     local function valid(m) return m == "Classic" or m == "Starlight" or m == "Setsuna" or m == "Setsuna Drop" end
     function K.UIMode()
         local m = getgenv().LxYUI
