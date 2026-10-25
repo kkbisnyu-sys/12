@@ -2064,6 +2064,7 @@ local function __LxYFxCollect(win)
 end
 local function __LxYFxRestore()
 	local st = __LxYWin
+	if st.cover ~= nil then st.cover.Visible = false end
 	if st.fx == nil then return end
 	for _, e in st.fx do pcall(function() e[1][e[2]] = e[3] end) end
 	st.fx = nil
@@ -2086,6 +2087,25 @@ local function __LxYPop(win, show)
 	end
 	local base = st.base
 	local fx = st.fx
+	-- The window's contents (thousands of instances) cannot be faded one by one. A cover in the colour of the window
+	-- fades in over them and out again with the window: the contents dissolve into the panel (closing) or out of it
+	-- (opening), and the panel itself fades with the glass. One instance, so it costs nothing.
+	local cover = st.cover
+	if cover == nil or cover.Parent ~= win then
+		cover = Instance.new("Frame")
+		cover.Name = "__LxYCover"
+		cover.Size = UDim2.fromScale(1, 1)
+		cover.BorderSizePixel = 0
+		cover.ZIndex = 1000
+		cover.Active = false
+		cover.Interactable = false
+		cover.Visible = false
+		local corner = win:FindFirstChildOfClass("UICorner")
+		if corner ~= nil then corner:Clone().Parent = cover end
+		cover.Parent = win
+		st.cover = cover
+	end
+	cover.BackgroundColor3 = win.BackgroundColor3
 	if show then win.Visible = true end
 	local from, to = st.p, show and 1 or 0
 	if from == to and not st.animating then
@@ -2097,9 +2117,10 @@ local function __LxYPop(win, show)
 		return
 	end
 	st.animating = true
-	-- opening: a longer, soft landing (Quint); closing: quick and eased out so the window never feels sticky
-	local dur = (show and 0.26 or 0.18) * math.max(0.25, math.abs(to - from))
-	local style = show and Enum.EasingStyle.Quint or Enum.EasingStyle.Quad
+	-- an even Sine in and out, so the fade is seen for the whole time (Quint spent nearly all of it in the first frames):
+	-- opening a little longer than closing, which should feel quick
+	local dur = (show and 0.30 or 0.20) * math.max(0.25, math.abs(to - from))
+	local style = Enum.EasingStyle.Sine
 	local t0 = os.clock()
 	local conn
 	local function apply(p)
@@ -2110,11 +2131,15 @@ local function __LxYPop(win, show)
 		local w, h = win.Size.X.Offset, win.Size.Y.Offset
 		win.Position = UDim2.new(base.X.Scale, base.X.Offset + w * (1 - s) / 2, base.Y.Scale, base.Y.Offset + h * (1 - s) / 2)
 		for _, e in fx do e[1][e[2]] = e[3] + (1 - e[3]) * (1 - p) end
+		-- opaque at the middle of the pop, clear at both ends
+		local q = 2 * p - 1
+		cover.BackgroundTransparency = 1 - 0.92 * (1 - q * q)
+		cover.Visible = true
 	end
 	conn = game:GetService("RunService").RenderStepped:Connect(function()
 		if st.token ~= token then conn:Disconnect() return end
 		local a = math.clamp((os.clock() - t0) / dur, 0, 1)
-		local e = game:GetService("TweenService"):GetValue(a, style, Enum.EasingDirection.Out)
+		local e = game:GetService("TweenService"):GetValue(a, style, Enum.EasingDirection.InOut)
 		apply(from + (to - from) * e)
 		if a >= 1 then
 			conn:Disconnect()
@@ -30134,7 +30159,7 @@ end
 local function fn40(arg, arg2, arg3)
 arg:AddDropdown({
 Label = "UI Style",
-Options = { "Starlight", "Setsuna", "Setsuna Drop", "Classic" },
+Options = { "Starlight", "Lite", "Setsuna", "Setsuna Drop", "Classic" },
 Default = K.UIMode(),
 Tooltip = "Starlight (default) is built into the script; if it fails, the classic menu is shown for that session. Classic is the script's own menu.",
 OnChanged = function(mode)
@@ -73286,6 +73311,7 @@ end
 local function build(mode)
 local MenuClass=W.Menu
 if mode=="Starlight" and K.StarUI~=nil then MenuClass=K.StarUI.Menu end
+if mode=="Lite" and K.SetsunaUI~=nil then MenuClass=K.SetsunaUI.Lite end
 if mode=="Setsuna" and K.SetsunaUI~=nil then MenuClass=K.SetsunaUI.Menu end
 if mode=="Setsuna Drop" and K.SetsunaUI~=nil then MenuClass=K.SetsunaUI.Drop end
 local t=MenuClass.new({Icon=K.LithiumLogo,Title=string.format("LxYHook | Rivals | %s",tostring("Premium Build")),Directory=K.AccountDir,Config=l.ReactiveStoreAdapter,ColorAnimation=l.ColorAnimation,Persistence=I,State=l.GeneralState,StateData=l.GeneralStateData,OnUnload=function()e:Destroy();end})
@@ -73333,7 +73359,7 @@ if startMode=="Starlight" and not startVisible then
 -- press of the menu key finds it ready
 local cancelled=false
 if K.onUnload then K.onUnload(function() cancelled=true end) end
-task.delay(8,function()
+task.delay(5,function()
 if cancelled or current==nil or current._materialized then return end
 pcall(current._prewarm,current)
 end)
@@ -84602,7 +84628,7 @@ end
 do
     -- one file per account (like the rest of its settings, in K.AccountDir), so each account keeps its own menu form
     local MODE_FILE = K.AccountDir .. "/ui_style.txt"
-    local function valid(m) return m == "Classic" or m == "Starlight" or m == "Setsuna" or m == "Setsuna Drop" end
+    local function valid(m) return m == "Classic" or m == "Starlight" or m == "Lite" or m == "Setsuna" or m == "Setsuna Drop" end
     function K.UIMode()
         local m = getgenv().LxYUI
         if valid(m) then return m end
@@ -86504,26 +86530,29 @@ end
         if coroutine.isyieldable() then task.wait() end
         -- The dashboard page exists in the interface model but had no sidebar button, so it only showed up by itself
         -- (page layout fallback). Give it a real "Welcome" category at the very top of the sidebar.
-        local okHome, home = pcall(function()
-            return self._win:CreateHomeTab({ Backdrop = 0, IconStyle = 1, DiscordInvite = "" })
-        end)
-        if not okHome or type(home) ~= "table" then
-            log("welcome tab failed: " .. tostring(home))
-        else
-            pcall(function()
-                local section = home.Instances.Button.Parent
-                section.Header.Text = "Welcome"
-                section.Header.Visible = true
-                section.Name = "TAB_SECTION_Welcome"
-                section.LayoutOrder = -1
-                home.Instances.Button.Header.Text = "Dashboard"
-                local discord = home.Instances.Page.Holder.Left.Discord
-                discord.Header.Text = "Lxyhook"
-                discord.Subheader.Text = "6767676767676767"
+        -- (it waits on the network for the avatar and the server details for about a second, so it runs beside the
+        -- tabs instead of in front of them)
+        task.spawn(function()
+            local okHome, home = pcall(function()
+                return self._win:CreateHomeTab({ Backdrop = 0, IconStyle = 1, DiscordInvite = "" })
             end)
-        end
-        log(string.format("menu step: home tab %.3f s", os.clock() - tM))
-        if coroutine.isyieldable() then task.wait() end
+            if not okHome or type(home) ~= "table" then
+                log("welcome tab failed: " .. tostring(home))
+            else
+                pcall(function()
+                    local section = home.Instances.Button.Parent
+                    section.Header.Text = "Welcome"
+                    section.Header.Visible = true
+                    section.Name = "TAB_SECTION_Welcome"
+                    section.LayoutOrder = -1
+                    home.Instances.Button.Header.Text = "Dashboard"
+                    local discord = home.Instances.Page.Holder.Left.Discord
+                    discord.Header.Text = "Lxyhook"
+                    discord.Subheader.Text = "6767676767676767"
+                end)
+            end
+            log(string.format("menu step: home tab %.3f s", os.clock() - tM))
+        end)
         -- the menu key is handled in Menu.new (Starlight's own key is parked on a key nobody has)
         pcall(function() L.WindowKeybind = "F15" end)
         pcall(function()
@@ -86738,12 +86767,34 @@ end
     local DEFAULT_ACCENT = Color3.fromRGB(150, 80, 235)
 
     -- Setsuna's palette: dark greys pulled towards the accent
-    local function palette(acc, ov)
+    -- Lite follows Starlight's theme data (Backgrounds / Foregrounds / Miscellaneous / Accents), the same one its
+    -- library holds in Starlight.CurrentTheme, and uses each part the way Starlight's own window does: the window and
+    -- its page area Backgrounds.Dark, the sidebar Backgrounds.Light, the top bar and the cards (groupboxes)
+    -- Backgrounds.Medium, input rows Backgrounds.Dark, hovered / selected Backgrounds.Highlight, outlines
+    -- Foregrounds.Dark, text Foregrounds.Light / Medium, dividers Miscellaneous.Divider, filled parts Accents.Main
+    -- (a gradient: the `fill` role is white there and a UIGradient colours it).
+    local function midOf(seq)
+        local kps = seq.Keypoints
+        return kps[math.ceil(#kps / 2)].Value
+    end
+
+    local function palette(acc, ov, lite, theme)
+        if lite and theme ~= nil then
+            local B, F, M, A = theme.Backgrounds, theme.Foregrounds, theme.Miscellaneous, theme.Accents
+            return {
+                acc = midOf(A.Main), fill = Color3.new(1, 1, 1),
+                panel = B.Dark, side = B.Light, top = B.Medium, box = B.Medium, inner = B.Dark,
+                track = M.Shadow, hover = B.Highlight, surf = B.Groupbox,
+                text = F.Light, dim = F.Medium, faint = F.Dark, value = F.Active,
+                outline = F.Dark, sel = B.Highlight, knob = F.Active, toggleoff = F.Dark, line = M.Divider,
+            }
+        end
         local function tone(base, amt)
             return Color3.new((base + (acc.R * 255 - base) * amt) / 255, (base + (acc.G * 255 - base) * amt) / 255, (base + (acc.B * 255 - base) * amt) / 255)
         end
         local p = { acc = acc, panel = tone(7, .22), inner = tone(9, .30), track = tone(13, .42), hover = tone(17, .52),
             surf = tone(7, .22), text = TEXT, dim = DIM, faint = FAINT, value = acc, outline = acc, sel = acc, knob = TEXT }
+        p.fill, p.side, p.box, p.top, p.line = acc, p.inner, p.inner, p.inner, acc
         p.toggleoff = p.track
         -- colours the user picked on the Theme page (Background, Outline, Text ...) replace the derived ones
         for role, c in pairs(ov or {}) do p[role] = c end
@@ -86812,6 +86863,16 @@ end
         return inst
     end
 
+    -- the Lite form's filled parts carry the accent as a gradient (nothing in the other forms)
+    function SMenu:_grad(inst, kind)
+        if not self._lite then return nil end
+        kind = kind or "Main"
+        local grad = mk("UIGradient", { Color = self._theme.Accents[kind] }, inst)
+        self._grads = self._grads or {}
+        self._grads[#self._grads + 1] = { grad, kind }
+        return grad
+    end
+
     function SMenu:_onTheme(owner, fn)
         local list = self._themeFns
         list[#list + 1] = { owner, fn }
@@ -86824,7 +86885,18 @@ end
     end
 
     function SMenu:_applyPalette()
-        self._pal = palette(self._acc, self._ov)
+        self._pal = palette(self._acc, self._ov, self._lite, self._theme)
+        if self._grads ~= nil and self._theme ~= nil then
+            local live, g = {}, 0
+            for _, e in ipairs(self._grads) do
+                if e[1].Parent ~= nil then
+                    e[1].Color = self._theme.Accents[e[2]]
+                    g += 1
+                    live[g] = e
+                end
+            end
+            self._grads = live
+        end
         local keep, n = {}, 0
         for _, e in ipairs(self._themed) do
             local inst = e[1]
@@ -86866,17 +86938,29 @@ end
     SSection.__index = SSection
     setmetatable(SSection, { __index = Container })
 
-    local function newRow(sec, h)
+    local function newRow(sec, h, solid)
         local m = sec._menu
         sec._n += 1
-        local scroll = sec._page:_ensureScroll()
+        local scroll = sec._card or sec._page:_ensureScroll()
         local row = mk("Frame", {
             Size = UDim2.new(1, -8, 0, h), BorderSizePixel = 0, LayoutOrder = sec._order * 1000 + sec._n, Active = true,
         }, scroll)
-        m:_paint(row, "BackgroundColor3", "inner")
         corner(row, 8)
-        row.MouseEnter:Connect(function() tween(row, .12, { BackgroundColor3 = m._pal.hover }) end)
-        row.MouseLeave:Connect(function() tween(row, .12, { BackgroundColor3 = m._pal.inner }) end)
+        if m._lite and not solid then
+            -- Starlight's rows sit flat on the card; only the pointer lights one (a button keeps its backdrop)
+            m:_paint(row, "BackgroundColor3", "hover")
+            row.BackgroundTransparency = 1
+            row.MouseEnter:Connect(function() tween(row, .12, { BackgroundTransparency = .8 }) end)
+            row.MouseLeave:Connect(function() tween(row, .12, { BackgroundTransparency = 1 }) end)
+        elseif solid == "grad" then
+            -- Starlight's primary button (Style 1): the accent gradient
+            m:_paint(row, "BackgroundColor3", "fill")
+            m:_grad(row, "Main")
+        else
+            m:_paint(row, "BackgroundColor3", "inner")
+            row.MouseEnter:Connect(function() tween(row, .12, { BackgroundColor3 = m._pal.hover }) end)
+            row.MouseLeave:Connect(function() tween(row, .12, { BackgroundColor3 = m._pal.inner }) end)
+        end
         return row
     end
 
@@ -86991,12 +87075,14 @@ end
             end)
             local track = mk("Frame", { AnchorPoint = Vector2.new(1, .5), Position = UDim2.new(1, -12, .5, 0), Size = UDim2.fromOffset(44, 22), BorderSizePixel = 0, ZIndex = 2 }, row)
             circle(track)
+            local tg = m:_grad(track)
             local knob = mk("Frame", { AnchorPoint = Vector2.new(0, .5), Size = UDim2.fromOffset(16, 16), BorderSizePixel = 0, ZIndex = 3 }, track)
             circle(knob)
             m:_paint(knob, "BackgroundColor3", "knob")
             function self._render(_, animate)
                 local on = self.Value
-                local goal = on and m._pal.acc or m._pal.toggleoff
+                local goal = on and m._pal.fill or m._pal.toggleoff
+                if tg then tg.Enabled = on end
                 local pos = UDim2.new(0, on and 25 or 3, .5, 0)
                 if animate then
                     tween(track, .15, { BackgroundColor3 = goal })
@@ -87059,10 +87145,11 @@ end
             m:_paint(track, "BackgroundColor3", "track")
             local fill = mk("Frame", { Size = UDim2.fromScale(0, 1), BorderSizePixel = 0 }, track)
             circle(fill)
-            m:_paint(fill, "BackgroundColor3", "acc")
+            m:_paint(fill, "BackgroundColor3", "fill")
+            m:_grad(fill)
             local thumb = mk("Frame", { AnchorPoint = Vector2.new(.5, .5), Position = UDim2.fromScale(0, .5), Size = UDim2.fromOffset(14, 14), BorderSizePixel = 0, ZIndex = 2 }, track)
             circle(thumb)
-            m:_paint(thumb, "BackgroundColor3", "acc")
+            m:_paint(thumb, "BackgroundColor3", m._lite and "knob" or "acc")
             local dec = decimals(self._step)
             function self._render()
                 local frac = (self.Value - self._min) / (self._max - self._min)
@@ -87114,7 +87201,7 @@ end
         self.Clicked = Signal.new()
         self:_defer(function()
             local m = sec._menu
-            local row = newRow(sec, 38)
+            local row = newRow(sec, 38, (o.Style == 1 and m._lite) and "grad" or true)
             self._row, self._el = row, row
             local t = text(m, row, self._confirming and "Click again to confirm" or self._label, 14, "value", true)
             t.Size = UDim2.fromScale(1, 1)
@@ -87215,10 +87302,13 @@ end
     end
 
     ----------------------------------------------------------------------------------------------- popups
+    function SMenu:_fontPass() end
+
     function SMenu:_closePopup()
         local p = self._popup
         if p == nil then return end
         self._popup = nil
+        if p.wheel ~= nil then p.wheel:Disconnect() end
         pcall(function() p.catcher:Destroy() end)
         if p.onClose ~= nil then pcall(p.onClose) end
     end
@@ -87244,6 +87334,18 @@ end
         self._popup = { catcher = catcher, frame = frame, onClose = onClose }
         local ok, err = pcall(build, frame)
         if not ok then log("popup failed: " .. tostring(err)) end
+        self:_fontPass(frame)
+        -- the mouse wheel did not scroll a long list (a dropdown): it scrolls the list under the pointer by hand
+        self._popup.wheel = UIS.InputChanged:Connect(function(input)
+            if input.UserInputType ~= Enum.UserInputType.MouseWheel then return end
+            local list = frame:FindFirstChildWhichIsA("ScrollingFrame", true)
+            if list == nil then return end
+            local at = UIS:GetMouseLocation()
+            local pos, size = frame.AbsolutePosition, frame.AbsoluteSize
+            if at.X < pos.X or at.X > pos.X + size.X or at.Y < pos.Y or at.Y > pos.Y + size.Y then return end
+            local maxY = math.max(0, list.AbsoluteCanvasSize.Y - list.AbsoluteWindowSize.Y)
+            list.CanvasPosition = Vector2.new(0, clamp(list.CanvasPosition.Y - input.Position.Z * 40, 0, maxY))
+        end)
         return frame
     end
 
@@ -87662,6 +87764,8 @@ end
     function SSection:SetVisible(v)
         self._secVis = v ~= false
         if self._header ~= nil then self._header.Visible = self._secVis end
+        -- the Lite card of a hidden section goes too (an empty card was left behind as a thin bar)
+        if self._cardFrame ~= nil then self._cardFrame.Visible = self._secVis end
         for _, c in ipairs(self._ctls) do
             c._gv[self] = self._secVis
             c:_applyVis()
@@ -87672,14 +87776,20 @@ end
         if self._realized then return end
         self._realized = true
         local m = self._menu
-        local scroll = self._page:_ensureScroll()
+        local scroll = m:_sectionHost(self)
+        self._card = scroll
+        if m._lite then
+            self._cardFrame = scroll
+            if self._secVis == false then scroll.Visible = false end
+        end
         if self._title ~= "" then
             local head = mk("Frame", { Size = UDim2.new(1, -8, 0, 28), BackgroundTransparency = 1, LayoutOrder = self._order * 1000 }, scroll)
-            local t = text(m, head, string.upper(self._title), 12, "value", true)
+            local t = text(m, head, m._lite and self._title or string.upper(self._title), m._lite and 13 or 12, m._lite and "text" or "value", true)
             t.Position = UDim2.fromOffset(6, 6)
             t.Size = UDim2.new(1, -12, 0, 18)
             local line = mk("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 6, 1, 0), Size = UDim2.new(1, -12, 0, 1), BorderSizePixel = 0, BackgroundTransparency = .55 }, head)
-            m:_paint(line, "BackgroundColor3", "acc")
+            m:_paint(line, "BackgroundColor3", "line")
+            if m._lite then line.Visible = false end
             self._header = head
             if self._secVis == false then head.Visible = false end
         end
@@ -87697,7 +87807,7 @@ end
         title = tostring(title)
         if string.match(title, "^%s*$") then title = "" end
         page._secCount += 1
-        local sec = setmetatable({ _menu = page._menu, _page = page, _realized = false, _pending = {}, _order = page._secCount, _n = 0, _title = title, _ctls = {} }, SSection)
+        local sec = setmetatable({ _menu = page._menu, _page = page, _realized = false, _pending = {}, _order = page._secCount, _n = 0, _title = title, _ctls = {}, _side = o.Side }, SSection)
         sec._sec = sec
         if page._realized then
             sec:_realize()
@@ -87710,6 +87820,7 @@ end
     local SGrid = {}
     SGrid.__index = SGrid
     function SGrid:AddSection(o)
+        if self._inert then return stub end
         local ok, res = pcall(newSSection, self._page, o)
         if ok then return res end
         log("AddSection failed: " .. tostring(res))
@@ -87719,13 +87830,16 @@ end
         o = o or {}
         local panes = {}
         for i, title in ipairs(o.Titles or {}) do
-            local ok, res = pcall(newSSection, page, { Title = title })
+            local ok, res = pcall(newSSection, page, { Title = title, Side = o.Side })
             panes[i] = ok and res or stub
             if not ok then log("AddMultiSection failed: " .. tostring(res)) end
         end
         return table.unpack(panes)
     end
-    function SGrid:AddMultiSection(o) return sMultiSection(self._page, o) end
+    function SGrid:AddMultiSection(o)
+        if self._inert then return stub, stub end
+        return sMultiSection(self._page, o)
+    end
     function SSection:AddMultiSection(o) return sMultiSection(self._page, o) end
     function SGrid:SetVisible() end
 
@@ -87762,6 +87876,10 @@ end
         self:_ensureScroll()
         local t0 = os.clock()
         if K.UIMark then K.UIMark("building page '" .. tostring(self.Label) .. "'") end
+        if self._liteTheme then
+            local ok, err = pcall(self._menu._buildThemePage, self._menu, self)
+            if not ok then log("theme page failed: " .. tostring(err)) end
+        end
         local sections = self._sections
         self._sections = {}
         for _, sec in ipairs(sections) do
@@ -87773,7 +87891,14 @@ end
     end
 
     function SPage:Grid(o)
-        return setmetatable({ _page = self }, SGrid)
+        if not self._liteTheme then self._columns = (o and o.Columns) or self._columns or 2 end
+        -- the Lite theme page ignores what the settings builder adds to it
+        return setmetatable({ _page = self, _inert = self._liteTheme == true }, SGrid)
+    end
+
+    -- where a section's rows go: the page's own list (the Lite form puts them in a card in one of two columns)
+    function SMenu:_sectionHost(sec)
+        return sec._page:_ensureScroll()
     end
 
     function SPage:OnFirstOpen(fn)
@@ -87804,6 +87929,11 @@ end
             Description = o.Description or false,
             _sections = {}, _realized = false, _secCount = 0,
         }, SPage)
+        -- Lite builds Starlight's own Theme page (its theme, its colours, its theme files), not the script's token list
+        if self._isSettings and page.Label == "Theme" and self._menu._lite then
+            page._liteTheme = true
+            page._columns = 1
+        end
         self._pages[#self._pages + 1] = page
         self._menu:_makePageRow(self, page)
         return page
@@ -87927,7 +88057,9 @@ end
         self._keybindList = true
         self._tabs = {}
         self._acc, self._ov = DEFAULT_ACCENT, {}
-        self._pal = palette(self._acc, self._ov)
+        self._lite = class.__lite == true
+        if self._lite then self:_initTheme() end
+        self._pal = palette(self._acc, self._ov, self._lite, self._theme)
         self._themed, self._themeFns = {}, {}
 
         local saved
@@ -88653,6 +88785,785 @@ end
         else
             self._dim.Modal = false
             self._gui.Enabled = false
+        end
+        self:_setVisibleState(visible)
+        return true
+    end
+
+    --------------------------------------------------------------------------------------------------- Lite
+    -- Fourth form of the menu: a Starlight-like window (a sidebar of categories and pages, a header, one page at a
+    -- time) drawn with plain frames, built the way the classic menu is: the window is about a hundred instances and
+    -- a button per page, and a page's rows are made when it is first opened. Starlight's own window is a model of
+    -- thousands of instances that has to be cloned and laid out first. It sits on the same Menu surface and uses the
+    -- same widgets as the Setsuna forms, and the window is one CanvasGroup, so opening and closing are a real fade.
+    -- Starlight's window measured off its own screenshot: 930 x 560, a 212 wide sidebar, a 41 high top bar
+    local LITE_W, LITE_H, LITE_SIDE, LITE_HEAD = 930, 560, 212, 41
+    -- the font Starlight draws its text in (the same family as the classic menu's)
+    local LITE_FONT = "rbxassetid://12187365364"
+    local fonted = setmetatable({}, { __mode = "k" })
+    local function liteFont(root)
+        local function one(d)
+            if fonted[d] then return end
+            if d:IsA("TextLabel") or d:IsA("TextButton") or d:IsA("TextBox") then
+                fonted[d] = true
+                local bold = d.Font == Enum.Font.GothamBold
+                d.FontFace = Font.new(LITE_FONT, bold and Enum.FontWeight.SemiBold or Enum.FontWeight.Medium, Enum.FontStyle.Normal)
+            end
+        end
+        one(root)
+        for _, d in ipairs(root:GetDescendants()) do one(d) end
+    end
+
+    local SLite = {}
+    SLite.__lite = true
+    SLite.__index = function(t, k)
+        local v = rawget(SLite, k)
+        if v ~= nil then return v end
+        v = rawget(SMenu, k)
+        if v ~= nil then return v end
+        if isMethodName(k) then return function() return nil end end
+        return nil
+    end
+    SetsunaUI.Lite = SLite
+    function SLite.new(opts) return newMenu(SLite, opts) end
+
+    function SLite:_buildShell()
+        local gui = mk("ScreenGui", { Name = "Lite Interface", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 100000,
+            ZIndexBehavior = Enum.ZIndexBehavior.Sibling, Enabled = false })
+        local placed = pcall(function() gui.Parent = gethui() end)
+        if not placed or gui.Parent == nil then gui.Parent = game:GetService("CoreGui") end
+        self._gui = gui
+        -- Modal frees the mouse while the menu is open (first person locks it to the centre)
+        local dim = mk("TextButton", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, BorderSizePixel = 0, Modal = false }, gui)
+        self._dim = dim
+        local stage = mk("Frame", { BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 1 }, gui)
+        self._stage = stage
+        self._uiscale = mk("UIScale", {}, stage)
+
+        local win = mk("CanvasGroup", { AnchorPoint = Vector2.new(.5, .5), Size = UDim2.fromOffset(LITE_W, LITE_H), BorderSizePixel = 0,
+            ZIndex = 5, GroupTransparency = 1, Active = true }, stage)
+        self:_paint(win, "BackgroundColor3", "panel")
+        corner(win, 12)
+        -- Starlight's window outline is the Accents.Brighter gradient (white, so the gradient is the colour)
+        local wst = mk("UIStroke", { Thickness = 1.5, Transparency = .3 }, win)
+        self:_paint(wst, "Color", "fill")
+        self:_grad(wst, "Brighter")
+        self._win = win
+        self._winScale = mk("UIScale", { Scale = .965 }, win)
+
+        -- sidebar: logo and title, then the categories with their pages
+        self._ctlW = { dd = 128, tb = 118 }
+        local side = mk("Frame", { Size = UDim2.new(0, LITE_SIDE, 1, 0), BorderSizePixel = 0 }, win)
+        self:_paint(side, "BackgroundColor3", "side")
+        self._side = side
+        local logo = mk("ImageLabel", { Position = UDim2.fromOffset(12, 5), Size = UDim2.fromOffset(32, 32), BackgroundTransparency = 1, Image = tostring(K.LithiumLogo or "") }, side)
+        local title = text(self, side, tostring(self.Title or "LxYHook"), 11, "text", false)
+        title.Position = UDim2.fromOffset(52, 0)
+        title.Size = UDim2.new(1, -56, 0, LITE_HEAD)
+        title.TextTruncate = Enum.TextTruncate.AtEnd
+        local sline = mk("Frame", { Position = UDim2.fromOffset(0, LITE_HEAD), Size = UDim2.new(1, 0, 0, 1), BorderSizePixel = 0, BackgroundTransparency = .6 }, side)
+        self:_paint(sline, "BackgroundColor3", "outline")
+        local list = mk("ScrollingFrame", {
+            Position = UDim2.fromOffset(0, LITE_HEAD + 1), Size = UDim2.new(1, 0, 1, -(LITE_HEAD + 1 + 56)), BackgroundTransparency = 1, BorderSizePixel = 0,
+            ScrollBarThickness = 2, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y,
+        }, side)
+
+        -- the player card at the foot of the sidebar: avatar, display name, user name
+        local me = game:GetService("Players").LocalPlayer
+        local card = mk("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.new(1, 0, 0, 56), BackgroundTransparency = 1, BorderSizePixel = 0 }, side)
+        local cline = mk("Frame", { Size = UDim2.new(1, -16, 0, 1), Position = UDim2.fromOffset(8, 0), BorderSizePixel = 0, BackgroundTransparency = .6 }, card)
+        self:_paint(cline, "BackgroundColor3", "outline")
+        local avatar = mk("ImageLabel", { Position = UDim2.fromOffset(14, 12), Size = UDim2.fromOffset(34, 34), BorderSizePixel = 0, BackgroundTransparency = 0 }, card)
+        circle(avatar)
+        self:_paint(avatar, "BackgroundColor3", "surf")
+        local who = text(self, card, me and me.DisplayName or "Player", 14, "text", true)
+        who.Position = UDim2.fromOffset(58, 10)
+        who.Size = UDim2.new(1, -66, 0, 18)
+        who.TextTruncate = Enum.TextTruncate.AtEnd
+        local handle = text(self, card, me and me.Name or "", 11, "dim", false)
+        handle.Position = UDim2.fromOffset(58, 28)
+        handle.Size = UDim2.new(1, -66, 0, 16)
+        handle.TextTruncate = Enum.TextTruncate.AtEnd
+        task.spawn(function()
+            local ok, img = pcall(function()
+                return game:GetService("Players"):GetUserThumbnailAsync(me.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
+            end)
+            if ok and avatar.Parent ~= nil then avatar.Image = img end
+        end)
+        self:_paint(list, "ScrollBarImageColor3", "acc")
+        mk("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder }, list)
+        mk("UIPadding", { PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 12), PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8) }, list)
+        self._sideList = list
+
+        -- header (drag handle): the open page's name, and a close button
+        local head = mk("Frame", { Position = UDim2.fromOffset(LITE_SIDE, 0), Size = UDim2.new(1, -LITE_SIDE, 0, LITE_HEAD), BorderSizePixel = 0, Active = true }, win)
+        self:_paint(head, "BackgroundColor3", "top")
+        self._head = head
+        local hdr = text(self, head, "", 13, "dim", false)
+        hdr.Position = UDim2.fromOffset(16, 0)
+        hdr.Size = UDim2.new(1, -80, 1, 0)
+        hdr.TextTruncate = Enum.TextTruncate.AtEnd
+        self._hdrTitle = hdr
+        -- the two window buttons are small round dots on the right of the top bar, like Starlight's
+        local function dot(x, hoverColor)
+            local b = mk("TextButton", { AnchorPoint = Vector2.new(1, .5), Position = UDim2.new(1, x, .5, 0), Size = UDim2.fromOffset(14, 14), BorderSizePixel = 0,
+                Text = "", TextTransparency = 1, AutoButtonColor = false }, head)
+            circle(b)
+            self:_paint(b, "BackgroundColor3", "faint")
+            b.MouseEnter:Connect(function() tween(b, .12, { BackgroundColor3 = hoverColor }) end)
+            b.MouseLeave:Connect(function() tween(b, .12, { BackgroundColor3 = self._pal.faint }) end)
+            return b
+        end
+        local close = dot(-14, Color3.fromRGB(235, 110, 110))
+        close.Activated:Connect(function() self:SetVisible(false) end)
+        -- minimise: the window folds up to its title bar
+        local mini = dot(-36, Color3.fromRGB(230, 200, 120))
+        mini.Activated:Connect(function() self:_setCollapsed(not self._collapsed) end)
+        self._miniBtn = mini
+        local hline = mk("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, 0), Size = UDim2.new(1, 0, 0, 1), BorderSizePixel = 0, BackgroundTransparency = .6 }, head)
+        self:_paint(hline, "BackgroundColor3", "outline")
+        head.InputBegan:Connect(function(input)
+            if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+            self:_closePopup()
+            local sx, sy = pointer(input)
+            local start = win.Position
+            local moveConn, endConn
+            moveConn = UIS.InputChanged:Connect(function(i)
+                if i.UserInputType ~= Enum.UserInputType.MouseMovement and i.UserInputType ~= Enum.UserInputType.Touch then return end
+                local x, y = pointer(i)
+                local k = self._k
+                self._moved = true
+                win.Position = UDim2.fromOffset(start.X.Offset + (x - sx) / k, start.Y.Offset + (y - sy) / k)
+                self:_clampWin()
+            end)
+            endConn = UIS.InputEnded:Connect(function(i)
+                if i == input or i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                    moveConn:Disconnect()
+                    endConn:Disconnect()
+                end
+            end)
+        end)
+
+        -- the open page
+        self._body = mk("Frame", { Position = UDim2.fromOffset(LITE_SIDE, LITE_HEAD + 1), Size = UDim2.new(1, -LITE_SIDE, 1, -(LITE_HEAD + 1)), BackgroundTransparency = 1, ClipsDescendants = true }, win)
+
+        -- the grip in the bottom right corner resizes the window (smaller or larger)
+        self._w, self._h = LITE_W, LITE_H
+        local grip = mk("TextButton", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -3, 1, -3), Size = UDim2.fromOffset(18, 18), BackgroundTransparency = 1,
+            Text = "//", TextSize = 12, Font = Enum.Font.GothamBold, AutoButtonColor = false, ZIndex = 50 }, win)
+        self:_paint(grip, "TextColor3", "faint")
+        self._grip = grip
+        grip.InputBegan:Connect(function(input)
+            if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+            self:_closePopup()
+            local sx, sy = pointer(input)
+            local w0, h0, p0 = win.Size.X.Offset, win.Size.Y.Offset, win.Position
+            local moveConn, endConn
+            moveConn = UIS.InputChanged:Connect(function(i)
+                if i.UserInputType ~= Enum.UserInputType.MouseMovement and i.UserInputType ~= Enum.UserInputType.Touch then return end
+                local x, y = pointer(i)
+                local k, g = self._k, self._g
+                local nw = clamp(w0 + (x - sx) / k, 560, math.max(560, g.sw - 24))
+                local nh = clamp(h0 + (y - sy) / k, 340, math.max(340, g.sh - 24))
+                nw, nh = math.floor(nw / 2) * 2, math.floor(nh / 2) * 2
+                self._w, self._h, self._moved = nw, nh, true
+                win.Size = UDim2.fromOffset(nw, nh)
+                -- the window is anchored at its centre: move the centre so the top left corner stays where it was
+                win.Position = UDim2.fromOffset(p0.X.Offset + (nw - w0) / 2, p0.Y.Offset + (nh - h0) / 2)
+                g.setW = (nw - LITE_SIDE - 52) / 2
+            end)
+            endConn = UIS.InputEnded:Connect(function(i)
+                if i == input or i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                    moveConn:Disconnect()
+                    endConn:Disconnect()
+                end
+            end)
+        end)
+
+        -- the glass is Starlight's own acrylic (its AcrylicPaint): a blurred glass part behind the window, the frosted
+        -- frame on the window, and the see-through panels. getgenv().KiciaLiteAcrylic = false leaves it out.
+        if getgenv().KiciaLiteAcrylic ~= false then self:_makeGlass() end
+        self:_applyGlass(self._glass ~= nil)
+        -- the glass part lives in the camera, outside the menu's gui: while the menu is closed it must be off, and a
+        -- new camera (a new match) leaves the old part behind, so it is made again there
+        task.spawn(function()
+            while not self._destroyed do
+                task.wait(.5)
+                if self._destroyed then break end
+                local glass = self._glass
+                if glass ~= nil and not glass.Model:IsDescendantOf(workspace) then
+                    pcall(function() glass.Frame:Destroy() end)
+                    self._glass, self._glassShown = nil, nil
+                    K._liteAcrylic = nil
+                    self:_makeGlass()
+                    self:_applyGlass(self._glassOn ~= false and self._glass ~= nil)
+                end
+                self:_setGlassShown(self._glassOn == true and gui.Enabled and win.GroupTransparency < 1)
+            end
+        end)
+
+        liteFont(win)
+        dim.Activated:Connect(function() self:_closePopup() end)
+        gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() self:_relayout() end)
+        self:_relayout()
+    end
+
+    -- one glass: Starlight's AcrylicPaint (its model sits in the camera's "Starlight Blur Elements" folder)
+    function SLite:_makeGlass()
+        pcall(function()
+            local acr = K._liteAcrylic
+            if acr == nil then
+                acr = K.StarlightAcrylic()
+                pcall(acr.Init)
+                K._liteAcrylic = acr
+            end
+            -- Init clones the game's own DepthOfField, which can be switched off (as in Rivals) and then blurs
+            -- nothing; the blur behind the glass part is near-field only, so far blur stays at 0
+            local blur = game:GetService("Lighting"):FindFirstChild("starlightBlur")
+            if blur ~= nil then
+                blur.Enabled = true
+                blur.FarIntensity = 0
+                blur.NearIntensity = 1
+            end
+            local paint = acr.AcrylicPaint()
+            if paint.Model == nil then
+                paint.Frame:Destroy()
+                return
+            end
+            paint.AddParent(self._win)
+            paint.Frame.Parent = self._win
+            paint.Model.Size = Vector3.new(1.0, 1.032, 0.001)
+            local shadow = paint.Frame:FindFirstChild("shadow")
+            if shadow ~= nil then shadow.Visible = false end
+            self._glass, self._glassShown = paint, nil
+            -- off until the menu is shown
+            self:_setGlassShown(false)
+        end)
+    end
+
+    -- the glass part draws (and blurs the game) only while the menu is on screen
+    function SLite:_setGlassShown(on)
+        local glass = self._glass
+        if glass == nil or self._glassShown == on then return end
+        self._glassShown = on
+        pcall(glass.SetVisibility, on)
+        if not on then pcall(function() glass.Model.Transparency = 1 end) end
+    end
+
+    -- Starlight's acrylic mode: the window 0.6, the sidebar 0.45 and the top bar 0.5 transparent, glass behind them
+    function SLite:_applyGlass(on)
+        local glass = self._glass
+        on = on == true and glass ~= nil
+        self._glassOn = on
+        self._win.BackgroundTransparency = on and .6 or 0
+        self._side.BackgroundTransparency = on and .45 or 0
+        self._head.BackgroundTransparency = on and .5 or 0
+        if glass ~= nil then
+            glass.Frame.Visible = on
+            self:_setGlassShown(on and self._gui.Enabled)
+        end
+    end
+
+    -- fold the window up to its title bar (or open it again); the top edge stays where it is
+    function SLite:_setCollapsed(on)
+        local win, g = self._win, self._g
+        if win == nil or g == nil then return end
+        self:_closePopup()
+        self._collapsed = on
+        local w, oldH = win.Size.X.Offset, win.Size.Y.Offset
+        local newH = on and (LITE_HEAD + 1) or math.min(self._h or LITE_H, g.sh - 24)
+        local p = win.Position
+        tween(win, .2, { Size = UDim2.fromOffset(w, newH), Position = UDim2.fromOffset(p.X.Offset, p.Y.Offset + (newH - oldH) / 2) }, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+        self._grip.Visible = not on
+        self._miniBtn.Text = on and "+" or "-"
+    end
+
+    function SLite:Destroy()
+        -- the glass part lives in the camera, not in the menu's gui
+        pcall(function() if self._glass ~= nil then self._glass.Model:Destroy() end end)
+        SMenu.Destroy(self)
+    end
+
+    function SLite:_clampWin()
+        local g, win = self._g, self._win
+        if g == nil or win == nil then return end
+        local p = win.Position
+        win.Position = UDim2.fromOffset(math.floor(clamp(p.X.Offset, 90, math.max(90, g.sw - 90))), math.floor(clamp(p.Y.Offset, 40, math.max(40, g.sh - 40))))
+    end
+
+    function SLite:_relayout()
+        local gui = self._gui
+        local vw, vh = gui.AbsoluteSize.X, gui.AbsoluteSize.Y
+        if vw <= 0 or vh <= 0 then
+            local cam = workspace.CurrentCamera
+            if cam == nil then return end
+            vw, vh = cam.ViewportSize.X, cam.ViewportSize.Y
+        end
+        if vw <= 0 or vh <= 0 then return end
+        -- no scaling unless the window does not fit: a fractional UIScale is what makes text blurry
+        local k = clamp(math.min(1, (vw - 24) / LITE_W, (vh - 24) / LITE_H), .6, 1)
+        k = math.floor(k * 20) / 20
+        self._k = k
+        self._uiscale.Scale = k
+        local sw, sh = vw / k, vh / k
+        self._stage.Size = UDim2.fromOffset(sw, sh)
+        -- whole, even pixels (the window is centred on its anchor): half a pixel blurs every glyph
+        local w = math.floor(math.min(self._w or LITE_W, sw - 24) / 2) * 2
+        local h = math.floor(math.min(self._h or LITE_H, sh - 24) / 2) * 2
+        if self._collapsed then h = LITE_HEAD + 1 end
+        self._win.Size = UDim2.fromOffset(w, h)
+        self._g = { sw = sw, sh = sh, cx = sw / 2, cy = sh / 2, setW = (w - LITE_SIDE - 56) / 2, panelW = LITE_SIDE }
+        if self._moved then
+            self:_clampWin()
+        else
+            self._win.Position = UDim2.fromOffset(math.floor(sw / 2), math.floor(sh / 2))
+        end
+        self:_closePopup()
+    end
+
+    function SLite:AddTab(o)
+        o = o or {}
+        local tab = setmetatable({ _menu = self, Label = tostring(o.Label or "Tab"), Icon = o.Icon or false, _pages = {} }, STab)
+        local sec = mk("Frame", { Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = #self._tabs + 1 }, self._sideList)
+        mk("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }, sec)
+        local head = text(self, sec, tab.Label, 12, "dim", false)
+        head.Size = UDim2.new(1, 0, 0, 28)
+        head.LayoutOrder = 0
+        mk("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingTop = UDim.new(0, 8) }, head)
+        tab._sec = sec
+        self._tabs[#self._tabs + 1] = tab
+        return tab
+    end
+
+    -- the sidebar button of a page
+    function SLite:_makePageRow(tab, page)
+        local m = self
+        local btn = mk("TextButton", { Size = UDim2.new(1, 0, 0, 34), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, LayoutOrder = #tab._pages, BorderSizePixel = 0 }, tab._sec)
+        corner(btn, 7)
+        local hover = mk("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0 }, btn)
+        corner(hover, 7)
+        m:_paint(hover, "BackgroundColor3", "hover")
+        local sel = mk("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = .72, BorderSizePixel = 0, Visible = false }, btn)
+        corner(sel, 7)
+        m:_paint(sel, "BackgroundColor3", "sel")
+        -- Starlight's selected tab: an Accents.Main gradient outline, the icon and the name in the Brighter gradient
+        local selStroke = mk("UIStroke", { Thickness = 1, Transparency = .35 }, sel)
+        m:_paint(selStroke, "Color", "fill")
+        m:_grad(selStroke, "Main")
+        local img = imageOf(page.Icon)
+        local icon = mk("ImageLabel", { Position = UDim2.fromOffset(12, 6), Size = UDim2.fromOffset(22, 22), BackgroundTransparency = 1, Image = img, Visible = img ~= "", ZIndex = 2 }, btn)
+        m:_paint(icon, "ImageColor3", "dim")
+        local lbl = text(m, btn, page.Label, 14, "dim", false)
+        lbl.Position = UDim2.fromOffset(img ~= "" and 44 or 14, 0)
+        lbl.Size = UDim2.new(1, -44, 1, 0)
+        lbl.TextTruncate = Enum.TextTruncate.AtEnd
+        lbl.ZIndex = 2
+        local row = { btn = btn, sel = sel, lbl = lbl }
+        local lblGrad, iconGrad = m:_grad(lbl, "Brighter"), m:_grad(icon, "Brighter")
+        local function tint()
+            local on = m._page == page
+            lbl.TextColor3 = on and m._pal.fill or m._pal.dim
+            icon.ImageColor3 = on and m._pal.fill or m._pal.dim
+            if lblGrad then lblGrad.Enabled = on end
+            if iconGrad then iconGrad.Enabled = on end
+        end
+        tint()
+        m:_onTheme(row, tint)
+        btn.MouseEnter:Connect(function() tween(hover, .12, { BackgroundTransparency = .55 }) tween(lbl, .12, { TextColor3 = m._pal.text }) end)
+        btn.MouseLeave:Connect(function() tween(hover, .12, { BackgroundTransparency = 1 }) tint() end)
+        btn.Activated:Connect(function() task.spawn(function() m:_openPage(page) end) end)
+        row.tint = tint
+        page._row = row
+    end
+
+    -- a page is one or two columns of cards (a card is a section: its header and its rows), like Starlight's groupboxes
+    function SLite:_makeHost(page)
+        local sc = mk("ScrollingFrame", {
+            Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3,
+            CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y, Visible = false,
+        }, self._body)
+        self:_paint(sc, "ScrollBarImageColor3", "acc")
+        mk("UIPadding", { PaddingTop = UDim.new(0, 11), PaddingBottom = UDim.new(0, 14), PaddingLeft = UDim.new(0, 11), PaddingRight = UDim.new(0, 11) }, sc)
+        local wrap = mk("Frame", { Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, BorderSizePixel = 0 }, sc)
+        mk("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder, VerticalAlignment = Enum.VerticalAlignment.Top }, wrap)
+        local n = (page._columns or 2) >= 2 and 2 or 1
+        local cols = {}
+        for i = 1, n do
+            local c = mk("Frame", { Size = UDim2.new(1 / n, -12 * (n - 1) / n, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = i }, wrap)
+            mk("UIListLayout", { Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder }, c)
+            cols[i] = c
+        end
+        page._cols = cols
+        return sc
+    end
+
+    function SLite:_sectionHost(sec)
+        local page = sec._page
+        page:_ensureScroll()
+        local cols = page._cols
+        local idx = 1
+        if #cols > 1 then
+            if sec._side == "right" then
+                idx = 2
+            elseif sec._side ~= "left" then
+                idx = (sec._order % 2 == 1) and 1 or 2
+            end
+        end
+        local card = mk("Frame", { Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BorderSizePixel = 0, LayoutOrder = sec._order }, cols[idx])
+        self:_paint(card, "BackgroundColor3", "box")
+        corner(card, 10)
+        local st = mk("UIStroke", { Thickness = 1, Transparency = .4 }, card)
+        self:_paint(st, "Color", "outline")
+        mk("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Center }, card)
+        mk("UIPadding", { PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4) }, card)
+        return card
+    end
+
+    ----------------------------------------------------------------------------------------------- Lite theme
+    -- A copy of Starlight's theme handling: the same theme tables (the library's own, Starlight.Themes), the same
+    -- CurrentTheme shape, themes saved as files next to the library's other themes, "autoload.txt" naming the theme
+    -- to load on the next start, and the same Theme page.
+    local HttpSvc = game:GetService("HttpService")
+    local THEME_ORDER = { "Starlight", "Hollywood Dark", "Hollywood Light", "Orca", "Glacier", "Pacific", "Neo", "Neo (Dark)", "Crimson", "Nebula",
+        "Evergreen", "Luna", "OperaGX", "BBot", "Ubuntu", "Tokyo Night", "Hollywood Fluent", "Catppuccin Mocha", "Catppuccin Macchiato",
+        "Catppuccin Frappe", "Catppuccin Latte" }
+
+    local function copyTheme(v)
+        if type(v) ~= "table" then return v end
+        local out = {}
+        for k, x in pairs(v) do out[k] = copyTheme(x) end
+        return out
+    end
+
+    -- the same JSON as Starlight's encodeTheme / decodeTheme
+    local function themeToJson(theme)
+        local function ser(d)
+            if typeof(d) == "Color3" then
+                return { __type = "Color3", R = d.R * 255, G = d.G * 255, B = d.B * 255 }
+            elseif typeof(d) == "ColorSequence" then
+                local kps = {}
+                for _, kp in ipairs(d.Keypoints) do
+                    kps[#kps + 1] = { Time = kp.Time, Value = { R = kp.Value.R * 255, G = kp.Value.G * 255, B = kp.Value.B * 255 } }
+                end
+                return { __type = "ColorSequence", Keypoints = kps }
+            elseif type(d) == "table" then
+                local out = {}
+                for k, x in pairs(d) do out[k] = ser(x) end
+                return out
+            end
+            return d
+        end
+        local ok, enc = pcall(HttpSvc.JSONEncode, HttpSvc, ser(theme))
+        if ok then return enc end
+        return nil
+    end
+
+    local function themeFromJson(text)
+        local function de(v)
+            if type(v) == "table" then
+                if v.__type == "Color3" then
+                    return Color3.fromRGB(v.R, v.G, v.B)
+                elseif v.__type == "ColorSequence" then
+                    local kps = {}
+                    for _, kp in ipairs(v.Keypoints) do
+                        kps[#kps + 1] = ColorSequenceKeypoint.new(kp.Time, Color3.fromRGB(kp.Value.R, kp.Value.G, kp.Value.B))
+                    end
+                    return ColorSequence.new(kps)
+                end
+                local out = {}
+                for k, x in pairs(v) do out[k] = de(x) end
+                return out
+            end
+            return v
+        end
+        local ok, dec = pcall(HttpSvc.JSONDecode, HttpSvc, text)
+        if not ok or type(dec) ~= "table" then return nil end
+        local t = de(dec)
+        if type(t.Backgrounds) ~= "table" or type(t.Foregrounds) ~= "table" or type(t.Miscellaneous) ~= "table" or type(t.Accents) ~= "table" then return nil end
+        return t
+    end
+
+    -- used only when the library's own list cannot be reached
+    local function fallbackTheme()
+        local function seq(a, b, c) return ColorSequence.new({ ColorSequenceKeypoint.new(0, a), ColorSequenceKeypoint.new(.5, b), ColorSequenceKeypoint.new(1, c) }) end
+        return {
+            Backgrounds = { Dark = Color3.fromRGB(23, 25, 29), Medium = Color3.fromRGB(27, 29, 33), Light = Color3.fromRGB(33, 34, 38),
+                Groupbox = Color3.fromRGB(33, 36, 42), Highlight = Color3.fromRGB(17, 19, 22) },
+            Foregrounds = { Active = Color3.new(1, 1, 1), Light = Color3.new(1, 1, 1), Medium = Color3.fromRGB(165, 165, 165), Dark = Color3.fromRGB(65, 69, 77),
+                MediumHover = Color3.fromRGB(185, 185, 185), DarkHover = Color3.fromRGB(85, 89, 97) },
+            Miscellaneous = { Divider = Color3.fromRGB(117, 128, 149), Shadow = Color3.fromRGB(19, 21, 24), LighterShadow = Color3.fromRGB(24, 25, 30) },
+            Accents = { Main = seq(Color3.fromRGB(230, 186, 251), Color3.fromRGB(161, 169, 225), Color3.fromRGB(138, 201, 242)),
+                Brighter = seq(Color3.fromRGB(241, 212, 251), Color3.fromRGB(187, 192, 225), Color3.fromRGB(195, 227, 242)) },
+        }
+    end
+
+    local function ensureFolder(path)
+        local acc = ""
+        for part in string.gmatch(path, "[^/]+") do
+            acc = acc == "" and part or (acc .. "/" .. part)
+            if not isfolder(acc) then makefolder(acc) end
+        end
+    end
+
+    -- runs from newMenu, before the palette is made
+    function SLite:_initTheme()
+        local ok, L = pcall(function() return StarUI.Load(false) end)
+        local lib = ok and type(L) == "table" and L or nil
+        self._themes = lib ~= nil and type(lib.Themes) == "table" and lib.Themes or {}
+        local fs = lib ~= nil and lib.FileSystem or nil
+        self._themeExt = fs ~= nil and fs.FileExtension or ".starlight"
+        self._themeDir = (fs ~= nil and fs.Folder or "Starlight Interface Suite") .. "/LxYHook/themes"
+        self._themeName = "Starlight"
+        local base = self._themes.Starlight
+        self._theme = base ~= nil and copyTheme(base) or fallbackTheme()
+        -- Starlight:LoadAutoloadTheme: autoload.txt names a built-in theme or a saved one
+        pcall(function()
+            if not isfile(self._themeDir .. "/autoload.txt") then return end
+            local name = readfile(self._themeDir .. "/autoload.txt")
+            local t = self._themes[name]
+            if t == nil then t = themeFromJson(readfile(self._themeDir .. "/" .. name .. self._themeExt)) end
+            if type(t) == "table" and type(t.Backgrounds) == "table" then
+                self._theme = copyTheme(t)
+                self._themeName = name
+            end
+        end)
+    end
+
+    function SLite:_setTheme(theme, name)
+        self._theme = copyTheme(theme)
+        if name ~= nil then self._themeName = name end
+        self:_applyPalette()
+        for _, e in ipairs(self._themeCtls or {}) do
+            pcall(function() e.ctl:Set(e.get(), true) end)
+        end
+    end
+
+    -- the built-in themes, then the saved ones (the library's RefreshConfigList)
+    function SLite:_themeNames()
+        local names = {}
+        for _, n in ipairs(THEME_ORDER) do
+            if self._themes[n] ~= nil then names[#names + 1] = n end
+        end
+        pcall(function()
+            local ext = self._themeExt
+            for _, f in ipairs(listfiles(self._themeDir)) do
+                local file = string.match(f, "([^/\\]+)$")
+                if file ~= nil and string.sub(file, -#ext) == ext then names[#names + 1] = string.sub(file, 1, #file - #ext) end
+            end
+        end)
+        return names
+    end
+
+    -- Starlight's Theme page: its colours, then creating, applying, overwriting, autoloading and deleting themes
+    function SLite:_buildThemePage(page)
+        local m = self
+        -- one groupbox, in the order of Starlight's own Theme page
+        local colors = newSSection(page, { Title = "Themes" })
+        local manage = colors
+        self._themeCtls = {}
+        pcall(ensureFolder, self._themeDir)
+        if self._glass ~= nil then
+            manage:_make("Toggle", { Label = "Acrylic", Default = self._glassOn == true, OnChanged = function(v) m:_applyGlass(v) end })
+        end
+        manage:_make("Divider", {})
+
+        local function color(host, group, key, idx)
+            local function get()
+                local v = m._theme[group][key]
+                if idx ~= nil then return v.Keypoints[idx].Value end
+                return v
+            end
+            local c = colors:_make("Color", { Row = host, Default = get() })
+            if type(c) ~= "table" or c.OnChanged == nil then return end
+            c:OnChanged(function(val)
+                local rgb = val.Rgb
+                if idx ~= nil then
+                    local kps = {}
+                    for i, kp in ipairs(m._theme[group][key].Keypoints) do
+                        kps[i] = ColorSequenceKeypoint.new(kp.Time, i == idx and rgb or kp.Value)
+                    end
+                    m._theme[group][key] = ColorSequence.new(kps)
+                else
+                    m._theme[group][key] = rgb
+                end
+                m:_applyPalette()
+            end)
+            m._themeCtls[#m._themeCtls + 1] = { ctl = c, get = get }
+        end
+        -- one label with its swatches on the right, as Starlight lays the page out
+        local function swatches(title, items)
+            local host = colors:_make("Label", { Label = title })
+            for _, it in ipairs(items) do color(host, it[1], it[2], it[3]) end
+        end
+        swatches("Backgrounds", { { "Backgrounds", "Dark" }, { "Backgrounds", "Medium" }, { "Backgrounds", "Light" }, { "Backgrounds", "Groupbox" }, { "Backgrounds", "Highlight" } })
+        swatches("Foregrounds", { { "Foregrounds", "Dark" }, { "Foregrounds", "Medium" }, { "Foregrounds", "Light" }, { "Foregrounds", "Active" } })
+        swatches("Foreground Hovers", { { "Foregrounds", "DarkHover" }, { "Foregrounds", "MediumHover" } })
+        swatches("Divider", { { "Miscellaneous", "Divider" } })
+        swatches("Shadows", { { "Miscellaneous", "Shadow" }, { "Miscellaneous", "LighterShadow" } })
+        swatches("Accent", { { "Accents", "Main", 1 }, { "Accents", "Main", 2 }, { "Accents", "Main", 3 } })
+        swatches("Accent Brighter", { { "Accents", "Brighter", 1 }, { "Accents", "Brighter", 2 }, { "Accents", "Brighter", 3 } })
+
+        local path, ext = self._themeDir, self._themeExt
+        local function say(text) notify(text) end
+        local selected = self._themeName
+        local function autoloadName()
+            local ok, name = pcall(function()
+                if isfile(path .. "/autoload.txt") then return readfile(path .. "/autoload.txt") end
+            end)
+            return ok and name or nil
+        end
+
+        manage:_make("Divider", {})
+        local nameBox = manage:_make("TextBox", { Label = "New Theme Name", Placeholder = "Name" })
+        local list
+        local function refresh(keep)
+            if list ~= nil then
+                list:SetOptions(m:_themeNames())
+                if keep ~= nil then list:Set(keep, true) end
+            end
+        end
+        manage:_make("Button", { Label = "Create New Theme", OnClick = function()
+            local name = tostring(nameBox.Value or "")
+            name = string.gsub(string.gsub(name, "/", " "), "\\", " ")
+            if string.match(name, "^%s*$") then say("Theme name cannot be empty.") return end
+            if m._themes[name] ~= nil or isfile(path .. "/" .. name .. ext) then
+                say("Theme with the provided name exists already. Overwrite it with Overwrite Theme below.")
+                return
+            end
+            local json = themeToJson(m._theme)
+            local ok = json ~= nil and pcall(writefile, path .. "/" .. name .. ext, json)
+            if not ok then say("Unable to save the theme.") return end
+            refresh()
+            say(string.format("Created Theme %q", name))
+        end })
+        list = manage:_make("Dropdown", { Label = "Themes List", Options = self:_themeNames(), Default = selected, SelectFirst = false })
+        if type(list) == "table" and list.OnChanged ~= nil then
+            list:OnChanged(function(v) selected = v end)
+        end
+        local function apply(name)
+            local t = m._themes[name]
+            if t == nil then
+                local ok, text = pcall(readfile, path .. "/" .. name .. ext)
+                t = ok and themeFromJson(text) or nil
+            end
+            if t == nil then say("That theme could not be loaded.") return end
+            m:_setTheme(t, name)
+        end
+        manage:_make("Button", { Label = "Apply Theme", Style = 1, OnClick = function()
+            if selected == nil then say("Theme must be selected!") return end
+            apply(selected)
+        end })
+        manage:_make("Button", { Label = "Overwrite Theme", OnClick = function()
+            if selected == nil then say("Theme must be selected!") return end
+            if m._themes[selected] ~= nil then say("Only a custom theme can be overwritten!") return end
+            local json = themeToJson(m._theme)
+            if json ~= nil and pcall(writefile, path .. "/" .. selected .. ext, json) then
+                say(string.format("Overwrote theme %q", selected))
+            else
+                say("Unable to overwrite the theme.")
+            end
+        end })
+        local loadLabel = manage:_make("Label", { Label = "Current Autoload Theme: " .. (autoloadName() or "None") })
+        manage:_make("Button", { Label = "Autoload Theme", Style = 1, OnClick = function()
+            if selected == nil then say("Theme must be selected!") return end
+            pcall(writefile, path .. "/autoload.txt", selected)
+            loadLabel:Set("Current Autoload Theme: " .. selected)
+            say(string.format("Set %q to be automatically loaded on your future sessions.", selected))
+        end })
+        manage:_make("Button", { Label = "Reset Autoload", OnClick = function()
+            pcall(function() if isfile(path .. "/autoload.txt") then delfile(path .. "/autoload.txt") end end)
+            loadLabel:Set("Current Autoload Theme: None")
+            say("Disabled current autoload.")
+        end })
+        manage:_make("Button", { Label = "Delete Theme", OnClick = function()
+            if selected == nil then say("Theme must be selected!") return end
+            if m._themes[selected] ~= nil then say("Only a custom theme can be deleted!") return end
+            pcall(function() if isfile(path .. "/" .. selected .. ext) then delfile(path .. "/" .. selected .. ext) end end)
+            if autoloadName() == selected then
+                pcall(delfile, path .. "/autoload.txt")
+                loadLabel:Set("Current Autoload Theme: None")
+            end
+            say(string.format("Deleted theme %q", selected))
+            selected = nil
+            refresh()
+        end })
+    end
+
+    -- the script's own theme tokens and accent do not touch the Lite colours: they come from the Starlight theme
+    function SLite:_hookTheme() end
+    function SLite:_setAccent() end
+
+    function SLite:_openPage(page)
+        if self._destroyed then return end
+        self:_closePopup()
+        self._page = page
+        for _, tab in ipairs(self._tabs) do
+            for _, p in ipairs(tab._pages) do
+                if p._row ~= nil then
+                    p._row.sel.Visible = p == page
+                    p._row.tint()
+                end
+                if p ~= page and p._scroll ~= nil then p._scroll.Visible = false end
+            end
+        end
+        local tab = page._tab
+        self._hdrTitle.Text = (tab ~= nil and tab.Label ~= page.Label) and (tab.Label .. "  /  " .. page.Label) or page.Label
+        page:_realize()
+        -- building a page can yield; if another page was opened meanwhile, this one stays hidden
+        if self._page ~= page then return end
+        liteFont(page._scroll)
+        page._scroll.Visible = true
+        page._scroll.CanvasPosition = Vector2.zero
+    end
+
+    -- the popups (a dropdown's list, a colour picker) are made later: their text gets the font too
+    function SLite:_fontPass(root) liteFont(root) end
+
+    function SLite:SetVisible(visible, instant)
+        visible = visible and true or false
+        if self._destroyed then return true end
+        local was = self.Visible
+        self:_closePopup()
+        local win, scale = self._win, self._winScale
+        self._fadeTok = (self._fadeTok or 0) + 1
+        local tok = self._fadeTok
+        if visible then
+            self._gui.Enabled = true
+            self._dim.Modal = true
+            self:_relayout()
+            if self._page == nil then
+                local first = self._tabs[1] ~= nil and self._tabs[1]._pages[1] or nil
+                if first ~= nil then task.spawn(function() self:_openPage(first) end) end
+            end
+            if instant then
+                win.GroupTransparency = 0
+                scale.Scale = 1
+                self._dim.BackgroundTransparency = .6
+            else
+                if not was then
+                    win.GroupTransparency = 1
+                    scale.Scale = .965
+                    self._dim.BackgroundTransparency = 1
+                end
+                tween(win, .24, { GroupTransparency = 0 }, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+                tween(scale, .28, { Scale = 1 }, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+                tween(self._dim, .24, { BackgroundTransparency = .6 }, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+            end
+        else
+            -- a Modal button keeps the mouse free for as long as it is Modal, even in a disabled gui
+            self._dim.Modal = false
+            if instant or not self._gui.Enabled then
+                win.GroupTransparency = 1
+                self._dim.BackgroundTransparency = 1
+                self._gui.Enabled = false
+            else
+                tween(win, .16, { GroupTransparency = 1 }, Enum.EasingStyle.Sine, Enum.EasingDirection.In)
+                tween(scale, .16, { Scale = .965 }, Enum.EasingStyle.Sine, Enum.EasingDirection.In)
+                tween(self._dim, .16, { BackgroundTransparency = 1 }, Enum.EasingStyle.Sine, Enum.EasingDirection.In)
+                task.delay(.18, function()
+                    if self._fadeTok == tok and not self._destroyed then self._gui.Enabled = false end
+                end)
+            end
         end
         self:_setVisibleState(visible)
         return true
