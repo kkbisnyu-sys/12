@@ -73328,6 +73328,16 @@ local startMode,startVisible=K.UIMode(),not(l.GeneralStateData.SilentLoad==true 
 -- getgenv().KiciaStarlightOpenOnLoad = true shows it at load again.
 if startMode=="Starlight" and getgenv().KiciaStarlightOpenOnLoad~=true then startVisible=false end
 buildWithFallback(startMode,startVisible)
+if startMode=="Starlight" and not startVisible then
+-- the window is built in the background a few seconds after the game has started, in small slices, so the first
+-- press of the menu key finds it ready
+local cancelled=false
+if K.onUnload then K.onUnload(function() cancelled=true end) end
+task.delay(8,function()
+if cancelled or current==nil or current._materialized then return end
+pcall(current._prewarm,current)
+end)
+end
 end;end
 
 tbl17.jf = function()
@@ -86445,6 +86455,20 @@ end
         return self
     end
 
+    -- Builds the window in the background while it is closed, a slice per frame (the same steps as the first show),
+    -- so by the time the menu key is pressed it is already there. A key pressed meanwhile is honoured at the end.
+    function Menu:_prewarm()
+        if self._materialized or self._materializing or self._destroyed then return end
+        self._prewarm = true
+        self:_materialize()
+        self._prewarm = false
+        if self._destroyed or not self._materialized then return end
+        if self._wantShow == true then
+            self._wantShow = nil
+            self:SetVisible(true, true)
+        end
+    end
+
     -- The Starlight window, its sidebar and every tab button, made the first time the menu is shown (see Menu.new).
     -- Runs in the thread that shows the menu and gives the frame back between tabs, so no single frame holds it all.
     function Menu:_materialize()
@@ -86464,6 +86488,8 @@ end
             Discord = { Enabled = false },
         }) or L.Window
         log(string.format("menu step: CreateWindow %.3f s", os.clock() - tM))
+        -- built ahead of time (Menu:_prewarm): the window must not appear, so it is closed before the next frame
+        if self._prewarm then pcall(function() L.__LxYSetWindowShown(false, true) end) end
         if coroutine.isyieldable() then task.wait() end
         -- Settings > Theme > "Autoload Theme" only writes themes/autoload.txt; Starlight reads it back when the script
         -- asks it to (LoadAutoloadTheme), which nothing did, so the chosen theme never came back on the next load.
