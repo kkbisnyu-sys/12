@@ -2043,7 +2043,31 @@ local function __LxYIsWindow(i) return i.Name == "MainWindow" or (i.Name == "Dra
 -- (LxYHook) The main window opens and closes with a short pop (scale only): one UIScale tweened on the window
 -- itself. Starlight's own Hide / Unhide faded every descendant of the window, which stalled the game for a while on
 -- every open and close; the window is the only thing animated here. `instant` skips it (the menu build, a rebuild).
-local __LxYWin = { animating = false, token = 0, base = nil, noAnim = false }
+local __LxYWin = { animating = false, token = 0, base = nil, noAnim = false, fx = nil, p = 1 }
+-- The window is fully faded only on its own skin: the glass background, the outline and the drop shadow (a dozen
+-- instances). Its 18 000 children are never touched, so the pop costs the same as before; they ride along with the
+-- scale. The values are read when a pop starts from rest and put back exactly when it ends or is cut short.
+local function __LxYFxCollect(win)
+	local list = {}
+	local function add(inst, prop) list[#list + 1] = { inst, prop, inst[prop] } end
+	add(win, "BackgroundTransparency")
+	local stroke = win:FindFirstChildOfClass("UIStroke")
+	if stroke ~= nil then add(stroke, "Transparency") end
+	local shadow = win:FindFirstChild("DropShadowHolder")
+	if shadow ~= nil then
+		for _, d in shadow:GetDescendants() do
+			if d:IsA("ImageLabel") then add(d, "ImageTransparency")
+			elseif d:IsA("Frame") then add(d, "BackgroundTransparency") end
+		end
+	end
+	return list
+end
+local function __LxYFxRestore()
+	local st = __LxYWin
+	if st.fx == nil then return end
+	for _, e in st.fx do pcall(function() e[1][e[2]] = e[3] end) end
+	st.fx = nil
+end
 local function __LxYPop(win, show)
 	local st = __LxYWin
 	st.token += 1
@@ -2054,31 +2078,49 @@ local function __LxYPop(win, show)
 		scale.Name = "__LxYScale"
 		scale.Parent = win
 	end
-	if not st.animating then st.base = win.Position end
-	st.animating = true
-	local base = st.base
-	if show then
-		win.Visible = true
-		if scale.Scale >= 1 then scale.Scale = 0.9 end
+	if not st.animating then
+		st.base = win.Position
+		st.p = win.Visible and 1 or 0
+		__LxYFxRestore()
+		st.fx = __LxYFxCollect(win)
 	end
-	local from, to = scale.Scale, show and 1 or 0.9
-	local dur = show and 0.22 or 0.14
+	local base = st.base
+	local fx = st.fx
+	if show then win.Visible = true end
+	local from, to = st.p, show and 1 or 0
+	if from == to and not st.animating then
+		-- already there: nothing to animate
+		__LxYFxRestore()
+		scale.Scale = 1
+		win.Position = base
+		if not show then win.Visible = false end
+		return
+	end
+	st.animating = true
+	-- opening: a longer, soft landing (Quint); closing: quick and eased out so the window never feels sticky
+	local dur = (show and 0.26 or 0.18) * math.max(0.25, math.abs(to - from))
+	local style = show and Enum.EasingStyle.Quint or Enum.EasingStyle.Quad
 	local t0 = os.clock()
 	local conn
-	local function apply(s)
+	local function apply(p)
+		st.p = p
+		local s = 0.94 + 0.06 * p
 		scale.Scale = s
 		-- UIScale grows from the top-left corner (the window is anchored there): keep its centre where it is
 		local w, h = win.Size.X.Offset, win.Size.Y.Offset
 		win.Position = UDim2.new(base.X.Scale, base.X.Offset + w * (1 - s) / 2, base.Y.Scale, base.Y.Offset + h * (1 - s) / 2)
+		for _, e in fx do e[1][e[2]] = e[3] + (1 - e[3]) * (1 - p) end
 	end
 	conn = game:GetService("RunService").RenderStepped:Connect(function()
 		if st.token ~= token then conn:Disconnect() return end
 		local a = math.clamp((os.clock() - t0) / dur, 0, 1)
-		local e = game:GetService("TweenService"):GetValue(a, show and Enum.EasingStyle.Back or Enum.EasingStyle.Quad, show and Enum.EasingDirection.Out or Enum.EasingDirection.In)
+		local e = game:GetService("TweenService"):GetValue(a, style, Enum.EasingDirection.Out)
 		apply(from + (to - from) * e)
 		if a >= 1 then
 			conn:Disconnect()
 			st.animating = false
+			st.p = to
+			__LxYFxRestore()
 			scale.Scale = 1
 			win.Position = base
 			if not show then win.Visible = false end
@@ -2099,6 +2141,7 @@ local function Hide(Interface, ...)
 					local scale = Interface:FindFirstChild("__LxYScale")
 					if scale then scale.Scale = 1 end
 					if __LxYWin.base then Interface.Position = __LxYWin.base end
+					__LxYFxRestore()
 				end
 				Interface.Visible = false
 			end
@@ -12138,6 +12181,11 @@ do
 
     -- heartbeat
     local frames, elapsed, worstDt, stallLines = 0, 0, 0, 0
+    -- the menu notes its last step here (page build, window shown / hidden) so a stall line says what the menu
+    -- was doing just before the game froze
+    function K.UIMark(name)
+        K.UILast, K.UILastAt = name, os.clock()
+    end
     hook(RunService.Heartbeat, function(dt)
         frames += 1
         elapsed += dt
@@ -12147,7 +12195,11 @@ do
             if dt > state.maxStall then state.maxStall, state.stallAt = dt, os.time() end
             if stallLines < 100 then
                 stallLines += 1
-                K.Log("stall", string.format("frame took %.2f s | %s", dt, statsLine and statsLine() or ""))
+                local lastUI = ""
+                if K.UILast ~= nil then
+                    lastUI = string.format(" | last menu step: %s, %.1f s before the frame ended", K.UILast, os.clock() - K.UILastAt)
+                end
+                K.Log("stall", string.format("frame took %.2f s | %s%s", dt, statsLine and statsLine() or "", lastUI))
             end
         end
     end)
@@ -73242,7 +73294,9 @@ e:Add(t)
 local ids=l.PlayerIdentities
 t:SetWatermarkUsername(ids:GetPresented(T))
 idConn=e:Connect(ids.IdentityChanged,function(who)if who==T then t:SetWatermarkUsername(ids:GetPresented(T));end;end)
-P(l,t);E(l,t);c(l,t);N(l,t);p(l,t);a(l,t);t:AddSettingsTab()
+local tb=os.clock()
+local function step(name,fn) local s=os.clock();fn();if mode=="Starlight" then K.Log("ui",string.format("menu step: %s %.3f s",name,os.clock()-s));if coroutine.isyieldable() then task.wait();end;end;end
+step("tab 1",function()P(l,t);end);step("tab 2",function()E(l,t);end);step("tab 3",function()c(l,t);end);step("tab 4",function()N(l,t);end);step("tab 5",function()p(l,t);end);step("tab 6",function()a(l,t);end);step("settings tab",function()t:AddSettingsTab();end)
 return t
 end
 local function buildWithFallback(mode,visible)
@@ -73267,7 +73321,13 @@ local wasVisible=current==nil or current.Visible==true
 teardown()
 buildWithFallback(mode,wasVisible)
 end
-buildWithFallback(K.UIMode(),not(l.GeneralStateData.SilentLoad==true or getgenv().SILENT==true))
+local startMode,startVisible=K.UIMode(),not(l.GeneralStateData.SilentLoad==true or getgenv().SILENT==true)
+-- Starlight's window is made the first time it is shown (see Menu:_materialize), and showing it at load would put a
+-- 1.5 s block of the main thread right at the start of the game: on this account the game script then held the main
+-- thread for exactly 40.1 s (3 of 4 joins). So at load it starts closed and opens with the menu key.
+-- getgenv().KiciaStarlightOpenOnLoad = true shows it at load again.
+if startMode=="Starlight" and getgenv().KiciaStarlightOpenOnLoad~=true then startVisible=false end
+buildWithFallback(startMode,startVisible)
 end;end
 
 tbl17.jf = function()
@@ -76832,7 +76892,7 @@ end
 -- walls, so "wall bottom - 0.1" is inside the floor. The game's own IsWithinOOBPart then double-checks
 -- the point and steps further down if it is still inside anything. Cached for a second.
 local fwCache, fwAt, fwRadius = nil, -math.huge, 0
--- an OOB part that takes at least this long (seconds) to kill is safe for the hide point (the hide lasts 0.6 s)
+-- an OOB part that takes at least this long (seconds) to kill is safe for the hide point (the hide lasts 0.85 s)
 local FW_OOB_SAFE_SECONDS = 2
 local function fwueTranslocate()
 local now2 = os.clock()
@@ -81064,7 +81124,7 @@ local fwue = K.RagebotStyle(v115.Data.Ragebot.KnifeMode) == "FWUE"
 local fwVoid = false
 if fwue then
 local FW_VOID_SECONDS = 4
-local FW_TRANSLOCATE_SECONDS = 0.6
+local FW_TRANSLOCATE_SECONDS = 0.85
 local now3 = os.clock()
 local function fwNotify(parts)
 pcall(function()
@@ -81091,7 +81151,7 @@ local FW_KNIFE_COOLDOWN_FACTOR = 0.8
 -- is no FW_KNIFE_WAIT_MAX cap then: the void goes on until the window opens. Once in the hide, the full
 -- FW_TRANSLOCATE_SECONDS are spent, except that an enemy starting to reload sends us back to the void.
 -- A slow weapon opens the window only with this much cooldown left: the FW_TRANSLOCATE_SECONDS of the hide.
-local FW_GUN_ENTRY_WINDOW = 0.6
+local FW_GUN_ENTRY_WINDOW = 0.85
 -- Weapons with a shot cooldown up to this many seconds are fast: they are judged by their magazine, not their cooldown.
 local FW_GUN_FAST_COOLDOWN = 0.3
 -- A fast weapon counts as nearly empty at or below this share of its magazine.
@@ -86133,16 +86193,30 @@ end
     -- The sidebar button and the empty page are made at once (the tab list is complete from the start); the page's
     -- groupboxes and controls wait until the button is first clicked, as the classic menu realizes a page on its first
     -- open. The tab Starlight opens by itself (the first one) is built at once.
+    -- The page is only recorded here (its columns, its place in the sidebar); its Starlight tab is made by
+    -- Page:_physical, when the window exists (Menu:_materialize), or at once when the window is already up.
     function Page:_ensure(columns)
-        if self._tab ~= nil then return self._tab end
+        if self._ensured then return end
+        self._ensured = true
         columns = math.max(1, math.min(3, columns or 2))
         self._columns = columns
         self._realized = false
         self._sections = {}
-        local tab = self._ts:CreateTab({ Name = self.Label, Columns = columns, Icon = iconOf(self.Icon) }, uid("tab"))
+        local owner = self._owner
+        owner._pagesOrder[#owner._pagesOrder + 1] = self
+        if self._menu._materialized and owner._ts ~= nil then self:_physical() end
+    end
+
+    function Page:_physical()
+        if self._tab ~= nil or self._menu._destroyed then return end
+        local tab = self._owner._ts:CreateTab({ Name = self.Label, Columns = self._columns, Icon = iconOf(self.Icon) }, uid("tab"))
         self._tab = tab
+        if self._theme then
+            pcall(function() tab:BuildThemeGroupbox(1) end)
+        end
         if tab.Active then
-            self._realized = true
+            -- the tab Starlight opens by itself: its sections (made before the window existed) are built now
+            self:_realize()
         else
             local ok = pcall(function()
                 local conn
@@ -86152,9 +86226,8 @@ end
                 end)
             end)
             -- no button to wait for: build it now rather than never
-            if not ok then self._realized = true end
+            if not ok then self:_realize() end
         end
-        return tab
     end
 
     function Page:_realize()
@@ -86174,8 +86247,8 @@ end
         o = o or {}
         local grid = setmetatable({ _page = self }, Grid)
         if self._theme then
-            local tab = self:_ensure(1)
-            pcall(function() tab:BuildThemeGroupbox(1) end)
+            -- the theme groupbox is made with the tab (Page:_physical)
+            self:_ensure(1)
             grid._inert = true
             return grid
         end
@@ -86206,7 +86279,7 @@ end
         o = o or {}
         local page = setmetatable({
             _menu = self._menu,
-            _ts = self._ts,
+            _owner = self,
             Label = tostring(o.Label or "Page"),
             Icon = o.Icon or false,
             Description = o.Description or false,
@@ -86236,9 +86309,12 @@ end
             return existing
         end
         if menu._manage == nil then
-            menu._manage = menu._win:CreateTabSection("Manage")
+            -- a sidebar section like a tab; its Starlight section is made with the window
+            menu._manage = { Label = "Manage", _menu = menu, _pagesOrder = {} }
+            menu._owners[#menu._owners + 1] = menu._manage
+            if menu._materialized then menu._manage._ts = menu._win:CreateTabSection("Manage") end
         end
-        local page = setmetatable({ _menu = menu, _ts = menu._manage, Label = key }, Page)
+        local page = setmetatable({ _menu = menu, _owner = menu._manage, Label = key }, Page)
         page:_ensure(2)
         local dialog = { pages = {}, title = key }
         menu._dialogs[key] = dialog
@@ -86313,8 +86389,10 @@ end
     StarUI.Menu = Menu
 
     function Menu.new(opts)
+        local tNew = os.clock()
         local L, err = StarUI.Load(true)
         if L == nil then error("Starlight could not be loaded: " .. tostring(err), 0) end
+        log(string.format("menu step: library loaded %.3f s", os.clock() - tNew))
         local self = setmetatable({}, Menu)
         self._lib = L
         self._opts = opts or {}
@@ -86349,6 +86427,30 @@ end
         end)
         if typeof(saved) == "EnumItem" then self.Keybind = saved end
 
+        -- Like the classic menu, nothing of the window is built here: the tabs, pages and controls are plain objects
+        -- (a control already is one until its page is first opened), and the Starlight window itself (its 18 000
+        -- instance model, the sidebar, the tab buttons) is made by Menu:_materialize the first time the menu is
+        -- shown. Building it all at load was a 1.5 s block of the main thread right as the game starts.
+        self._materialized = false
+        self._materializing = false
+        self._owners = {}
+        self._trove:Connect(UserInputService.InputBegan, function(input, processed)
+            if processed or self._destroyed then return end
+            local key = input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode or input.UserInputType
+            if key == self.Keybind then self:SetVisible(not self.Visible) end
+        end)
+        pcall(function() self._cursor = tbl17.ag().new(self._trove) end)
+
+        return self
+    end
+
+    -- The Starlight window, its sidebar and every tab button, made the first time the menu is shown (see Menu.new).
+    -- Runs in the thread that shows the menu and gives the frame back between tabs, so no single frame holds it all.
+    function Menu:_materialize()
+        if self._materialized or self._materializing or self._destroyed then return end
+        self._materializing = true
+        local L, opts = self._lib, self._opts
+        local tM = os.clock()
         self._win = L:CreateWindow({
             Name = self.Title,
             Subtitle = opts.Subtitle or "Rivals",
@@ -86360,6 +86462,8 @@ end
             KeySystem = { Enabled = false },
             Discord = { Enabled = false },
         }) or L.Window
+        log(string.format("menu step: CreateWindow %.3f s", os.clock() - tM))
+        if coroutine.isyieldable() then task.wait() end
         -- Settings > Theme > "Autoload Theme" only writes themes/autoload.txt; Starlight reads it back when the script
         -- asks it to (LoadAutoloadTheme), which nothing did, so the chosen theme never came back on the next load.
         -- Done right after the window: every element made after this (all of them, pages are built lazily) gets it.
@@ -86369,35 +86473,32 @@ end
         elseif themeResult == false or type(themeResult) == "string" then
             log("autoload theme: " .. tostring(themeErr or themeResult))
         end
+        log(string.format("menu step: LoadAutoloadTheme %.3f s", os.clock() - tM))
+        if coroutine.isyieldable() then task.wait() end
         -- The dashboard page exists in the interface model but had no sidebar button, so it only showed up by itself
         -- (page layout fallback). Give it a real "Welcome" category at the very top of the sidebar.
-        task.spawn(function()
-            local okHome, tab = pcall(function()
-                return self._win:CreateHomeTab({ Backdrop = 0, IconStyle = 1, DiscordInvite = "" })
-            end)
-            if not okHome or type(tab) ~= "table" then
-                log("welcome tab failed: " .. tostring(tab))
-                return
-            end
+        local okHome, home = pcall(function()
+            return self._win:CreateHomeTab({ Backdrop = 0, IconStyle = 1, DiscordInvite = "" })
+        end)
+        if not okHome or type(home) ~= "table" then
+            log("welcome tab failed: " .. tostring(home))
+        else
             pcall(function()
-                local section = tab.Instances.Button.Parent
+                local section = home.Instances.Button.Parent
                 section.Header.Text = "Welcome"
                 section.Header.Visible = true
                 section.Name = "TAB_SECTION_Welcome"
                 section.LayoutOrder = -1
-                tab.Instances.Button.Header.Text = "Dashboard"
-                local discord = tab.Instances.Page.Holder.Left.Discord
+                home.Instances.Button.Header.Text = "Dashboard"
+                local discord = home.Instances.Page.Holder.Left.Discord
                 discord.Header.Text = "Lxyhook"
                 discord.Subheader.Text = "6767676767676767"
             end)
-        end)
-        -- the menu key is handled here (Starlight's own key is parked on a key nobody has)
+        end
+        log(string.format("menu step: home tab %.3f s", os.clock() - tM))
+        if coroutine.isyieldable() then task.wait() end
+        -- the menu key is handled in Menu.new (Starlight's own key is parked on a key nobody has)
         pcall(function() L.WindowKeybind = "F15" end)
-        self._trove:Connect(UserInputService.InputBegan, function(input, processed)
-            if processed or self._destroyed then return end
-            local key = input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode or input.UserInputType
-            if key == self.Keybind then self:SetVisible(not self.Visible) end
-        end)
         pcall(function()
             local logo = K.LithiumLogo
             if logo ~= nil then
@@ -86405,8 +86506,21 @@ end
                 L.Instance.MobileToggle.Image = logo
             end
         end)
-        pcall(function() self._cursor = tbl17.ag().new(self._trove) end)
-
+        log(string.format("menu step: window made %.3f s", os.clock() - tM))
+        -- the sidebar, in the order the tabs and pages were made: a section per tab, then its pages' buttons
+        local function owner(o)
+            if o._ts == nil then o._ts = self._win:CreateTabSection(o.Label) end
+            for _, page in ipairs(o._pagesOrder) do
+                if self._destroyed then return end
+                page:_physical()
+            end
+            if coroutine.isyieldable() then task.wait() end
+        end
+        for _, tab in ipairs(self._tabs) do owner(tab) end
+        for _, o in ipairs(self._owners) do owner(o) end
+        self._materialized = true
+        self._materializing = false
+        log(string.format("menu step: menu built on first show in %.3f s", os.clock() - tM))
         -- visibility and the menu key are Starlight's own; follow them
         task.spawn(function()
             local lastVis
@@ -86421,7 +86535,6 @@ end
                 end)
             end
         end)
-        return self
     end
 
     function Menu:_setVisibleState(vis)
@@ -86464,7 +86577,11 @@ end
             Icon = o.Icon or false,
             _pages = {},
         }, Tab)
-        tab._ts = self._win:CreateTabSection(tab.Label)
+        -- the sidebar section is made with the window (Menu:_materialize); `_ts` stays nil until then
+        tab._pagesOrder = {}
+        if self._materialized then
+            tab._ts = self._win:CreateTabSection(tab.Label)
+        end
         self._tabs[#self._tabs + 1] = tab
         return tab
     end
@@ -86509,6 +86626,21 @@ end
     -- which with this many controls stalls the game on every open and close. The menu key only flips the window's
     -- Visible; the ScreenGui stays enabled so the mobile button is still there to reopen it.
     function Menu:SetVisible(visible, instant)
+        if K.UIMark then K.UIMark(visible and "window shown" or "window hidden") end
+        if not self._materialized then
+            -- the window does not exist yet: hiding it is nothing to do, showing it builds it first (while that runs,
+            -- a second call only changes what is wanted at the end)
+            if self._destroyed then return true end
+            if self._materializing then self._wantShow = visible return true end
+            if not visible then
+                self:_setVisibleState(false)
+                return true
+            end
+            self._wantShow = true
+            self:_materialize()
+            if self._destroyed or not self._materialized then return true end
+            visible, instant = self._wantShow, true
+        end
         local L = self._lib
         pcall(function()
             local ui = L.Instance
@@ -87602,6 +87734,7 @@ end
         self._realized = true
         self:_ensureScroll()
         local t0 = os.clock()
+        if K.UIMark then K.UIMark("building page '" .. tostring(self.Label) .. "'") end
         local sections = self._sections
         self._sections = {}
         for _, sec in ipairs(sections) do
@@ -87609,6 +87742,7 @@ end
             if not ok then log("a section of '" .. tostring(self.Label) .. "' failed to build: " .. tostring(err)) end
         end
         log(string.format("page '%s' built on first open in %.2f s", tostring(self.Label), os.clock() - t0))
+        if K.UIMark then K.UIMark("built page '" .. tostring(self.Label) .. "'") end
     end
 
     function SPage:Grid(o)
