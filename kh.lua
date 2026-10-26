@@ -12927,7 +12927,7 @@ do
         local debounce = opts ~= nil and opts.Debounce == true
         local writeBack = opts ~= nil and opts.WriteBack or nil
         control:Set(config:Get(path), true)
-        trove:Connect(config:Changed(path), function(v) control:Set(v, true) end)
+        trove:Connect(config:Changed(path, opts ~= nil and opts.Persistent == true), function(v) control:Set(v, true) end)
         local pending, scheduled = nil, false
         local function write(v)
             if writeBack then writeBack(v) else config:Set(path, v) end
@@ -86247,10 +86247,10 @@ end
         pull()
         local writing = false
         if map.Key ~= nil then
-            self:Connect(config:Changed(map.Key), function() if not writing then pull() end end)
+            self:Connect(config:Changed(map.Key, true), function() if not writing then pull() end end)
         end
         if map.Mode ~= nil then
-            self:Connect(config:Changed(map.Mode), function() if not writing then pull() end end)
+            self:Connect(config:Changed(map.Mode, true), function() if not writing then pull() end end)
         end
         self:Connect(self.Changed, function(v)
             writing = true
@@ -86271,15 +86271,15 @@ end
         if map.Active ~= nil then
             local av = config:Get(map.Active)
             if type(av) == "boolean" then self:SetActive(av) end
-            self:Connect(config:Changed(map.Active), function(v) self:SetActive(v == true) end)
+            self:Connect(config:Changed(map.Active, true), function(v) self:SetActive(v == true) end)
         end
         if map.ShowInList ~= nil then
-            self:Connect(config:Changed(map.ShowInList), function(v)
+            self:Connect(config:Changed(map.ShowInList, true), function(v)
                 if type(v) == "boolean" then self:SetShowInList(v) end
             end)
         end
         if map.Invisible ~= nil then
-            self:Connect(config:Changed(map.Invisible), function(v)
+            self:Connect(config:Changed(map.Invisible, true), function(v)
                 if type(v) == "boolean" then self:SetInvisible(v) end
             end)
         end
@@ -86530,6 +86530,10 @@ end
         local bind = o.Bind
         if DEBOUNCED[kind] and (bind == nil or bind.Debounce == nil) then
             bind = { WriteBack = bind and bind.WriteBack, Debounce = true }
+        end
+        -- a feature switch also drives the keybind list: its changes must arrive while the menu is closed
+        if kind == "Toggle" then
+            bind = { WriteBack = bind and bind.WriteBack, Debounce = bind and bind.Debounce, Persistent = true }
         end
         -- the control is its own trove: Control:Connect keeps the connections and Destroy drops them
         tbl17.P().bind(c, config, c, o.Config, bind)
@@ -88151,12 +88155,223 @@ end
     SMakers.Color = function(sec, o) return SColor.new(sec, o) end
     SMakers.Keybind = function(sec, o) return SKeybind.new(sec, o) end
     SMakers.OrderedList = function(sec, o) return OrderedC.new(sec, o) end
-    SMakers.SkinChanger = function(sec)
-        if not sec._menu._skinNotice then
-            sec._menu._skinNotice = true
-            sec:_make("Label", { Label = "The skin, wrap, charm and finisher picker is in the LY and Classic menus." })
+    -- The picker of skins, wraps, charms and finishers for the Setsuna, Setsuna Drop and Lite forms: a card grid with
+    -- the item pictures (and the 3D previews of wraps and charms), the same surface as the classic menu's widget
+    -- (SetItems / SetState / SetFilter / SetClearFilterAction / Set / Value / OnChanged).
+    do
+        local SSkin = subclass()
+        local STATE_TEXT = {
+            Loading = { "Loading catalog", "The previews are being prepared." },
+            Unavailable = { "Unavailable", "The catalog could not be loaded." },
+            Empty = { "No items available", "This catalog does not have any items yet." },
+            NoMatches = { "No matches", "Nothing matches the search." },
+        }
+        local function indexOf(items, name)
+            for i, it in ipairs(items) do
+                if it.Name == name then return i end
+            end
+            return nil
         end
-        return stub
+
+        function SSkin.new(sec, o)
+            local self = newControl(sec, "SkinChanger", SSkin)
+            self.Items = o.Items or {}
+            self._published = o.Items ~= nil
+            self.State = o.State or "Ready"
+            self._stateMsg = o.StateMessage
+            self._onClear = o.OnClearFilter
+            self._entries = {}
+            self._token = 0
+            self._label = "SkinChanger"
+            if o.OnChanged ~= nil then self:OnChanged(o.OnChanged) end
+            self:_defer(function() self:_build() end)
+            return self
+        end
+        SSkin._instance = rowInstance
+        SSkin._isReady = rowReady
+
+        function SSkin:_paint(entry, selected)
+            if entry == nil then return end
+            entry.Selected = selected
+            local pal = self._menu._pal
+            entry.Button.BackgroundColor3 = selected and pal.hover or pal.panel
+            entry.Title.TextColor3 = selected and pal.text or pal.dim
+            entry.Stroke.Color = pal.sel
+            entry.Stroke.Enabled = selected
+        end
+
+        function SSkin:_recolor()
+            for _, e in ipairs(self._entries) do self:_paint(e, e.Selected == true) end
+        end
+
+        function SSkin:_applyFilter()
+            local filter = self._filter
+            for _, e in ipairs(self._entries) do
+                local show = filter == nil or filter(e.Item, e.Key)
+                if e.Button.Visible ~= show then e.Button.Visible = show end
+            end
+        end
+
+        function SSkin:_applyState()
+            if self._row == nil then return end
+            local ready = self.State == "Ready"
+            self._holder.Visible = ready
+            self._overlay.Visible = not ready
+            local info = STATE_TEXT[self.State] or { "", "" }
+            self._stTitle.Text = info[1]
+            self._stMsg.Text = self._stateMsg or info[2]
+            self._clear.Visible = self.State == "NoMatches" and self._onClear ~= nil
+        end
+
+        function SSkin:_cards()
+            self._token = self._token + 1
+            local token = self._token
+            for _, e in ipairs(self._entries) do pcall(function() e.Button:Destroy() end) end
+            self._entries = {}
+            self._sel = nil
+            local items = self.Items
+            task.spawn(function()
+                for i, item in ipairs(items) do
+                    if self._token ~= token or self._dead then return end
+                    local button = mk("TextButton", {
+                        Name = tostring(item.Name), Text = "", AutoButtonColor = false, BorderSizePixel = 0,
+                        LayoutOrder = i, ClipsDescendants = true,
+                    })
+                    corner(button, 8)
+                    local stroke = mk("UIStroke", { Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Enabled = false }, button)
+                    local preview = mk("Frame", {
+                        BackgroundTransparency = 1, Size = UDim2.new(1, -10, 1, -32), Position = UDim2.fromOffset(5, 5),
+                    }, button)
+                    local image = mk("ImageLabel", {
+                        BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ScaleType = Enum.ScaleType.Fit,
+                        Image = item.Image or "rbxassetid://89204837120267",
+                    }, preview)
+                    local title = mk("TextLabel", {
+                        BackgroundTransparency = 1, Size = UDim2.new(1, -8, 0, 24), Position = UDim2.new(0, 4, 1, -27),
+                        Font = Enum.Font.GothamMedium, TextSize = 12, Text = tostring(item.Name),
+                        TextTruncate = Enum.TextTruncate.AtEnd, TextWrapped = true,
+                    }, button)
+                    local entry = { Item = item, Button = button, Title = title, Stroke = stroke, Key = tostring(item.Name):lower() }
+                    self._entries[#self._entries + 1] = entry
+                    self:_paint(entry, item.Name == self.Value)
+                    if item.Name == self.Value then self._sel = entry end
+                    if item.Render ~= nil then
+                        local content = mk("Frame", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1) }, preview)
+                        local ok, err = pcall(item.Render, item, {
+                            Content = content,
+                            HideImage = function() image.Visible = false end,
+                        })
+                        if not ok then log("skin preview failed: " .. tostring(err)) end
+                    end
+                    button.Activated:Connect(function() self:Set(item.Name) end)
+                    local filter = self._filter
+                    if filter ~= nil and not filter(item, entry.Key) then button.Visible = false end
+                    button.Parent = self._holder
+                    if i % 8 == 0 then task.wait() end
+                end
+                -- Lite sets the font of a page when it opens: the cards came later
+                local m = self._menu
+                if m._fontPass ~= nil and self._row ~= nil then pcall(m._fontPass, m, self._row) end
+            end)
+        end
+
+        function SSkin:_build()
+            local sec = self._sec
+            local m = sec._menu
+            local row = newRow(sec, 340, true)
+            self._row, self._el = row, row
+            local holder = mk("ScrollingFrame", {
+                Name = "Cards", BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.new(1, -10, 1, -10),
+                Position = UDim2.fromOffset(5, 5), ScrollBarThickness = 3, CanvasSize = UDim2.new(),
+                AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y,
+            }, row)
+            mk("UIGridLayout", {
+                CellSize = UDim2.fromOffset(100, 118), CellPadding = UDim2.fromOffset(6, 6),
+                SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Center,
+            }, holder)
+            local overlay = mk("Frame", { Name = "State", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Visible = false }, row)
+            mk("UIListLayout", {
+                HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Center,
+                Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder,
+            }, overlay)
+            local stTitle = text(m, overlay, "", 16, "text", true)
+            stTitle.Size, stTitle.LayoutOrder, stTitle.TextXAlignment = UDim2.new(1, -20, 0, 22), 1, Enum.TextXAlignment.Center
+            local stMsg = text(m, overlay, "", 13, "dim", false)
+            stMsg.Size, stMsg.LayoutOrder, stMsg.TextXAlignment, stMsg.TextWrapped = UDim2.new(1, -20, 0, 36), 2, Enum.TextXAlignment.Center, true
+            local clear = mk("TextButton", {
+                Size = UDim2.fromOffset(120, 30), Text = "Clear search", Font = Enum.Font.GothamMedium, TextSize = 13,
+                BorderSizePixel = 0, AutoButtonColor = true, Visible = false, LayoutOrder = 3,
+            }, overlay)
+            corner(clear, 8)
+            m:_paint(clear, "BackgroundColor3", "hover")
+            m:_paint(clear, "TextColor3", "text")
+            clear.Activated:Connect(function()
+                local fn = self._onClear
+                if fn ~= nil then fn() end
+            end)
+            self._holder, self._overlay, self._stTitle, self._stMsg, self._clear = holder, overlay, stTitle, stMsg, clear
+            if m._fontPass ~= nil then pcall(m._fontPass, m, row) end
+            m:_onTheme(self, function() self:_recolor() end)
+            self:_cards()
+            self:_applyState()
+        end
+
+        function SSkin:Set(name, silent)
+            local v = name
+            if v ~= nil and self._published and indexOf(self.Items, v) == nil then v = nil end
+            local entry
+            for _, e in ipairs(self._entries) do
+                if e.Item.Name == v then entry = e break end
+            end
+            if self.Value == v and (entry == nil or self._sel == entry) and not (name ~= nil and v == nil) then return end
+            self.Value = v
+            if self._sel ~= nil and self._sel ~= entry then self:_paint(self._sel, false) end
+            self._sel = entry
+            if entry ~= nil then self:_paint(entry, true) end
+            self.ValueChanged:Fire(v)
+            if not silent then self.Changed:Fire(v) end
+        end
+
+        function SSkin:SetItems(items, silent)
+            self.Items = table.clone(items)
+            self._published = true
+            local value, emit = self.Value, false
+            if value == nil or indexOf(self.Items, value) == nil then
+                value = self.Items[1] and self.Items[1].Name or nil
+                emit = self.Value ~= nil
+            end
+            self.Value = value
+            if self._row ~= nil then self:_cards() end
+            self.ValueChanged:Fire(value)
+            if emit and not silent then self.Changed:Fire(value) end
+        end
+
+        function SSkin:SetFilter(filter)
+            self._filter = filter
+            if self._row ~= nil then self:_applyFilter() end
+            return self
+        end
+
+        function SSkin:SetState(state, message)
+            self.State = state
+            self._stateMsg = message
+            self:_applyState()
+            return self
+        end
+
+        function SSkin:SetClearFilterAction(fn)
+            self._onClear = fn
+            self:_applyState()
+            return self
+        end
+
+        function SSkin:Destroy()
+            self._token = self._token + 1
+            self._dead = true
+            pcall(function() self._row:Destroy() end)
+        end
+
+        SMakers.SkinChanger = function(sec, o) return SSkin.new(sec, o or {}) end
     end
     SMakers.Stub = function() return stub end
 
@@ -92102,6 +92317,20 @@ end
         if not ok then error(self, 0) end
         setmetatable(self, LMenu)
         self._listEntries = {}
+        -- the window (and with it the HUD: watermark, keybind list) is built in the background, hidden: without this
+        -- the keybind list would not exist until the menu is opened for the first time
+        task.delay(2, function()
+            if self._destroyed or self._materialized or self._materializing then return end
+            local okBuild, errBuild = pcall(self._materialize, self)
+            if not okBuild then
+                self._materializing = false
+                log("LY menu failed to build: " .. tostring(errBuild))
+                pcall(function() tbl17.aB().get():Notify("The LY menu could not be built, the classic menu is shown instead (see the log).") end)
+                if K.RebuildMenu then task.defer(K.RebuildMenu, "Classic") end
+                return
+            end
+            if self._wantShow == true and not self._destroyed then self:SetVisible(true, true) end
+        end)
         return self
     end
 
