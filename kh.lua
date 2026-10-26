@@ -93427,6 +93427,14 @@ end
 		if tonumber(image) then
 			image = "rbxassetid://" .. image
 		end
+		-- the script's own picture list (the one the skin changer shows) when the game's library gave none
+		if image == "" then
+			local okKh, images = pcall(function() return tbl17.eT().Images end)
+			local found = okKh and type(images) == "table" and images[weapon] or nil
+			if type(found) == "string" and found ~= "" then
+				image = if tonumber(found) then "rbxassetid://" .. found else found
+			end
+		end
 		-- Only cache a hit: libraries may not be loaded yet on the first tries.
 		if image ~= "" or (library("ItemLibrary") and viewModels) then
 			iconCache[name] = image
@@ -93694,13 +93702,43 @@ end
 
 	-- The target is the one the script's Target HUD hands over (the ragebot's target, or with Always Show the nearest
 	-- enemy): K.TargetHudLY.target = { FighterState, AliveState }, set at the time of the last call.
+	-- the loadout the way the script's own fighter wrappers hold it (ItemObserver: the items in the order of the slots,
+	-- each view's .Inner is the game's item); empty when the wrappers are not there
+	local function loadoutFromScript(state)
+		local slots, held, ammo, heldAmmo = {}, nil, {}, nil
+		if state == nil or state.ItemObserver == nil then
+			return slots, held, ammo, heldAmmo
+		end
+		pcall(function()
+			local observer = state.ItemObserver
+			local order = 0
+			for _, view in ipairs(observer:GetItems()) do
+				order += 1
+				local inner = view.Inner
+				local slot = tonumber(inner and safeIndex(inner, "index")) or order
+				if type(view.Name) == "string" and slot >= 1 and slot <= 4 then
+					slots[slot] = view.Name
+					ammo[slot] = inner and ammoOf(inner) or nil
+				end
+			end
+			local equipped = observer:GetEquippedItem()
+			if equipped ~= nil then
+				held = equipped.Name
+				heldAmmo = equipped.Inner and ammoOf(equipped.Inner) or nil
+			end
+		end)
+		return slots, held, ammo, heldAmmo
+	end
+
+	-- The target is the one the script's Target HUD hands over (the ragebot's target, or with Always Show the nearest
+	-- enemy): K.TargetHudLY.target = { FighterState, AliveState }, set at the time of the last call.
 	local function closestTarget()
 		local state = K.TargetHudLY
 		local t = state ~= nil and state.target or nil
 		if t ~= nil and state.at ~= nil and os.clock() - state.at < 0.8 then
 			local p = t.FighterState and t.FighterState.Player
 			if typeof(p) == "Instance" and p:IsA("Player") then
-				return p, nil
+				return p, nil, t.FighterState, t.AliveState
 			end
 		end
 		return nil, nil
@@ -93710,7 +93748,7 @@ end
 	local lastRatio, fillTween = nil, nil
 
 	local function refresh()
-		local player, monster = closestTarget()
+		local player, monster, khState, khAlive = closestTarget()
 		local settings = self._config.Data.Ragebot.TargetHud
 		local hudEditor = getgenv().LYHud
 		local editing = hudEditor ~= nil and hudEditor.Editing == true
@@ -93720,7 +93758,7 @@ end
 			return
 		end
 		local target = player or LocalPlayer
-		local humanoid = if monster then monster.humanoid else (target.Character and target.Character:FindFirstChildOfClass("Humanoid"))
+		local humanoid = if monster then monster.humanoid else (target.Character and target.Character:FindFirstChildOfClass("Humanoid")) or (khAlive and khAlive.Humanoid)
 		if not humanoid then
 			return
 		end
@@ -93757,7 +93795,10 @@ end
 				streakLabel.Text = string.format("%d streak", streak)
 			end
 
-			local slots, held, ammo, heldAmmo = loadoutOf(fighterOf(target))
+			local slots, held, ammo, heldAmmo = loadoutFromScript(khState)
+			if next(slots) == nil then
+				slots, held, ammo, heldAmmo = loadoutOf(fighterOf(target))
+			end
 			local weaponName = held or equippedWeapon(target)
 			weaponLabel.Text = weaponName
 			if heldAmmo then
