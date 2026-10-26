@@ -77819,6 +77819,12 @@ return settings.Enabled == true and settings.AlwaysShow ~= false
 end
 updateCard = function(target)
 local settings = config.Data.Ragebot.TargetHud
+local lyCard = K.TargetHudLY
+if lyCard ~= nil then
+lyCard.target, lyCard.at = target, os.clock()
+hide()
+return
+end
 if target == nil or not settings.Enabled then
 hide()
 return
@@ -92512,21 +92518,10 @@ end
                 end
             end
         end)
-        -- the Target HUD card goes back to the position of its own settings
+        -- the card of LY goes; the script's own Target HUD draws again
+        K.TargetHudLY = nil
         pcall(function()
-            K.TargetHudRegister, K.TargetHudLayout = nil, nil
-            local root = K.TargetHudRoot
-            if root ~= nil and hud ~= nil and hud._thRoot == root then
-                local cfg = self._config
-                local function num(path, default)
-                    local ok, v = pcall(function() return cfg.Data.Ragebot.TargetHud[path[3]] end)
-                    return ok and type(v) == "number" and v or default
-                end
-                root.AnchorPoint = Vector2.new(0.5, 0)
-                root.Position = UDim2.new(num({ "Ragebot", "TargetHud", "PosX" }, 50) / 100, 0, num({ "Ragebot", "TargetHud", "PosY" }, 15) / 100, 0)
-                local scale = root:FindFirstChild("LYHudScale")
-                if scale ~= nil then scale:Destroy() end
-            end
+            for _, fn in ipairs(hud ~= nil and hud.targetCleanups or {}) do pcall(fn) end
         end)
         Menu.Destroy(self)
     end
@@ -92593,30 +92588,14 @@ end
                 end
             end
             end)
-            -- the Target HUD card: the editor owns its position and size while the LY menu is up
-            pcall(function()
-                local function reg(root)
-                    if root == nil or hud._thRoot == root then return end
-                    hud._thRoot = root
-                    local cfg = self._config
-                    local function num(path, default)
-                        local ok, v = pcall(function() return cfg.Data.Ragebot.TargetHud[path[3]] end)
-                        return ok and type(v) == "number" and v or default
-                    end
-                    K.TargetHudLayout = true
-                    root.Position = UDim2.new(num({ "Ragebot", "TargetHud", "PosX" }, 50) / 100, 0, num({ "Ragebot", "TargetHud", "PosY" }, 15) / 100, 0)
-                    editor.register("Target HUD", {
-                        Frame = root, Title = "Target HUD",
-                        Show = function()
-                            local was = root.Visible
-                            root.Visible = true
-                            return function() root.Visible = was end
-                        end,
-                    })
-                end
-                K.TargetHudRegister = reg
-                if K.TargetHudRoot ~= nil then reg(K.TargetHudRoot) end
-            end)
+            -- the Target HUD card of LY (the script's own card stays hidden while this menu is up)
+            hud.targetCleanups = {}
+            K.TargetHudLY = {}
+            local okTh, errTh = pcall(self._buildTargetHud, self, win, editor)
+            if not okTh then
+                K.TargetHudLY = nil
+                log("LY Target HUD failed: " .. tostring(errTh))
+            end
             -- the FIRE button and the on-screen key buttons of the script
             K.HudRegisterFn = function(name, spec)
                 if editor.Elements[name] == nil or editor.Elements[name].Frame ~= spec.Frame then editor.register(name, spec) end
@@ -92983,6 +92962,904 @@ end
             self._dead = true
             pcall(function() self._frame:Destroy() end)
         end
+    end
+    -- The Target HUD card of LY.lua (a Material 3 card: avatar, name, device, level / rank / win streak, held weapon,
+    -- health bar and the four loadout slots), drawn by the LY form instead of the script's own card. What it shows
+    -- comes from the script's Target HUD (see K.TargetHudLY); position and size are set in the HUD editor.
+    function LMenu:_buildTargetHud(win, editor)
+        local MD3 = LYUI.Load()
+        local Window = win
+        local Players = game:GetService("Players")
+        local RunService = game:GetService("RunService")
+        local UserInputService = game:GetService("UserInputService")
+        local TweenService = game:GetService("TweenService")
+        local LocalPlayer = Players.LocalPlayer
+        local self = self
+        local cleanups = self._hud.targetCleanups
+        local function own(x) cleanups[#cleanups + 1] = function() pcall(function() x:Destroy() end) end return x end
+        local function track(fn) cleanups[#cleanups + 1] = fn end
+	local hudLayer = Window._hudLayer
+	local themer = Window._themer
+	if not (hudLayer and themer) then
+		return
+	end
+	local Create, Typography, Shape = MD3.Create, MD3.Typography, MD3.Shape
+
+	local CARD_W, CARD_H = 340, 136
+	local TEXT_X = 78 -- left edge of the text column (avatar + gaps)
+
+	local card = own(Create("Frame") {
+		Name = "TargetHUD",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0.7, 0),
+		Size = UDim2.fromOffset(CARD_W, CARD_H),
+		BorderSizePixel = 0,
+		Active = true,
+		Visible = false,
+		Parent = hudLayer,
+	})
+	Shape.Corner(Shape.Medium, card)
+	local function hudFill()
+		return Window.Theme:GetTransparency("HUDBackground") or 0
+	end
+	local function hudText()
+		return Window.Theme:GetTransparency("HUDText") or 0
+	end
+	themer:Bind(card, {
+		BackgroundColor3 = function(c)
+			return c.HUDBackground
+		end,
+		BackgroundTransparency = hudFill,
+	})
+	local cardStroke = Create("UIStroke") {
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		Thickness = 1,
+		Parent = card,
+	}
+	themer:Bind(cardStroke, {
+		Color = function(c)
+			return c.HUDOutline
+		end,
+		Transparency = hudFill,
+	})
+
+	local function label(name, role, props)
+		props.Name = name
+		props.BackgroundTransparency = 1
+		props.Parent = card
+		local text = Create("TextLabel")(props)
+		Typography.Apply(text, role)
+		text.TextTruncate = Enum.TextTruncate.AtEnd
+		return text
+	end
+
+	local avatar = Create("ImageLabel") {
+		Name = "Avatar",
+		Position = UDim2.fromOffset(12, 15),
+		Size = UDim2.fromOffset(56, 56),
+		BorderSizePixel = 0,
+		Parent = card,
+	}
+	Shape.Corner(Shape.Full, avatar)
+	themer:Bind(avatar, { BackgroundColor3 = "SurfaceContainerHighest" })
+
+	-- Name (title) + device chip.
+	local nameLabel = label("TargetName", "TitleSmall", {
+		Position = UDim2.fromOffset(TEXT_X, 8),
+		Size = UDim2.fromOffset(110, 22),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Text = "Target",
+	})
+	themer:Bind(nameLabel, {
+		TextColor3 = function(c)
+			return c.HUDText
+		end,
+		TextTransparency = hudText,
+	})
+
+	local deviceChip = Create("Frame") {
+		Name = "DeviceChip",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -12, 0, 10),
+		Size = UDim2.fromOffset(0, 20),
+		AutomaticSize = Enum.AutomaticSize.X,
+		BorderSizePixel = 0,
+		Parent = card,
+	}
+	Shape.Corner(Shape.Full, deviceChip)
+	themer:Bind(deviceChip, { BackgroundColor3 = "SecondaryContainer" })
+	Create("UIPadding") {
+		PaddingLeft = UDim.new(0, 8),
+		PaddingRight = UDim.new(0, 8),
+		Parent = deviceChip,
+	}
+	local deviceLabel = Create("TextLabel") {
+		Name = "DeviceText",
+		BackgroundTransparency = 1,
+		Size = UDim2.fromOffset(0, 20),
+		AutomaticSize = Enum.AutomaticSize.X,
+		Text = "PC",
+		Parent = deviceChip,
+	}
+	Typography.Apply(deviceLabel, "LabelSmall")
+	themer:Bind(deviceLabel, { TextColor3 = "OnSecondaryContainer" })
+
+	-- Level / rank line + win-streak chip.
+	local statsLabel = label("StatsText", "BodySmall", {
+		Position = UDim2.fromOffset(TEXT_X, 30),
+		Size = UDim2.fromOffset(120, 16),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Text = "Lv.1 · Unranked",
+	})
+	themer:Bind(statsLabel, { TextColor3 = "OnSurfaceVariant" })
+
+	local streakChip = Create("Frame") {
+		Name = "StreakChip",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -12, 0, 30),
+		Size = UDim2.fromOffset(0, 16),
+		AutomaticSize = Enum.AutomaticSize.X,
+		BorderSizePixel = 0,
+		Visible = false,
+		Parent = card,
+	}
+	Shape.Corner(Shape.Full, streakChip)
+	themer:Bind(streakChip, { BackgroundColor3 = "TertiaryContainer" })
+	Create("UIPadding") {
+		PaddingLeft = UDim.new(0, 8),
+		PaddingRight = UDim.new(0, 8),
+		Parent = streakChip,
+	}
+	local streakLabel = Create("TextLabel") {
+		Name = "StreakText",
+		BackgroundTransparency = 1,
+		Size = UDim2.fromOffset(0, 16),
+		AutomaticSize = Enum.AutomaticSize.X,
+		Text = "",
+		Parent = streakChip,
+	}
+	Typography.Apply(streakLabel, "LabelSmall")
+	themer:Bind(streakLabel, { TextColor3 = "OnTertiaryContainer" })
+
+	-- Health text + held weapon.
+	local healthLabel = label("HealthText", "LabelMedium", {
+		Position = UDim2.fromOffset(TEXT_X, 48),
+		Size = UDim2.fromOffset(80, 16),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Text = "100 / 100 HP",
+	})
+	themer:Bind(healthLabel, { TextColor3 = "OnSurfaceVariant" })
+
+	local weaponLabel = label("WeaponText", "LabelMedium", {
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -12 - 76 - 4, 0, 48),
+		Size = UDim2.fromOffset(88, 16),
+		TextXAlignment = Enum.TextXAlignment.Right,
+		Text = "Fists",
+	})
+	themer:Bind(weaponLabel, { TextColor3 = "Primary" })
+
+	-- Rounds in the magazine / in reserve for the weapon in hand (colored by refresh).
+	local ammoLabel = label("AmmoText", "LabelMedium", {
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -12, 0, 48),
+		Size = UDim2.fromOffset(76, 16),
+		TextXAlignment = Enum.TextXAlignment.Right,
+		Text = "",
+	})
+	ammoLabel.TextTruncate = Enum.TextTruncate.None
+
+	-- Health bar: a pill track with a pill fill (M3 linear progress).
+	local barTrack = Create("Frame") {
+		Name = "HealthBarTrack",
+		Position = UDim2.fromOffset(TEXT_X, 70),
+		Size = UDim2.fromOffset(CARD_W - TEXT_X - 12, 6),
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		Parent = card,
+	}
+	Shape.Corner(Shape.Full, barTrack)
+	themer:Bind(barTrack, { BackgroundColor3 = "SurfaceContainerHighest" })
+	local barFill = Create("Frame") {
+		Name = "HealthBarFill",
+		Size = UDim2.fromScale(1, 1),
+		BorderSizePixel = 0,
+		Parent = barTrack,
+	}
+	Shape.Corner(Shape.Full, barFill)
+
+	-- The four loadout slots (primary, secondary, melee, utility): each shows the weapon's
+	-- own picture (never the skin's); the one in hand is highlighted, empty slots stay blank.
+	local slotRow = Create("Frame") {
+		Name = "Slots",
+		Position = UDim2.fromOffset(12, 88),
+		Size = UDim2.new(1, -24, 0, 38),
+		BackgroundTransparency = 1,
+		Parent = card,
+		[1] = Create("UIListLayout") {
+			FillDirection = Enum.FillDirection.Horizontal,
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			Padding = UDim.new(0, 6),
+		},
+	}
+	local slotTiles = {}
+	for i = 1, 4 do
+		local tile = Create("Frame") {
+			Name = "Slot" .. i,
+			LayoutOrder = i,
+			Size = UDim2.new(0.25, -4.5, 1, 0),
+			BorderSizePixel = 0,
+			ClipsDescendants = true,
+			Parent = slotRow,
+		}
+		Shape.Corner(Shape.Small, tile)
+		local icon = Create("ImageLabel") {
+			Name = "Icon",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			-- The game's weapon pictures are mostly empty margin (the weapon fills a
+			-- quarter to a half of the square), so draw them bigger than the tile and
+			-- let the tile crop the margin away.
+			Size = UDim2.fromOffset(92, 92),
+			BackgroundTransparency = 1,
+			ScaleType = Enum.ScaleType.Fit,
+			Visible = false,
+			Parent = tile,
+		}
+		local count = Create("TextLabel") {
+			Name = "Ammo",
+			AnchorPoint = Vector2.new(1, 1),
+			Position = UDim2.new(1, -5, 1, -1),
+			Size = UDim2.fromOffset(60, 12),
+			BackgroundTransparency = 1,
+			TextXAlignment = Enum.TextXAlignment.Right,
+			Text = "",
+			Parent = tile,
+		}
+		Typography.Apply(count, "LabelSmall")
+		count.TextSize = 10
+		count.TextTruncate = Enum.TextTruncate.None
+		slotTiles[i] = { tile = tile, icon = icon, count = count }
+	end
+
+	-- Avatar thumbnails: fetched once per user, applied only if still the target.
+	local thumbnails, requested = {}, {}
+	local shownUserId = nil
+	local function setAvatar(userId)
+		shownUserId = userId
+		local cached = thumbnails[userId]
+		if cached then
+			avatar.Image = cached
+		elseif not requested[userId] then
+			requested[userId] = true
+			avatar.Image = ""
+			task.spawn(function()
+				local ok, url = pcall(
+					Players.GetUserThumbnailAsync,
+					Players,
+					userId,
+					Enum.ThumbnailType.HeadShot,
+					Enum.ThumbnailSize.Size100x100
+				)
+				if ok and url then
+					thumbnails[userId] = url
+					if shownUserId == userId then
+						avatar.Image = url
+					end
+				end
+			end)
+		end
+	end
+
+	-- Player data -------------------------------------------------------------------
+	local function leaderstat(player, ...)
+		local stats = player:FindFirstChild("leaderstats")
+		if stats then
+			for _, name in { ... } do
+				local item = stats:FindFirstChild(name)
+				if item and item:IsA("ValueBase") then
+					return item.Value
+				end
+			end
+		end
+		return nil
+	end
+
+	local function playerLevel(player)
+		local level = player:GetAttribute("Level") or player:GetAttribute("PlayerLevel") or leaderstat(player, "Level", "Rank")
+		return level and tostring(level) or "1"
+	end
+
+	local function playerRank(player)
+		local rank = player:GetAttribute("Rank")
+			or player:GetAttribute("DisplayRank")
+			or player:GetAttribute("DisplayELO")
+			or leaderstat(player, "Rank", "Elo")
+		return rank and tostring(rank) or "Unranked"
+	end
+
+	local function playerStreak(player)
+		local streak = player:GetAttribute("StatisticDuelsWinStreak")
+			or player:GetAttribute("WinStreak")
+			or player:GetAttribute("Streak")
+			or leaderstat(player, "Streak", "WinStreak")
+		return tonumber(streak) or 0
+	end
+
+	local function playerDevice(player)
+		local device = player:GetAttribute("DevicePlatform") or player:GetAttribute("Platform") or player:GetAttribute("Device")
+		if device then
+			local text = string.lower(tostring(device))
+			if text:find("mobile") or text:find("phone") or text:find("tablet") or text:find("touch") then
+				return "Mobile"
+			elseif text:find("console") or text:find("xbox") or text:find("playstation") then
+				return "Console"
+			end
+			return "PC"
+		end
+		if player == LocalPlayer then
+			if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled then
+				return "Mobile"
+			elseif UserInputService.GamepadEnabled and not UserInputService.KeyboardEnabled then
+				return "Console"
+			end
+		end
+		return "PC"
+	end
+
+	local KNOWN_WEAPONS = {
+		["Assault Rifle"] = true, ["Handgun"] = true, ["Sniper"] = true, ["Shotgun"] = true,
+		["Katana"] = true, ["Knife"] = true, ["Burst Rifle"] = true, ["Revolver"] = true,
+		["Submachine Gun"] = true, ["Minigun"] = true, ["Rocket Launcher"] = true, ["Bow"] = true,
+		["Crossbow"] = true, ["Flamethrower"] = true, ["Grenade Launcher"] = true,
+		["Energy Rifle"] = true, ["Paintball Gun"] = true, ["Slingshot"] = true, ["Fists"] = true,
+		["Taser"] = true, ["Medkit"] = true, ["Exo Gauntlets"] = true, ["Chainsaw"] = true, ["Wrench"] = true,
+	}
+
+	local function equippedWeapon(player)
+		local character = player.Character
+		if not character then
+			return "Fists"
+		end
+		local tool = character:FindFirstChildOfClass("Tool")
+		if tool then
+			return tool.Name
+		end
+		for _, attribute in { "EquippedWeapon", "CurrentWeapon", "Weapon", "EquippedTool" } do
+			local value = character:GetAttribute(attribute) or player:GetAttribute(attribute)
+			if type(value) == "string" and #value > 0 then
+				return value
+			end
+		end
+		for _, child in character:GetChildren() do
+			if KNOWN_WEAPONS[child.Name] then
+				return child.Name
+			end
+		end
+		for _, child in character:GetChildren() do
+			if
+				child:IsA("Model")
+				and (child:FindFirstChild("Muzzle") or child:FindFirstChild("Barrel") or child:FindFirstChild("Handle"))
+			then
+				return child.Name
+			end
+		end
+		return "Fists"
+	end
+
+	-- Same team test as the combat features: the TeamID attribute first (the game's own
+	-- teams), then Player.Team. Teammates never show on the Target HUD.
+	local function isTeammate(player)
+		local myId, theirId = LocalPlayer:GetAttribute("TeamID"), player:GetAttribute("TeamID")
+		if myId ~= nil and theirId ~= nil then
+			return myId == theirId
+		end
+		local localTeam, playerTeam = LocalPlayer.Team, player.Team
+		return localTeam ~= nil and playerTeam ~= nil and localTeam == playerTeam
+	end
+
+	local function closestPlayer()
+		local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+		if not myRoot then
+			return nil
+		end
+		local closest, shortest = nil, math.huge
+		for _, player in Players:GetPlayers() do
+			local character = player ~= LocalPlayer and not isTeammate(player) and player.Character
+			local root = character and character:FindFirstChild("HumanoidRootPart")
+			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+			if root and humanoid and humanoid.Health > 0 then
+				local distance = (root.Position - myRoot.Position).Magnitude
+				if distance < shortest then
+					shortest, closest = distance, player
+				end
+			end
+		end
+		return closest
+	end
+
+	-- Weapon pictures: ItemLibrary.ViewModels[weapon].Image. A skin's name is mapped back
+	-- to its weapon through CosmeticLibrary first, so the plain weapon picture is used.
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+	local libraries = {}
+	local function library(name)
+		if libraries[name] == nil then
+			local ok, result = pcall(function()
+				return require(ReplicatedStorage.Modules[name])
+			end)
+			libraries[name] = ok and type(result) == "table" and result or false
+		end
+		return libraries[name] or nil
+	end
+
+	local function safeIndex(value, key)
+		local ok, result = pcall(function()
+			return value[key]
+		end)
+		return ok and result or nil
+	end
+
+	local iconCache = {}
+	local function weaponImage(name)
+		local cached = iconCache[name]
+		if cached ~= nil then
+			return cached
+		end
+		local weapon = name
+		local cosmetics = library("CosmeticLibrary") and safeIndex(library("CosmeticLibrary"), "Cosmetics")
+		local skin = type(cosmetics) == "table" and safeIndex(cosmetics, name)
+		if type(skin) == "table" and type(safeIndex(skin, "ItemName")) == "string" then
+			weapon = skin.ItemName
+		end
+		local image = ""
+		local items = library("ItemLibrary")
+		local viewModels = items and safeIndex(items, "ViewModels")
+		local entry = type(viewModels) == "table" and safeIndex(viewModels, weapon)
+		if type(entry) == "table" then
+			for _, key in { "Image", "ImageHighResolution" } do
+				local value = safeIndex(entry, key)
+				if type(value) == "string" and value ~= "" then
+					image = value
+					break
+				end
+			end
+		end
+		if tonumber(image) then
+			image = "rbxassetid://" .. image
+		end
+		-- Only cache a hit: libraries may not be loaded yet on the first tries.
+		if image ~= "" or (library("ItemLibrary") and viewModels) then
+			iconCache[name] = image
+		end
+		return image
+	end
+
+	-- Outlined icons -------------------------------------------------------------------
+	-- The game's weapon pictures are mostly empty margin and dark ones vanish on a dark
+	-- tile. With EditableImage support the picture is cropped to the weapon and given a
+	-- soft white halo (like the website preview); without it the plain picture is shown.
+	local AssetService = game:GetService("AssetService")
+	local outlineEnabled = type(safeIndex(AssetService, "CreateEditableImageAsync")) == "function"
+		and type(safeIndex(AssetService, "CreateEditableImage")) == "function"
+	local HALO = 2
+	local outlinedIcons, outlinePending, editableImages = {}, {}, {}
+
+	-- The build is pixel-by-pixel Luau; yield to the game whenever a slice of it has used
+	-- ~3 ms, so it never stalls a frame (on a phone one build is long).
+	local SLICE = 0.003
+	local sliceStart = os.clock()
+	local function breathe()
+		if os.clock() - sliceStart >= SLICE then
+			task.wait()
+			sliceStart = os.clock()
+		end
+	end
+
+	local function buildOutlined(imageId)
+		local source = AssetService:CreateEditableImageAsync(Content.fromUri(imageId))
+		sliceStart = os.clock()
+		local w, h = source.Size.X, source.Size.Y
+		local px = source:ReadPixelsBuffer(Vector2.zero, source.Size)
+		source:Destroy()
+
+		local minX, minY, maxX, maxY = w, h, -1, -1
+		for y = 0, h - 1 do
+			breathe()
+			for x = 0, w - 1 do
+				if buffer.readu8(px, (y * w + x) * 4 + 3) > 12 then
+					if x < minX then minX = x end
+					if x > maxX then maxX = x end
+					if y < minY then minY = y end
+					if y > maxY then maxY = y end
+				end
+			end
+		end
+		if maxX < 0 then
+			return nil
+		end
+
+		local pad = HALO + 2
+		local cw, ch = maxX - minX + 1 + 2 * pad, maxY - minY + 1 + 2 * pad
+		local alpha = buffer.create(cw * ch)
+		for y = 0, ch - 1 do
+			breathe()
+			local sy = y - pad + minY
+			for x = 0, cw - 1 do
+				local sx = x - pad + minX
+				if sx >= 0 and sx < w and sy >= 0 and sy < h then
+					buffer.writeu8(alpha, y * cw + x, buffer.readu8(px, (sy * w + sx) * 4 + 3))
+				end
+			end
+		end
+
+		-- Grow the alpha by HALO px (max filter, horizontal then vertical), then soften it.
+		local across, grown, soft = buffer.create(cw * ch), buffer.create(cw * ch), buffer.create(cw * ch)
+		for y = 0, ch - 1 do
+			breathe()
+			for x = 0, cw - 1 do
+				local best = 0
+				for k = -HALO, HALO do
+					local xx = x + k
+					if xx >= 0 and xx < cw then
+						local v = buffer.readu8(alpha, y * cw + xx)
+						if v > best then best = v end
+					end
+				end
+				buffer.writeu8(across, y * cw + x, best)
+			end
+		end
+		for y = 0, ch - 1 do
+			breathe()
+			for x = 0, cw - 1 do
+				local best = 0
+				for k = -HALO, HALO do
+					local yy = y + k
+					if yy >= 0 and yy < ch then
+						local v = buffer.readu8(across, yy * cw + x)
+						if v > best then best = v end
+					end
+				end
+				buffer.writeu8(grown, y * cw + x, best)
+			end
+		end
+		for y = 0, ch - 1 do
+			breathe()
+			for x = 0, cw - 1 do
+				local sum, count = 0, 0
+				for dy = -1, 1 do
+					for dx = -1, 1 do
+						local xx, yy = x + dx, y + dy
+						if xx >= 0 and xx < cw and yy >= 0 and yy < ch then
+							sum += buffer.readu8(grown, yy * cw + xx)
+							count += 1
+						end
+					end
+				end
+				buffer.writeu8(soft, y * cw + x, sum // count)
+			end
+		end
+
+		-- Weapon over a white halo (straight-alpha "over" blend).
+		local out = buffer.create(cw * ch * 4)
+		for y = 0, ch - 1 do
+			breathe()
+			local sy = y - pad + minY
+			for x = 0, cw - 1 do
+				local sx = x - pad + minX
+				local i = y * cw + x
+				local sa, sr, sg, sb = 0, 255, 255, 255
+				if sx >= 0 and sx < w and sy >= 0 and sy < h then
+					local si = (sy * w + sx) * 4
+					sr, sg, sb = buffer.readu8(px, si), buffer.readu8(px, si + 1), buffer.readu8(px, si + 2)
+					sa = buffer.readu8(alpha, i) / 255
+				end
+				local glow = buffer.readu8(soft, i) / 255 * 0.85
+				local outA = sa + glow * (1 - sa)
+				local o = i * 4
+				if outA > 0 then
+					local k = glow * (1 - sa)
+					buffer.writeu8(out, o, math.floor((sr * sa + 255 * k) / outA + 0.5))
+					buffer.writeu8(out, o + 1, math.floor((sg * sa + 255 * k) / outA + 0.5))
+					buffer.writeu8(out, o + 2, math.floor((sb * sa + 255 * k) / outA + 0.5))
+					buffer.writeu8(out, o + 3, math.floor(outA * 255 + 0.5))
+				end
+			end
+		end
+
+		local result = AssetService:CreateEditableImage({ Size = Vector2.new(cw, ch) })
+		result:WritePixelsBuffer(Vector2.zero, Vector2.new(cw, ch), out)
+		return Content.fromObject(result), result
+	end
+
+	-- Builds run one at a time in the background; the picture is used once it is ready.
+	local outlineQueue, outlineWorking = {}, false
+	local function runOutlineQueue()
+		if outlineWorking then
+			return
+		end
+		outlineWorking = true
+		task.spawn(function()
+			while #outlineQueue > 0 do
+				local imageId = table.remove(outlineQueue, 1)
+				local ok, content, editable = pcall(buildOutlined, imageId)
+				outlinedIcons[imageId] = ok and content or false
+				if ok and editable then
+					table.insert(editableImages, editable)
+				end
+				outlinePending[imageId] = nil
+			end
+			outlineWorking = false
+		end)
+	end
+
+	-- Returns the outlined picture once it is ready; nil while queued or when unsupported,
+	-- so the caller shows the plain one.
+	local function outlinedIcon(imageId)
+		if not outlineEnabled or imageId == "" then
+			return nil
+		end
+		local cached = outlinedIcons[imageId]
+		if cached ~= nil then
+			return cached or nil
+		end
+		if not outlinePending[imageId] then
+			outlinePending[imageId] = true
+			table.insert(outlineQueue, imageId)
+			runOutlineQueue()
+		end
+		return nil
+	end
+
+	-- A player's fighter (the game's per-player object): its Items are the four slots and
+	-- EquippedItem the one in hand. Nil when the player has none (lobby, not spawned).
+	local fighterController
+	local function fighterOf(player)
+		if fighterController == nil then
+			local ok, result = pcall(function()
+				return require(LocalPlayer.PlayerScripts.Controllers.FighterController)
+			end)
+			fighterController = ok and type(result) == "table" and result or false
+		end
+		if not fighterController then
+			return nil
+		end
+		local ok, fighter = pcall(function()
+			return fighterController:GetFighter(player)
+		end)
+		if (not ok or not fighter) and player == LocalPlayer then
+			fighter = safeIndex(fighterController, "LocalFighter")
+		end
+		return fighter
+	end
+
+	local function itemName(item)
+		local ok, name = pcall(function()
+			return item:Get("Name")
+		end)
+		return ok and type(name) == "string" and name or nil
+	end
+
+	-- Rounds for a gun: { loaded, reserve, max } (nil for melee / throwables).
+	local function ammoOf(item)
+		local ok, loaded = pcall(function()
+			return item:Get("Ammo")
+		end)
+		if not (ok and type(loaded) == "number") then
+			return nil
+		end
+		local okReserve, reserve = pcall(function()
+			return item:Get("AmmoReserve")
+		end)
+		local info = safeIndex(item, "Info")
+		local max = info and safeIndex(info, "MaxAmmo")
+		return {
+			loaded = loaded,
+			reserve = okReserve and type(reserve) == "number" and reserve or nil,
+			max = type(max) == "number" and max or nil,
+		}
+	end
+
+	-- Infinite-ammo guns report math.huge, which "%d" can't print.
+	local function rounds(n)
+		if n == math.huge then
+			return "∞"
+		end
+		return tostring(math.floor(n))
+	end
+
+	-- { [slot 1-4] = name }, the name in hand, { [slot] = ammo } and the ammo in hand.
+	local function loadoutOf(fighter)
+		local slots, held, ammo, heldAmmo = {}, nil, {}, nil
+		if not fighter then
+			return slots, held, ammo, heldAmmo
+		end
+		pcall(function()
+			local items = rawget(fighter, "Items") or fighter.Items
+			if type(items) == "table" then
+				for position, item in items do
+					local slot = tonumber(safeIndex(item, "index")) or (type(position) == "number" and position)
+					local name = itemName(item)
+					if slot and name and slot >= 1 and slot <= 4 then
+						slots[slot] = name
+						ammo[slot] = ammoOf(item)
+					end
+				end
+			end
+			local equipped = rawget(fighter, "EquippedItem") or fighter.EquippedItem
+			held = equipped and itemName(equipped) or nil
+			heldAmmo = equipped and ammoOf(equipped) or nil
+		end)
+		return slots, held, ammo, heldAmmo
+	end
+
+	-- The target is the one the script's Target HUD hands over (the ragebot's target, or with Always Show the nearest
+	-- enemy): K.TargetHudLY.target = { FighterState, AliveState }, set at the time of the last call.
+	local function closestTarget()
+		local state = K.TargetHudLY
+		local t = state ~= nil and state.target or nil
+		if t ~= nil and state.at ~= nil and os.clock() - state.at < 0.8 then
+			local p = t.FighterState and t.FighterState.Player
+			if typeof(p) == "Instance" and p:IsA("Player") then
+				return p, nil
+			end
+		end
+		return nil, nil
+	end
+
+	-- Refresh ------------------------------------------------------------------------
+	local lastRatio, fillTween = nil, nil
+
+	local function refresh()
+		local player, monster = closestTarget()
+		local settings = self._config.Data.Ragebot.TargetHud
+		local hudEditor = getgenv().LYHud
+		local editing = hudEditor ~= nil and hudEditor.Editing == true
+		local want = settings.Enabled == true and player ~= nil
+		card.Visible = want or editing
+		if not want and not editing then
+			return
+		end
+		local target = player or LocalPlayer
+		local humanoid = if monster then monster.humanoid else (target.Character and target.Character:FindFirstChildOfClass("Humanoid"))
+		if not humanoid then
+			return
+		end
+		local colors = Window.Theme.Colors
+
+		if monster then
+			-- No avatar, level or loadout for a monster: its name and health only.
+			shownUserId = nil
+			avatar.Image = ""
+			nameLabel.Text = monster.model.Name
+			deviceLabel.Text = "Monster"
+			statsLabel.Text = monster.label or "NPC"
+			streakChip.Visible = false
+			weaponLabel.Text = ""
+			ammoLabel.Text = ""
+			local off = colors.SurfaceContainerHighest or colors.SurfaceContainer
+			for _, entry in slotTiles do
+				entry.shown = nil
+				entry.icon.Visible = false
+				entry.count.Text = ""
+				entry.tile.BackgroundColor3 = off
+			end
+		else
+			if shownUserId ~= target.UserId then
+				setAvatar(target.UserId)
+			end
+			nameLabel.Text = target.DisplayName
+			deviceLabel.Text = playerDevice(target)
+
+			statsLabel.Text = string.format("Lv.%s · %s", playerLevel(target), playerRank(target))
+			local streak = playerStreak(target)
+			streakChip.Visible = streak > 0
+			if streak > 0 then
+				streakLabel.Text = string.format("%d streak", streak)
+			end
+
+			local slots, held, ammo, heldAmmo = loadoutOf(fighterOf(target))
+			local weaponName = held or equippedWeapon(target)
+			weaponLabel.Text = weaponName
+			if heldAmmo then
+				ammoLabel.Text = if heldAmmo.reserve then rounds(heldAmmo.loaded) .. " / " .. rounds(heldAmmo.reserve) else rounds(heldAmmo.loaded)
+				local low = heldAmmo.loaded <= 0 or (heldAmmo.max ~= nil and heldAmmo.loaded <= heldAmmo.max * 0.25)
+				ammoLabel.TextColor3 = if low then colors.Error else colors.OnSurface
+			else
+				ammoLabel.Text = ""
+			end
+			local off = colors.SurfaceContainerHighest or colors.SurfaceContainer
+			for i, entry in slotTiles do
+				local name = slots[i]
+				local image = name and weaponImage(name) or ""
+				local active = name ~= nil and name == weaponName
+				local slotAmmo = ammo[i]
+				entry.count.Text = if not slotAmmo
+					then ""
+					elseif slotAmmo.reserve then rounds(slotAmmo.loaded) .. "/" .. rounds(slotAmmo.reserve)
+					else rounds(slotAmmo.loaded)
+				entry.count.TextColor3 = if slotAmmo and slotAmmo.loaded <= 0
+					then colors.Error
+					elseif active then colors.OnSecondaryContainer
+					else colors.OnSurfaceVariant
+				local custom = outlinedIcon(image)
+				local shown = (if custom then "c:" else "g:") .. image
+				if entry.shown ~= shown then
+					entry.shown = shown
+					if custom then
+						entry.icon.ImageContent = custom
+						entry.icon.Size = UDim2.new(1, -10, 1, -6)
+					else
+						entry.icon.Image = image
+						entry.icon.Size = UDim2.fromOffset(92, 92)
+					end
+				end
+				entry.icon.Visible = image ~= ""
+				entry.icon.ImageTransparency = if active then 0 else 0.4
+				entry.tile.BackgroundColor3 = if active then colors.SecondaryContainer else off
+			end
+		end
+
+		local maxHealth = humanoid.MaxHealth > 0 and humanoid.MaxHealth or 100
+		local health = math.clamp(humanoid.Health, 0, maxHealth)
+		local ratio = health / maxHealth
+		healthLabel.Text = string.format("%d / %d HP", math.floor(health), math.floor(maxHealth))
+		barFill.BackgroundColor3 = if ratio <= 0.3 then colors.Error else colors.Primary
+
+		if ratio ~= lastRatio then
+			lastRatio = ratio
+			if fillTween then
+				fillTween:Cancel()
+			end
+			fillTween = TweenService:Create(
+				barFill,
+				TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+				{ Size = UDim2.fromScale(ratio, 1) }
+			)
+			fillTween:Play()
+		end
+	end
+
+	-- 10 Hz is plenty for text and a bar that tweens between updates.
+	local heartbeat, elapsed = nil, 0
+	local function setEnabled(on)
+		card.Visible = on
+		if heartbeat then
+			heartbeat:Disconnect()
+			heartbeat = nil
+		end
+		if on then
+			elapsed = 0
+			pcall(refresh)
+			heartbeat = RunService.Heartbeat:Connect(function(dt)
+				elapsed += dt
+				if elapsed >= 0.1 then
+					elapsed = 0
+					pcall(refresh)
+				end
+			end)
+		end
+	end
+	track(function()
+		setEnabled(false)
+		card:Destroy()
+		for _, editable in editableImages do
+			pcall(function()
+				editable:Destroy()
+			end)
+		end
+	end)
+
+	-- the layout editor moves and resizes the card
+	editor.register("Target HUD", {
+		Frame = card,
+		Title = "Target HUD",
+		Show = function()
+			local was = card.Visible
+			card.Visible = true
+			return function() card.Visible = was end
+		end,
+	})
+	setEnabled(true)
     end
 end
 end)({ Menu = Menu, StarUI = StarUI, uid = uid, log = log, isMethodName = isMethodName, Makers = Makers, newControl = newControl, subclass = subclass })
