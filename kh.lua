@@ -2,36 +2,6 @@
 --  Kicia Rebuild  -  Rivals
 --  LxYHook v3, rebuilt from a decompiled build.
 --==========================================================================
--- the workspace folder is LxYHook now (it was kiciarebuild): what was saved there (configs, cosmetics, accounts,
--- fonts ...) is copied over once; nothing is deleted and nothing already in LxYHook is overwritten
-do
-    local env = getgenv()
-    local isFolder, isFile, listFiles = env.isfolder, env.isfile, env.listfiles
-    local readFile, writeFile, makeFolder = env.readfile, env.writefile, env.makefolder
-    if not (isFolder and isFile and listFiles and readFile and writeFile and makeFolder) then return end
-    local OLD, NEW = "kiciarebuild", "LxYHook"
-    local marker = NEW .. "/.migrated_from_" .. OLD
-    local ok0, skip = pcall(function() return isFile(marker) or not isFolder(OLD) end)
-    if not ok0 or skip then return end
-    if not isFolder(NEW) then pcall(makeFolder, NEW) end
-    local SKIP = { logs = true, cache = true }
-    local function copy(from, to, top)
-        if not isFolder(to) then pcall(makeFolder, to) end
-        for _, path in ipairs(listFiles(from)) do
-            local name = tostring(path):gsub("\\", "/"):match("([^/]+)$")
-            if name ~= nil and not (top and (SKIP[name] or name:sub(1, 6) == "rerun_")) then
-                local target = to .. "/" .. name
-                if isFolder(path) then
-                    copy(path, target, false)
-                elseif isFile(path) and not isFile(target) then
-                    pcall(function() writeFile(target, readFile(path)) end)
-                end
-            end
-        end
-    end
-    pcall(copy, OLD, NEW, true)
-    pcall(writeFile, marker, "1")
-end
 if getgenv().KiciaRebuild and getgenv().KiciaRebuild.Unload then
     pcall(getgenv().KiciaRebuild.Unload)
 end
