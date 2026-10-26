@@ -2,6 +2,36 @@
 --  Kicia Rebuild  -  Rivals
 --  LxYHook v3, rebuilt from a decompiled build.
 --==========================================================================
+-- the workspace folder is LxYHook now (it was kiciarebuild): what was saved there (configs, cosmetics, accounts,
+-- fonts ...) is copied over once; nothing is deleted and nothing already in LxYHook is overwritten
+do
+    local env = getgenv()
+    local isFolder, isFile, listFiles = env.isfolder, env.isfile, env.listfiles
+    local readFile, writeFile, makeFolder = env.readfile, env.writefile, env.makefolder
+    if not (isFolder and isFile and listFiles and readFile and writeFile and makeFolder) then return end
+    local OLD, NEW = "kiciarebuild", "LxYHook"
+    local marker = NEW .. "/.migrated_from_" .. OLD
+    local ok0, skip = pcall(function() return isFile(marker) or not isFolder(OLD) end)
+    if not ok0 or skip then return end
+    if not isFolder(NEW) then pcall(makeFolder, NEW) end
+    local SKIP = { logs = true, cache = true }
+    local function copy(from, to, top)
+        if not isFolder(to) then pcall(makeFolder, to) end
+        for _, path in ipairs(listFiles(from)) do
+            local name = tostring(path):gsub("\\", "/"):match("([^/]+)$")
+            if name ~= nil and not (top and (SKIP[name] or name:sub(1, 6) == "rerun_")) then
+                local target = to .. "/" .. name
+                if isFolder(path) then
+                    copy(path, target, false)
+                elseif isFile(path) and not isFile(target) then
+                    pcall(function() writeFile(target, readFile(path)) end)
+                end
+            end
+        end
+    end
+    pcall(copy, OLD, NEW, true)
+    pcall(writeFile, marker, "1")
+end
 if getgenv().KiciaRebuild and getgenv().KiciaRebuild.Unload then
     pcall(getgenv().KiciaRebuild.Unload)
 end
@@ -12004,7 +12034,7 @@ local player = Players.LocalPlayer
 -- Per-account storage: the configs and the general state (autoload, menu keybind, silent load, ...) are kept
 -- in one folder per UserId, so each account has its own set. Cosmetics, fonts, caches etc. stay shared.
 K.AccountId = tostring(player.UserId)
-K.AccountDir = "kiciarebuild/rivals/accounts/" .. K.AccountId
+K.AccountDir = "LxYHook/rivals/accounts/" .. K.AccountId
 
 local rawget, rawset = rawget, rawset
 
@@ -12106,20 +12136,20 @@ end
 
 --==========================================================================
 --  Diagnostics log (survives crashes)
---  Every session writes kiciarebuild/logs/session_<UserId>_<time>.log as it goes (appended line by line, so the
+--  Every session writes LxYHook/logs/session_<UserId>_<time>.log as it goes (appended line by line, so the
 --  last lines are on disk even when the client dies). A heartbeat line every 15 s records fps, Roblox memory,
 --  Lua heap, instance count, ping and which match of the current chain this is. A small state file tells the next
 --  start how the previous session ended: if it did not end cleanly (not unloaded, not a normal leave, or a
---  teleport that never arrived) a report with its last lines is added to kiciarebuild/logs/crash_reports.log.
+--  teleport that never arrived) a report with its last lines is added to LxYHook/logs/crash_reports.log.
 --  K.Log(level, message) is available to the rest of the script.
 --==========================================================================
 do
     local wrf, apf, rdf = K.fn("writefile"), K.fn("appendfile"), K.fn("readfile")
     local isf, isd, mkf = K.fn("isfile"), K.fn("isfolder"), K.fn("makefolder")
     local lsf, dlf = K.fn("listfiles"), K.fn("delfile")
-    local dir = "kiciarebuild/logs"
+    local dir = "LxYHook/logs"
     if mkf then
-        for _, p in ipairs({ "kiciarebuild", dir }) do
+        for _, p in ipairs({ "LxYHook", dir }) do
             pcall(function() if not (isd and isd(p)) then mkf(p) end end)
         end
     end
@@ -29323,7 +29353,7 @@ end
 
 local function fn37(arg, arg2)
 return v116.new(function(arg3)
-local str7 = string.format("%s/%s", "kiciarebuild/fonts", tostring(arg2.FileName))
+local str7 = string.format("%s/%s", "LxYHook/fonts", tostring(arg2.FileName))
 
 if not isfile(str7) then
 local v120, v121 = v107(function()
@@ -29364,7 +29394,7 @@ name = arg,
 faces = { { name = "Regular", weight = arg2.Weight.Value, style = fn36(arg2.Style), assetId = v121 } },
 }
 
-local str8 = string.format("%s/%s.json", "kiciarebuild/fonts", tostring(arg))
+local str8 = string.format("%s/%s.json", "LxYHook/fonts", tostring(arg))
 local v122, v123 = v107(writefile, str8, v119:JSONEncode(tbl20))
 
 if not v122 then
@@ -29399,7 +29429,7 @@ for k, v120 in tbl18, nil, nil do
 arg._fontByName[k] = Font.fromEnum(v120)
 end
 
-v118("kiciarebuild/fonts")
+v118("LxYHook/fonts")
 local tbl20 = {}
 local flag19 = true
 
@@ -54866,7 +54896,7 @@ tbl17.g()
 tbl17.eE()
 local v117 = tbl17.e2()
 local v118 = tbl17.k()
-local str7 = string.format("%s/states", "kiciarebuild/rivals/cosmetics")
+local str7 = string.format("%s/states", "LxYHook/rivals/cosmetics")
 
 local tbl18 = {
 Version = v86[56],
@@ -54949,7 +54979,7 @@ _configManager = v115.new({
 DefaultConfig = v120,
 CurrentVersion = v86[56],
 Migrations = { fn36 },
-SavePath = "kiciarebuild/rivals/cosmetics",
+SavePath = "LxYHook/rivals/cosmetics",
 Deserialize = fn38,
 }),
 _stateConfig = v119,
@@ -55425,7 +55455,7 @@ local function fn38(arg)
 return v116.new(function(arg2, arg3)
 local v119 = str7(arg)
 local str8 = fn36(arg) or "ogg"
-local str9 = string.format("%s/%s.%s", "kiciarebuild/cache", tostring(v119), tostring(str8))
+local str9 = string.format("%s/%s.%s", "LxYHook/cache", tostring(v119), tostring(str8))
 
 if not isfile(str9) then
 local v120, v121 = v107(function()
@@ -55438,7 +55468,7 @@ arg3(string.format("failed requesting '%s': %s", tostring(arg), v122(v121)))
 return
 end
 
-local cache = v118("kiciarebuild/cache")
+local cache = v118("LxYHook/cache")
 if not cache.Ok then
 arg3(string.format("failed ensuring folder path: %s", tostring(cache.Error.Detail)))
 return
@@ -55558,7 +55588,7 @@ local v120 = tbl17.ay()
 local v121 = tbl17.a()
 local v122 = tbl17.g()
 local v123 = cloneref(game:GetService("ContentProvider"))
-local str7 = string.format("%s/%s", "kiciarebuild", "image_storage.json")
+local str7 = string.format("%s/%s", "LxYHook", "image_storage.json")
 
 local function fn36(arg)
 return arg:match("^%s*(.-)%s*$") or ""
@@ -55606,7 +55636,7 @@ local v124 = v119.new()
 
 local tbl18 = {
 _errorReporter = v124,
-_configManager = v116.new({ DefaultConfig = v118, CurrentVersion = v86[63], SavePath = "kiciarebuild", Deserialize = fn37 }),
+_configManager = v116.new({ DefaultConfig = v118, CurrentVersion = v86[63], SavePath = "LxYHook", Deserialize = fn37 }),
 _customAssets = v117.new(),
 _data = table.clone(v118),
 _names = {},
@@ -56432,13 +56462,13 @@ local flag19 = false
 
 local function fn41(arg, arg2)
 if not flag19 then
-if not v115("kiciarebuild/rivals/crosshair_textures").Ok then
+if not v115("LxYHook/rivals/crosshair_textures").Ok then
 return false
 end
 flag19 = true
 end
 
-local str7 = string.format("%s/%s.png", "kiciarebuild/rivals/crosshair_textures", tostring(arg))
+local str7 = string.format("%s/%s.png", "LxYHook/rivals/crosshair_textures", tostring(arg))
 
 if v107(writefile, str7, arg2) then
 local v117, v118 = v107(getcustomasset, str7)
@@ -63244,7 +63274,7 @@ local v121 = tbl17.a()
 tbl17.gt()
 local v122 = tbl17.g()
 local v123 = cloneref(game:GetService("ContentProvider"))
-local str7 = string.format("%s/%s", "kiciarebuild", "sfx_sounds.json")
+local str7 = string.format("%s/%s", "LxYHook", "sfx_sounds.json")
 
 local function fn36(arg)
 return arg:match("^%s*(.-)%s*$") or ""
@@ -63291,7 +63321,7 @@ local v124 = v119.new()
 
 local tbl18 = {
 _errorReporter = v124,
-_configManager = v116.new({ DefaultConfig = v118, CurrentVersion = 1, SavePath = "kiciarebuild", Deserialize = fn37 }),
+_configManager = v116.new({ DefaultConfig = v118, CurrentVersion = 1, SavePath = "LxYHook", Deserialize = fn37 }),
 _customAssets = v117.new(),
 _data = table.clone(v118),
 _names = {},
@@ -63463,7 +63493,7 @@ local v115 = tbl17.a()
 tbl17.gv()
 local v116 = tbl17.bG()
 local v117 = cloneref(game:GetService("HttpService"))
-local str7 = string.format("%s/cache.json", "kiciarebuild/rivals/esp_images")
+local str7 = string.format("%s/cache.json", "LxYHook/rivals/esp_images")
 local tbl18 = { ".png", ".jpg", ".jpeg", ".webp", ".bmp" }
 
 local function fn36(arg, arg2)
@@ -63581,8 +63611,8 @@ end
 end
 end
 
-if type(listfiles) == "function" and isfolder("kiciarebuild/rivals/esp_images") then
-local v118, v119 = v107(listfiles, "kiciarebuild/rivals/esp_images")
+if type(listfiles) == "function" and isfolder("LxYHook/rivals/esp_images") then
+local v118, v119 = v107(listfiles, "LxYHook/rivals/esp_images")
 
 if v118 and type(v119) == "table" then
 for _, v120 in v119, nil, nil do
@@ -63613,7 +63643,7 @@ end
 
 return {
 MigrateSounds = function(arg)
-local json = fn36("kiciarebuild/rivals/custom_sounds.json", "MigrateSounds")
+local json = fn36("LxYHook/rivals/custom_sounds.json", "MigrateSounds")
 if not json.Ok then
 return json
 end
@@ -66325,7 +66355,7 @@ local v117 = tbl17.ad()
 local v118 = tbl17.a()
 local v119 = tbl17.g()
 tbl17.gW()
-local str7 = string.format("%s/%s", "kiciarebuild/rivals", "skyboxes.json")
+local str7 = string.format("%s/%s", "LxYHook/rivals", "skyboxes.json")
 
 local tbl18 = {
 SkyboxBk = "string",
@@ -66385,12 +66415,12 @@ local info = REPO_SKIES[name]
 if not (info and writefile and getcustomasset and isfile) then
 return nil
 end
-pcall(makefolder, "kiciarebuild")
-pcall(makefolder, "kiciarebuild/rivals")
-pcall(makefolder, "kiciarebuild/rivals/skybox")
+pcall(makefolder, "LxYHook")
+pcall(makefolder, "LxYHook/rivals")
+pcall(makefolder, "LxYHook/rivals/skybox")
 local faces = { StarCount = 3000 }
 for key, prop in REPO_FACES, nil, nil do
-local path = string.format("kiciarebuild/rivals/skybox/%s_%s.%s", info[1], key:lower(), info[2])
+local path = string.format("LxYHook/rivals/skybox/%s_%s.%s", info[1], key:lower(), info[2])
 if not isfile(path) then
 local body = repoHttp(string.format("https://raw.githubusercontent.com/engnyg/123f1/main/skybox/%s/sky512_%s.%s", info[1], key:lower(), info[2]))
 if not body then
@@ -66471,7 +66501,7 @@ _errorReporter = v117.new(),
 _configManager = v115.new({
 DefaultConfig = v116,
 CurrentVersion = v86[63],
-SavePath = "kiciarebuild/rivals",
+SavePath = "LxYHook/rivals",
 Deserialize = fn39,
 }),
 _data = table.clone(v116),
@@ -81400,12 +81430,12 @@ rageDbg.last = now
 end
 end
 
--- Round Start Delay debug log: kiciarebuild/logs/round_delay.log, one line per change of the round status, per
+-- Round Start Delay debug log: LxYHook/logs/round_delay.log, one line per change of the round status, per
 -- arming and per change of the gate, so a round that does not delay can be read back afterwards
 local function roundDelayLog(message)
 pcall(function()
 if appendfile ~= nil then
-appendfile("kiciarebuild/logs/round_delay.log", string.format("%s %.1f %s\n", os.date("%H:%M:%S"), os.clock(), message))
+appendfile("LxYHook/logs/round_delay.log", string.format("%s %.1f %s\n", os.date("%H:%M:%S"), os.clock(), message))
 end
 end)
 end
@@ -82491,7 +82521,7 @@ local v120 = v119.new()
 local tbl18 = {
 _trove = v120,
 _store = v115.new({
-SavePath = "kiciarebuild/rivals/movement_recorder",
+SavePath = "LxYHook/rivals/movement_recorder",
 CurrentVersion = 1,
 Serialize = v116.encode,
 Deserialize = v116.decode,
@@ -84908,17 +84938,17 @@ local LITHIUM_LOGO_B64 = "iVBORw0KGgoAAAANSUhEUgAAAQAAAAEACAYAAABccqhmAAD0+klEQV
 --  anti-cheat bypass (b7). Kicia's online user service (eZ) is offline.
 --==========================================================================
 local GlobalTrove = tbl17.n()
-tbl17.w().ensureStorageDirectories("kiciarebuild/rivals")
+tbl17.w().ensureStorageDirectories("LxYHook/rivals")
 tbl17.w().ensureStorageDirectories(K.AccountDir)
 -- One-time carry-over: the first account to run after this change inherits the old shared configs and
 -- general.json; every other account starts empty (the marker file records that it already happened).
 do
     local isfile_, isfolder_, listfiles_, readfile_, writefile_ =
         K.fn("isfile"), K.fn("isfolder"), K.fn("listfiles"), K.fn("readfile"), K.fn("writefile")
-    local marker = "kiciarebuild/rivals/.account_migrated"
+    local marker = "LxYHook/rivals/.account_migrated"
     if isfile_ and isfolder_ and listfiles_ and readfile_ and writefile_ and not isfile_(marker) then
         pcall(function()
-            local legacy = "kiciarebuild/rivals/configs"
+            local legacy = "LxYHook/rivals/configs"
             if isfolder_(legacy) then
                 for _, path in ipairs(listfiles_(legacy)) do
                     local name = tostring(path):match("[^/\\]+$")
@@ -84927,17 +84957,17 @@ do
                     end
                 end
             end
-            if isfile_("kiciarebuild/rivals/general.json") then
-                writefile_(K.AccountDir .. "/general.json", readfile_("kiciarebuild/rivals/general.json"))
+            if isfile_("LxYHook/rivals/general.json") then
+                writefile_(K.AccountDir .. "/general.json", readfile_("LxYHook/rivals/general.json"))
             end
             writefile_(marker, K.AccountId)
         end)
     end
 end
-tbl17.w().ensureStorageDirectories("kiciarebuild/fonts")
-tbl17.w().ensureStorageDirectories("kiciarebuild/cache")
+tbl17.w().ensureStorageDirectories("LxYHook/fonts")
+tbl17.w().ensureStorageDirectories("LxYHook/cache")
 for _, sub in ipairs({ "cosmetics/states", "crosshair_textures", "esp_images", "movement_recorder" }) do
-    tbl17.w().ensureStorageDirectories("kiciarebuild/rivals/" .. sub)
+    tbl17.w().ensureStorageDirectories("LxYHook/rivals/" .. sub)
 end
 
 --  Lithium logo: written to disk once per load and turned into an asset id
@@ -84962,7 +84992,7 @@ do
     end
     local wrf, gca = K.fn("writefile"), K.fn("getcustomasset") or K.fn("getsynasset")
     if wrf and gca then
-        local path = "kiciarebuild/lithium_logo.png"
+        local path = "LxYHook/lithium_logo.png"
         local ok = pcall(wrf, path, decode(LITHIUM_LOGO_B64))
         local ok2, id = pcall(gca, path)
         if ok and ok2 and type(id) == "string" and id ~= "" then K.LithiumLogo = id end
@@ -84971,7 +85001,7 @@ end
 
 --==========================================================================
 --  UI form: "Starlight" (default) or "Classic" (the script's own menu). Chosen at startup from getgenv().LxYUI or
---  the file kiciarebuild/ui_style.txt, switched live from Settings > General > UI Style.
+--  the file LxYHook/ui_style.txt, switched live from Settings > General > UI Style.
 --  (ui_style.txt replaces the old ui_mode.txt, so a Classic choice saved before Starlight became the default is ignored.)
 --==========================================================================
 do
@@ -91647,7 +91677,9 @@ end
             end
             local wrf, gca = K.fn("writefile"), K.fn("getcustomasset") or K.fn("getsynasset")
             if wrf and gca then
-                local path = "kiciarebuild/ly_logo.png"
+                local path = "LxYHook/ly_logo.png"
+                local makeFolder, isFolder = K.fn("makefolder"), K.fn("isfolder")
+                if makeFolder and isFolder and not isFolder("LxYHook") then makeFolder("LxYHook") end
                 wrf(path, buffer.readstring(out, 0, n))
                 local id = gca(path)
                 if type(id) == "string" and id ~= "" then logoId = id end
@@ -95173,7 +95205,7 @@ local boot = (function()
         -- What the queued loader runs. getgenv().KiciaRerunFile (a workspace file) wins if set;
         -- otherwise the script is downloaded from the public GitHub repo kkbisnyu-sys/12 (branch main, kh.lua),
         -- so Re-run works without a local copy of the script. A raw.githubusercontent.com address is sent with
-        -- a GitHub token when one exists (workspace file kiciarebuild/github_token.txt, or
+        -- a GitHub token when one exists (workspace file LxYHook/github_token.txt, or
         -- getgenv().KiciaGithubToken), which is only needed for a private repo; with no token it is a plain
         -- game:HttpGet. The token is never written into this script. getgenv().KiciaRerunUrl overrides the
         -- address (e.g. the private repo kkbisnyu-sys/23 together with a token).
@@ -95186,10 +95218,10 @@ local _job = tostring(game.JobId)
 if _job ~= "" and _env.__KiciaRerunJob == _job then return end
 _env.__KiciaRerunJob = _job
 _env.SILENT = isfile("LOAD_SILENTLY")
--- trace of what the loader did, kept in kiciarebuild/logs/rerun_loader.log (survives crashes)
+-- trace of what the loader did, kept in LxYHook/logs/rerun_loader.log (survives crashes)
 local function _log(m)
     pcall(function()
-        appendfile("kiciarebuild/logs/rerun_loader.log", os.date("%%H:%%M:%%S") .. " job=" .. _job .. " " .. m .. "\n")
+        appendfile("LxYHook/logs/rerun_loader.log", os.date("%%H:%%M:%%S") .. " job=" .. _job .. " " .. m .. "\n")
     end)
 end
 _log("loader started")
@@ -95199,7 +95231,7 @@ _log("loader started")
 do
     local _q = queue_on_teleport or queueonteleport
         or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
-    local _self = "kiciarebuild/rerun_loader.lua"
+    local _self = "LxYHook/rerun_loader.lua"
     if _q and isfile(_self) then pcall(function() _q(readfile(_self)) end) end
 end
 local function waitFor(cond, timeout)
@@ -95234,17 +95266,17 @@ local _url = %q
 -- the cached copy is kept per address, so a copy fetched from an old loader URL is never run for a new one
 local _h = 0
 for _i = 1, #_url do _h = (_h * 31 + string.byte(_url, _i)) %% 4294967296 end
-local _cache = "kiciarebuild/rerun_cache_" .. _h .. ".lua"
+local _cache = "LxYHook/rerun_cache_" .. _h .. ".lua"
 local function _fetch()
     local ok, res
     if _file ~= "" then
         ok, res = pcall(readfile, _file)
     elseif string.find(_url, "raw.githubusercontent.com", 1, true) then
-        -- GitHub raw address: with a token (kiciarebuild/github_token.txt) the request carries it, which a
+        -- GitHub raw address: with a token (LxYHook/github_token.txt) the request carries it, which a
         -- private repo needs; without one, or if that request fails, a plain HttpGet (public repos)
         local _tok = _env.KiciaGithubToken
-        if (not _tok or _tok == "") and isfile("kiciarebuild/github_token.txt") then
-            local okT, t = pcall(readfile, "kiciarebuild/github_token.txt")
+        if (not _tok or _tok == "") and isfile("LxYHook/github_token.txt") then
+            local okT, t = pcall(readfile, "LxYHook/github_token.txt")
             if okT and type(t) == "string" then _tok = string.gsub(t, "[\r\n\t ]", "") end
         end
         local _req = request or http_request or (syn and syn.request) or (fluxus and fluxus.request)
@@ -95372,7 +95404,7 @@ _env.__KiciaRerunJob = nil
                     src = string.format("script_key=%q; ", key) .. src
                 end
                 -- the loader re-queues itself from this file as soon as it starts (see RERUN_LOADER)
-                pcall(wrf, "kiciarebuild/rerun_loader.lua", src)
+                pcall(wrf, "LxYHook/rerun_loader.lua", src)
                 for attempt = 1, 3 do
                     if pcall(queueFn, src) then
                         queuedJob = job
