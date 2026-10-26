@@ -32233,7 +32233,7 @@ return bd.c
 end
 end
 do -- be
-local function fn35()local I= tbl17 .i().atomic; tbl17 .aZ();local W,N,P= tbl17 .aU(), tbl17 .aW(), tbl17 .aY();return{Aimbot=W.buildConfig(),SilentAim=N.buildConfig(),Triggerbot=P.buildConfig(),Ragebot={Enabled=false,Keybind={State=false,Kind="Always",Bind=nil,ShowInList=true,Invisible=false},Stability=0.15,ShootFrames=1,CustomAttackHeight=false,AttackHeight=-0.7,Careful={EvadeBetweenShots=true,RetaliateOnly=true,RetaliateWindow=1.5},PrioritizeHackers=false,EvadeWhenHacking=false,StartDelay=false,FWWeaponCheck=false,DetectKnife=true,KnifeMode="Original",TargetHud={Enabled=false,AlwaysShow=true,Scale=100,ItemScale=100,PosX=50,PosY=15},UE={VoidSpam=true,NoVoid=false,KnifeCooldown08=false,AttackTime=0.1,HideTime=0.25,ShootAttempts=1,VoidDistance=2147483647,KnifeAttack="Heavy",KnifeLead=0,KnifeStand="Sphere"},Weapons={Priority=I({"Primary","Secondary","Melee"}),Enabled={Primary=true,Secondary=true,Melee=true},OnEmpty="SwapOrReload"},Evasion={Mode="Random",Random={AnchorFromCharacter=false,BaseRadius=100,RadiusRandomFactor=0.5},ProjectileBreaker={DepthForward={Min=0,Max=4},DepthForwardFrequency=5,DepthUp={Min=0,Max=5.5},DepthUpFrequency=5,RepositionInterval=0.3,FallbackAnchorFromCharacter=false,FallbackBaseRadius=100,FallbackRadiusRandomFactor=0.5},Translocate={Offset=-5}},UtilizeHealthLead=false},Flickbot={Enabled=false,Keybind={State=false,Kind="Hold",Bind=nil,ShowInList=true,Invisible=false},Shoot=false,ShotDelay=0,Cooldown=250,FlickDuration=110,Curvature=12,Humanness=30}};end
+local function fn35()local I= tbl17 .i().atomic; tbl17 .aZ();local W,N,P= tbl17 .aU(), tbl17 .aW(), tbl17 .aY();return{Aimbot=W.buildConfig(),SilentAim=N.buildConfig(),Triggerbot=P.buildConfig(),Ragebot={Enabled=false,Keybind={State=false,Kind="Always",Bind=nil,ShowInList=true,Invisible=false},Stability=0.15,ShootFrames=1,CustomAttackHeight=false,AttackHeight=-0.7,ManualFire=false,ManualButton=false,Careful={EvadeBetweenShots=true,RetaliateOnly=true,RetaliateWindow=1.5},PrioritizeHackers=false,EvadeWhenHacking=false,StartDelay=false,FWWeaponCheck=false,DetectKnife=true,KnifeMode="Original",TargetHud={Enabled=false,AlwaysShow=true,Scale=100,ItemScale=100,PosX=50,PosY=15},UE={VoidSpam=true,NoVoid=false,KnifeCooldown08=false,AttackTime=0.1,HideTime=0.25,ShootAttempts=1,VoidDistance=2147483647,KnifeAttack="Heavy",KnifeLead=0,KnifeStand="Sphere"},Weapons={Priority=I({"Primary","Secondary","Melee"}),Enabled={Primary=true,Secondary=true,Melee=true},OnEmpty="SwapOrReload"},Evasion={Mode="Random",Random={AnchorFromCharacter=false,BaseRadius=100,RadiusRandomFactor=0.5},ProjectileBreaker={DepthForward={Min=0,Max=4},DepthForwardFrequency=5,DepthUp={Min=0,Max=5.5},DepthUpFrequency=5,RepositionInterval=0.3,FallbackAnchorFromCharacter=false,FallbackBaseRadius=100,FallbackRadiusRandomFactor=0.5},Translocate={Offset=-5}},UtilizeHealthLead=false},Flickbot={Enabled=false,Keybind={State=false,Kind="Hold",Bind=nil,ShowInList=true,Invisible=false},Shoot=false,ShotDelay=0,Cooldown=250,FlickDuration=110,Curvature=12,Humanness=30}};end
 
 tbl17.be = function()
 local be = tbl17.cache.be
@@ -71990,7 +71990,7 @@ return ie.c
 end
 end
 do -- ih
-local function fn35() tbl17 .aE();local cfgd= tbl17 .bG();local I= tbl17 .h6();local function l(W)I(W,"Enable Ragebot",{"Always","Toggle","Hold"},{"Ragebot"},true);local style=W:AddDropdown({Label="Ragebot Style",Tooltip="KH: Kicia's own ragebot. UE: the Unnamed Enhancements ragebot (void spam, backstab, gun and light attack). Picking UE hides the KH settings. Auto: plays as KH until the Hacker Detector flags an enemy, then switches this dropdown to FW UE and stays there. Careful: the LY hub's own ragebot in its Careful mode (its own targeting, teleport attack, evasion and reloads). Careful Settings, Weapon Strategy and Target HUD apply to it.",Options={"Original","UE","Careful","FWUE"},Labels={Original="KH",UE="UE",Careful="Careful",FWUE="FW UE trash kh"},Config={"Ragebot","KnifeMode"}});W:AddToggle({Label="Round Start Delay",Tooltip="At the start of a round, hide in the void for a random 1-6 s first, then start attacking. Applies to every Ragebot Style.",Config={"Ragebot","StartDelay"}});W:AddToggle({Label="Prioritize Hackers",Config={"Ragebot","PrioritizeHackers"}});W:AddToggle({Label="Evade When Target Hacking",Config={"Ragebot","EvadeWhenHacking"}});W:AddButton({Label="Clear Hacker Tags",OnClick=function()local d=K.HackerDetector;local ok,n=pcall(function()return d and d:ClearTags() or nil;end);local text=(not ok or n==nil) and "Hacker detector is not ready" or string.format("Cleared %d hacker tag(s)",n);pcall(function()tbl17.aB().get():Notify(text);end);end});return style;end;local function kf(W)W:AddToggle({Label="Detect Knife",Config={"Ragebot","DetectKnife"}});W:AddSlider({Label="Stability",Min=0,Max=1.5,Step=0.001,Config={"Ragebot","Stability"}});W:AddSlider({Label="Shoot Frames",Min=1,Max=5,Config={"Ragebot","ShootFrames"}});W:AddToggle({Label="Custom Attack Height",Tooltip="Off: the fixed stand height (0.7 below the head hitbox of the target). On: the Attack Height below is used.",Config={"Ragebot","CustomAttackHeight"}});W:AddSlider({Label="Attack Height",Tooltip="How far above (+) or below (-) the head hitbox of the target you stand. A shield pointing down is 3.15 lower.",Min=-15,Max=15,Step=0.05,Config={"Ragebot","AttackHeight"}});end;local function cf(W)W:AddToggle({Label="Evade Between Shots",Tooltip="Slow weapons (shotgun, sniper, knife): evade in the gaps instead of standing on the target",Config={"Ragebot","Careful","EvadeBetweenShots"}});W:AddToggle({Label="Attack After Enemy",Tooltip="Only shoot an enemy in the gap right after it fired or swung, or while its weapon cools down or reloads",Config={"Ragebot","Careful","RetaliateOnly"}});W:AddSlider({Label="Gap Window",Tooltip="How long after its shot or swing an enemy can still be shot (its weapon cooldown or reload also counts)",Min=0.5,Max=5,Step=0.1,Suffix="s",Config={"Ragebot","Careful","RetaliateWindow"}});W:AddToggle({Label="Custom Attack Height",Tooltip="Off: the fixed stand height (0.7 below the head hitbox of the target). On: the Attack Height below is used.",Config={"Ragebot","CustomAttackHeight"}});W:AddSlider({Label="Attack Height",Tooltip="How far above (+) or below (-) the head hitbox of the target you stand. A shield pointing down is 3.15 lower.",Min=-15,Max=15,Step=0.05,Config={"Ragebot","AttackHeight"}});end;local function uf(W)W:AddToggle({Label="Never Void",Tooltip="Never hide in the void (UE style): no hide phase, and none while reloading, swapping, without a target or between knife stabs. You stay where you are.",Config={"Ragebot","UE","NoVoid"}});W:AddToggle({Label="Backstab Cooldown 0.8",Tooltip="On: the time between two backstabs is HeavyAttackCooldown x 0.8. Off: UE's own x 0.75.",Config={"Ragebot","UE","KnifeCooldown08"}});W:AddToggle({Label="Void Spam",Tooltip="Hide in the void between attack bursts (UE void spam). Used by the gun and the light attack, not by the backstab.",Config={"Ragebot","UE","VoidSpam"}});W:AddSlider({Label="Void Spam Attack",Tooltip="the amount of time attacking before hiding again (UE adds 0.1 s on top)",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","AttackTime"}});W:AddSlider({Label="Void Spam Hide",Tooltip="how long it stays in void for",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","HideTime"}});W:AddSlider({Label="Shoot Attempts",Tooltip="how many times it will try to fire your weapon (UE: ragebot_shoot_attempts)",Min=1,Max=2,Step=1,Config={"Ragebot","UE","ShootAttempts"}});W:AddDropdown({Label="Knife Attack",Tooltip="Heavy Backstab = UE attack mode knife. Light Attack = UE attack mode melee (fast light attacks with the knife).",Options={"Heavy","Light"},Labels={Heavy="Heavy Backstab",Light="Light Attack"},Config={"Ragebot","UE","KnifeAttack"}});end;local function I(W)local N={"Primary","Secondary","Melee"};for P,P in N,nil,nil do W:AddToggle({Label=string.format("%s Enabled",tostring(P)),Config={"Ragebot","Weapons","Enabled",P}});end;W:AddOrderedList({Label="Weapon Priority",Items=N,Default=N,Config={"Ragebot","Weapons","Priority"}});W:AddDropdown({Label="On Empty",Options={"Reload","Swap","SwapOrReload"},Labels={SwapOrReload="Swap or Reload"},Config={"Ragebot","Weapons","OnEmpty"}});end;local function W(N,P)local a=N:AddGroup({Source=P,Option="ProjectileBreaker"});a:AddRangeSlider({Label="Forward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForward"}});a:AddSlider({Label="Forward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForwardFrequency"}});a:AddRangeSlider({Label="Upward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUp"}});a:AddSlider({Label="Upward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUpFrequency"}});a:AddSlider({Label="Reposition Interval (s)",Min=0.05,Max=2,Step=0.01,Config={"Ragebot","Evasion","ProjectileBreaker","RepositionInterval"}});a:AddToggle({Label="Fallback Character Origin",Config={"Ragebot","Evasion","ProjectileBreaker","FallbackAnchorFromCharacter"}});a:AddSlider({Label="Fallback Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackBaseRadius"}});a:AddSlider({Label="Fallback Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackRadiusRandomFactor"}});end;local function N(P)local a=P:AddDropdown({Label="Evasion Mode",Options={"Off","Random","Translocate","ProjectileBreaker"},Labels={ProjectileBreaker="Projectile Breaker"},Config={"Ragebot","Evasion","Mode"}});local e=P:AddGroup({Source=a,Option="Random"});e:AddToggle({Label="Character Origin",Config={"Ragebot","Evasion","Random","AnchorFromCharacter"}});e:AddSlider({Label="Base Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","Random","BaseRadius"}});e:AddSlider({Label="Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","Random","RadiusRandomFactor"}});P:AddGroup({Source=a,Option="Translocate"}):AddSlider({Label="Offset",Min=-5,Max=5,Step=0.1,Config={"Ragebot","Evasion","Translocate","Offset"}});W(P,a);end;local function H(P)P:AddToggle({Label="Target HUD",Config={"Ragebot","TargetHud","Enabled"}});P:AddToggle({Label="Always Show",Tooltip="Keep the card up: without a ragebot target it shows the nearest enemy.",Config={"Ragebot","TargetHud","AlwaysShow"}});P:AddSlider({Label="Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","Scale"}});P:AddSlider({Label="Item Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","ItemScale"}});P:AddSlider({Label="Offset X (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosX"}});P:AddSlider({Label="Offset Y (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosY"}});end;return function(W)local style=l(W:AddSection({Title="Activation",Side="left"}));local khSection=W:AddSection({Title="KH Settings",Side="left"});kf(khSection);local carefulSection=W:AddSection({Title="Careful Settings",Side="left"});cf(carefulSection);local ueSection=W:AddSection({Title="UE Settings",Side="left"});uf(ueSection);local weaponSection=W:AddSection({Title="Weapon Strategy",Side="left"});I(weaponSection);local evasionSection=W:AddSection({Title="Evasion",Side="right"});N(evasionSection);local hudSection=W:AddSection({Title="Target HUD",Side="right"});H(hudSection);local fwSection=W:AddSection({Title="FW UE Settings",Side="left"});fwSection:AddToggle({Label="FW Weapon Check",Tooltip="Hide only while the weapon window is open. Slow weapons: the shot / swing cooldown must have at least 0.6 s left. Fast weapons (cooldown up to 0.3 s): the magazine must be nearly empty. Nobody may be reloading, and an enemy starting to reload sends you back to the void. No time limit on the wait.",Config={"Ragebot","FWWeaponCheck"}});local function applyStyle()local picked=style.Value;local isUE=picked=="UE";local isCareful=picked=="Careful";local isEmpty=picked=="FWUE";khSection:SetVisible(not isUE and not isCareful and not isEmpty);evasionSection:SetVisible(not isUE and not isCareful and not isEmpty);ueSection:SetVisible(isUE);carefulSection:SetVisible(isCareful);weaponSection:SetVisible(not isEmpty);hudSection:SetVisible(true);fwSection:SetVisible(picked=="FWUE");end;applyStyle();pcall(function()style.ValueChanged:Connect(applyStyle);end);end;end
+local function fn35() tbl17 .aE();local cfgd= tbl17 .bG();local I= tbl17 .h6();local function l(W)I(W,"Enable Ragebot",{"Always","Toggle","Hold"},{"Ragebot"},true);local style=W:AddDropdown({Label="Ragebot Style",Tooltip="KH: Kicia's own ragebot. UE: the Unnamed Enhancements ragebot (void spam, backstab, gun and light attack). Picking UE hides the KH settings. Auto: plays as KH until the Hacker Detector flags an enemy, then switches this dropdown to FW UE and stays there. Careful: the LY hub's own ragebot in its Careful mode (its own targeting, teleport attack, evasion and reloads). Careful Settings, Weapon Strategy and Target HUD apply to it.",Options={"Original","UE","Careful","FWUE"},Labels={Original="KH",UE="UE",Careful="Careful",FWUE="FW UE trash kh"},Config={"Ragebot","KnifeMode"}});W:AddToggle({Label="Round Start Delay",Tooltip="At the start of a round, hide in the void for a random 1-6 s first, then start attacking. Applies to every Ragebot Style.",Config={"Ragebot","StartDelay"}});W:AddToggle({Label="Prioritize Hackers",Config={"Ragebot","PrioritizeHackers"}});W:AddToggle({Label="Evade When Target Hacking",Config={"Ragebot","EvadeWhenHacking"}});W:AddButton({Label="Clear Hacker Tags",OnClick=function()local d=K.HackerDetector;local ok,n=pcall(function()return d and d:ClearTags() or nil;end);local text=(not ok or n==nil) and "Hacker detector is not ready" or string.format("Cleared %d hacker tag(s)",n);pcall(function()tbl17.aB().get():Notify(text);end);end});return style;end;local function kf(W)W:AddToggle({Label="Detect Knife",Config={"Ragebot","DetectKnife"}});W:AddSlider({Label="Stability",Min=0,Max=1.5,Step=0.001,Config={"Ragebot","Stability"}});W:AddSlider({Label="Shoot Frames",Min=1,Max=5,Config={"Ragebot","ShootFrames"}});W:AddToggle({Label="Custom Attack Height",Tooltip="Off: the fixed stand height (0.7 below the head hitbox of the target). On: the Attack Height below is used.",Config={"Ragebot","CustomAttackHeight"}});W:AddSlider({Label="Attack Height",Tooltip="How far above (+) or below (-) the head hitbox of the target you stand. A shield pointing down is 3.15 lower.",Min=-15,Max=15,Step=0.05,Config={"Ragebot","AttackHeight"}});end;local function cf(W)W:AddToggle({Label="Evade Between Shots",Tooltip="Slow weapons (shotgun, sniper, knife): evade in the gaps instead of standing on the target",Config={"Ragebot","Careful","EvadeBetweenShots"}});W:AddToggle({Label="Attack After Enemy",Tooltip="Only shoot an enemy in the gap right after it fired or swung, or while its weapon cools down or reloads",Config={"Ragebot","Careful","RetaliateOnly"}});W:AddSlider({Label="Gap Window",Tooltip="How long after its shot or swing an enemy can still be shot (its weapon cooldown or reload also counts)",Min=0.5,Max=5,Step=0.1,Suffix="s",Config={"Ragebot","Careful","RetaliateWindow"}});W:AddToggle({Label="Custom Attack Height",Tooltip="Off: the fixed stand height (0.7 below the head hitbox of the target). On: the Attack Height below is used.",Config={"Ragebot","CustomAttackHeight"}});W:AddSlider({Label="Attack Height",Tooltip="How far above (+) or below (-) the head hitbox of the target you stand. A shield pointing down is 3.15 lower.",Min=-15,Max=15,Step=0.05,Config={"Ragebot","AttackHeight"}});W:AddToggle({Label="Manual Fire",Tooltip="Attacks (teleport + shoot) only while you hold the fire input (the FIRE button, or the game's own fire input); evades the rest of the time.",Config={"Ragebot","ManualFire"}});W:AddToggle({Label="Manual Fire Button",Tooltip="Shows an on-screen FIRE button while Manual Fire is on (phones and tablets). Hold it to attack. In the LY menu it can be moved in the HUD editor.",Config={"Ragebot","ManualButton"}});end;local function uf(W)W:AddToggle({Label="Never Void",Tooltip="Never hide in the void (UE style): no hide phase, and none while reloading, swapping, without a target or between knife stabs. You stay where you are.",Config={"Ragebot","UE","NoVoid"}});W:AddToggle({Label="Backstab Cooldown 0.8",Tooltip="On: the time between two backstabs is HeavyAttackCooldown x 0.8. Off: UE's own x 0.75.",Config={"Ragebot","UE","KnifeCooldown08"}});W:AddToggle({Label="Void Spam",Tooltip="Hide in the void between attack bursts (UE void spam). Used by the gun and the light attack, not by the backstab.",Config={"Ragebot","UE","VoidSpam"}});W:AddSlider({Label="Void Spam Attack",Tooltip="the amount of time attacking before hiding again (UE adds 0.1 s on top)",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","AttackTime"}});W:AddSlider({Label="Void Spam Hide",Tooltip="how long it stays in void for",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","HideTime"}});W:AddSlider({Label="Shoot Attempts",Tooltip="how many times it will try to fire your weapon (UE: ragebot_shoot_attempts)",Min=1,Max=2,Step=1,Config={"Ragebot","UE","ShootAttempts"}});W:AddDropdown({Label="Knife Attack",Tooltip="Heavy Backstab = UE attack mode knife. Light Attack = UE attack mode melee (fast light attacks with the knife).",Options={"Heavy","Light"},Labels={Heavy="Heavy Backstab",Light="Light Attack"},Config={"Ragebot","UE","KnifeAttack"}});end;local function I(W)local N={"Primary","Secondary","Melee"};for P,P in N,nil,nil do W:AddToggle({Label=string.format("%s Enabled",tostring(P)),Config={"Ragebot","Weapons","Enabled",P}});end;W:AddOrderedList({Label="Weapon Priority",Items=N,Default=N,Config={"Ragebot","Weapons","Priority"}});W:AddDropdown({Label="On Empty",Options={"Reload","Swap","SwapOrReload"},Labels={SwapOrReload="Swap or Reload"},Config={"Ragebot","Weapons","OnEmpty"}});end;local function W(N,P)local a=N:AddGroup({Source=P,Option="ProjectileBreaker"});a:AddRangeSlider({Label="Forward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForward"}});a:AddSlider({Label="Forward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForwardFrequency"}});a:AddRangeSlider({Label="Upward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUp"}});a:AddSlider({Label="Upward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUpFrequency"}});a:AddSlider({Label="Reposition Interval (s)",Min=0.05,Max=2,Step=0.01,Config={"Ragebot","Evasion","ProjectileBreaker","RepositionInterval"}});a:AddToggle({Label="Fallback Character Origin",Config={"Ragebot","Evasion","ProjectileBreaker","FallbackAnchorFromCharacter"}});a:AddSlider({Label="Fallback Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackBaseRadius"}});a:AddSlider({Label="Fallback Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackRadiusRandomFactor"}});end;local function N(P)local a=P:AddDropdown({Label="Evasion Mode",Options={"Off","Random","Translocate","ProjectileBreaker"},Labels={ProjectileBreaker="Projectile Breaker"},Config={"Ragebot","Evasion","Mode"}});local e=P:AddGroup({Source=a,Option="Random"});e:AddToggle({Label="Character Origin",Config={"Ragebot","Evasion","Random","AnchorFromCharacter"}});e:AddSlider({Label="Base Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","Random","BaseRadius"}});e:AddSlider({Label="Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","Random","RadiusRandomFactor"}});P:AddGroup({Source=a,Option="Translocate"}):AddSlider({Label="Offset",Min=-5,Max=5,Step=0.1,Config={"Ragebot","Evasion","Translocate","Offset"}});W(P,a);end;local function H(P)P:AddToggle({Label="Target HUD",Config={"Ragebot","TargetHud","Enabled"}});P:AddToggle({Label="Always Show",Tooltip="Keep the card up: without a ragebot target it shows the nearest enemy.",Config={"Ragebot","TargetHud","AlwaysShow"}});P:AddSlider({Label="Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","Scale"}});P:AddSlider({Label="Item Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","ItemScale"}});P:AddSlider({Label="Offset X (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosX"}});P:AddSlider({Label="Offset Y (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosY"}});end;return function(W)local style=l(W:AddSection({Title="Activation",Side="left"}));local khSection=W:AddSection({Title="KH Settings",Side="left"});kf(khSection);local carefulSection=W:AddSection({Title="Careful Settings",Side="left"});cf(carefulSection);local ueSection=W:AddSection({Title="UE Settings",Side="left"});uf(ueSection);local weaponSection=W:AddSection({Title="Weapon Strategy",Side="left"});I(weaponSection);local evasionSection=W:AddSection({Title="Evasion",Side="right"});N(evasionSection);local hudSection=W:AddSection({Title="Target HUD",Side="right"});H(hudSection);local fwSection=W:AddSection({Title="FW UE Settings",Side="left"});fwSection:AddToggle({Label="FW Weapon Check",Tooltip="Hide only while the weapon window is open. Slow weapons: the shot / swing cooldown must have at least 0.6 s left. Fast weapons (cooldown up to 0.3 s): the magazine must be nearly empty. Nobody may be reloading, and an enemy starting to reload sends you back to the void. No time limit on the wait.",Config={"Ragebot","FWWeaponCheck"}});local function applyStyle()local picked=style.Value;local isUE=picked=="UE";local isCareful=picked=="Careful";local isEmpty=picked=="FWUE";khSection:SetVisible(not isUE and not isCareful and not isEmpty);evasionSection:SetVisible(not isUE and not isCareful and not isEmpty);ueSection:SetVisible(isUE);carefulSection:SetVisible(isCareful);weaponSection:SetVisible(not isEmpty);hudSection:SetVisible(true);fwSection:SetVisible(picked=="FWUE");end;applyStyle();pcall(function()style.ValueChanged:Connect(applyStyle);end);end;end
 
 tbl17.ih = function()
 local ih = tbl17.cache.ih
@@ -77742,6 +77742,8 @@ return built
 end)
 if ok then
 hud = result
+K.TargetHudRoot = result.root
+if K.TargetHudRegister ~= nil then pcall(K.TargetHudRegister, result.root) end
 else
 hud = false
 warn("[Kicia TargetHud] could not build the card: " .. tostring(result))
@@ -77759,6 +77761,8 @@ return value ~= nil and tostring(value) or "-"
 end
 
 local function hide()
+local editor = getgenv().LYHud
+if editor ~= nil and editor.Editing then return end
 if hud and hud.root.Visible then
 hud.root.Visible = false
 end
@@ -77826,7 +77830,7 @@ local fighterState = target.FighterState
 local aliveState = target.AliveState
 local player = fighterState.Player
 
-put(card.root, "Position", UDim2.new(settings.PosX / 100, 0, settings.PosY / 100, 0))
+if not K.TargetHudLayout then put(card.root, "Position", UDim2.new(settings.PosX / 100, 0, settings.PosY / 100, 0)) end
 put(card.scale, "Scale", settings.Scale / 100)
 put(card.root, "BackgroundColor3", theme.ElementBackground)
 put(card.rootStroke, "Color", theme.Outline)
@@ -80907,6 +80911,9 @@ rage.AttackHeight = (ragebotData.CustomAttackHeight == true and type(ragebotData
 -- the two hacker options of the Activation section
 rage.PrioritizeHackers = ragebotData.PrioritizeHackers == true
 rage.EvadeWhenHacking = ragebotData.EvadeWhenHacking == true
+rage.ManualFire = ragebotData.ManualFire == true
+rage.ManualButtonOn = ragebotData.ManualButton == true
+if rage.refreshFireButton ~= nil then rage.refreshFireButton() end
 -- Attack After Enemy / Gap Window: LY's own RetaliateOnly / RetaliateWindow
 if type(saved.RetaliateOnly) == "boolean" then
 rage.RetaliateOnly = saved.RetaliateOnly
@@ -80937,6 +80944,80 @@ end
 end
 end
 
+-- On-screen FIRE button (Manual Fire): hold it to attack. Shown while the Careful ragebot is on, Manual Fire and
+-- Manual Fire Button are on. Taken from LY.lua; the LY menu's HUD editor moves it.
+do
+local fireGui
+local fireButton
+local function setDown(down)
+rage.ManualButtonDown = down
+if fireButton ~= nil then
+fireButton.BackgroundColor3 = down and Color3.fromHex("#A21FF2") or Color3.fromRGB(30, 30, 36)
+end
+end
+local function build()
+if fireButton ~= nil then return end
+fireGui = Instance.new("ScreenGui")
+fireGui.Name = game:GetService("HttpService"):GenerateGUID(false)
+fireGui.ResetOnSpawn = false
+fireGui.Enabled = false
+fireGui.DisplayOrder = 50
+fireGui.Parent = K.hudParent()
+K.onUnload(function() fireGui:Destroy() end)
+fireButton = Instance.new("TextButton")
+fireButton.Name = "ManualFire"
+fireButton.AnchorPoint = Vector2.new(0.5, 0.5)
+fireButton.Position = UDim2.new(0.82, 0, 0.5, 0)
+fireButton.Size = UDim2.fromOffset(88, 88)
+fireButton.AutoButtonColor = false
+fireButton.Text = "FIRE"
+fireButton.Font = Enum.Font.GothamBold
+fireButton.TextSize = 20
+fireButton.TextColor3 = Color3.new(1, 1, 1)
+fireButton.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
+fireButton.BackgroundTransparency = 0.3
+fireButton.Parent = fireGui
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(1, 0)
+corner.Parent = fireButton
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromHex("#A21FF2")
+stroke.Thickness = 2
+stroke.Parent = fireButton
+fireButton.InputBegan:Connect(function(input)
+local hud = getgenv().LYHud
+if hud ~= nil and hud.Editing then return end
+if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+setDown(true)
+end
+end)
+fireButton.InputEnded:Connect(function(input)
+if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+setDown(false)
+end
+end)
+K.hudRegister("Manual fire button", {
+Frame = fireButton,
+Title = "FIRE button",
+MinScale = 0.5,
+MaxScale = 3,
+Show = function()
+fireGui.Enabled = true
+return function() rage.refreshFireButton() end
+end,
+})
+end
+function rage.refreshFireButton()
+local show = rage.Enabled == true and rage.ManualFire == true and rage.ManualButtonOn == true
+if show then build() end
+if fireGui ~= nil then
+local hud = getgenv().LYHud
+fireGui.Enabled = show or (hud ~= nil and hud.Editing == true)
+end
+if not show then setDown(false) end
+end
+end
+
 local active = false
 local syncAt = 0
 local carefulHeartbeat = RunService.Heartbeat:Connect(function(dt)
@@ -80944,6 +81025,7 @@ local want = tbl17.ragebotKeyOn == true and K.RagebotStyle(config.Data.Ragebot.K
 if want ~= active then
 active = want
 rage.Enabled = want
+if rage.refreshFireButton ~= nil then rage.refreshFireButton() end
 if want then
 syncSettings()
 rageSetPhysics(true)
@@ -86029,7 +86111,7 @@ end
         self.ShowInList = o.InKeybindList == true
         self.FeatureEnabled = false
         self.FeatureChanged = Signal.new()
-        self.ListLabel = tostring(o.ListLabel or o.Label or host._label or "Keybind")
+        self.ListLabel = tostring(o.ListLabel or o.Label or host._label or "Keybind"):gsub("^Enable%s+", "")
         local menu = sec._menu
         local entry
         if menu._listAdd ~= nil then
@@ -86039,7 +86121,8 @@ end
         end
         if entry == nil then return end
         local function sync()
-            entry.update(self.ShowInList and self.FeatureEnabled, self.Value.Key, self.Active == true, self.Value.Mode == "Always")
+            -- Always keys are not listed; Hold and Toggle look the same (the key, lit while active)
+            entry.update(self.ShowInList and self.FeatureEnabled and self.Value.Mode ~= "Always", self.Value.Key, self.Active == true, false)
         end
         self._lySync = sync
         self.ActiveChanged:Connect(sync)
@@ -86201,6 +86284,23 @@ end
             end)
         end
         if self._lySync ~= nil then self._lySync() end
+        -- on-screen key button (phones): only for the keys of the keybind list
+        if map.Active ~= nil and self.ShowInList and K.MobileKeys ~= nil and not self._mobile then
+            self._mobile = true
+            K.MobileKeys.register(self.ListLabel or "Key", {
+                Mode = function() return self.Value.Mode end,
+                Visible = function() return self.ShowInList and self.FeatureEnabled == true end,
+                Active = function() return self.Active == true end,
+                Down = function(down)
+                    local mode = self.Value.Mode
+                    if mode == "Hold" then
+                        config:Set(map.Active, down)
+                    elseif down then
+                        config:Set(map.Active, not (config:Get(map.Active) == true))
+                    end
+                end,
+            })
+        end
     end
 
     ----------------------------------------------------------------------------------------------- ordered list
@@ -86290,8 +86390,7 @@ end
     Makers.SkinChanger = function(sec)
         if not sec._menu._skinNotice then
             sec._menu._skinNotice = true
-            sec:_make("Label", { Label = "The skin, wrap, charm and finisher picker is part of the classic menu." })
-            sec:_make("Button", { Label = "Switch to the classic menu", OnClick = function() K.SwitchUI("Classic") end })
+            sec:_make("Label", { Label = "The skin, wrap, charm and finisher picker is in the LY and Classic menus." })
         end
         return stub
     end
@@ -88055,8 +88154,7 @@ end
     SMakers.SkinChanger = function(sec)
         if not sec._menu._skinNotice then
             sec._menu._skinNotice = true
-            sec:_make("Label", { Label = "The skin, wrap, charm and finisher picker is part of the classic menu." })
-            sec:_make("Button", { Label = "Switch to the classic menu", OnClick = function() K.SwitchUI("Classic") end })
+            sec:_make("Label", { Label = "The skin, wrap, charm and finisher picker is in the LY and Classic menus." })
         end
         return stub
     end
@@ -90110,6 +90208,189 @@ do
 
     K.onUnload(KeyHud.destroy)
 end
+--==========================================================================
+--  On-screen key buttons (a phone has no keyboard): every key feature that is not "Always" gets a button, hold it
+--  for a Hold key, tap it for a Toggle key. Taken from LY.lua. The buttons start in a grid; in the LY form they can
+--  be moved and resized in the HUD editor (K.hudRegister hands every piece to the editor once it is there).
+--==========================================================================
+do
+    local UserInputService = game:GetService("UserInputService")
+    local HttpService = game:GetService("HttpService")
+    local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+    local FILE = "LxYHook/mobile_keys.json"
+    local Keys = { Entries = {}, Enabled = touchOnly, Hidden = {} }
+    K.MobileKeys = Keys
+
+    -- every HUD piece the script draws itself (the editor of the LY form moves them)
+    K.HudPieces = {}
+    function K.hudRegister(name, spec)
+        K.HudPieces[name] = spec
+        local fn = K.HudRegisterFn
+        if fn ~= nil then pcall(fn, name, spec) end
+    end
+
+    pcall(function()
+        local readFile, isFile = K.fn("readfile"), K.fn("isfile")
+        if readFile and isFile and isFile(FILE) then
+            local decoded = HttpService:JSONDecode(readFile(FILE))
+            if type(decoded) == "table" then
+                if type(decoded.enabled) == "boolean" then Keys.Enabled = decoded.enabled end
+                if type(decoded.hidden) == "table" then
+                    for label, hidden in pairs(decoded.hidden) do
+                        if hidden == true then Keys.Hidden[label] = true end
+                    end
+                end
+            end
+        end
+    end)
+    local function save()
+        pcall(function()
+            local writeFile = K.fn("writefile")
+            if writeFile == nil then return end
+            local makeFolder, isFolder = K.fn("makefolder"), K.fn("isfolder")
+            if makeFolder and isFolder and not isFolder("LxYHook") then makeFolder("LxYHook") end
+            writeFile(FILE, HttpService:JSONEncode({ enabled = Keys.Enabled, hidden = Keys.Hidden }))
+        end)
+    end
+
+    local gui
+    local function ensureGui()
+        if gui ~= nil and gui.Parent ~= nil then return gui end
+        gui = Instance.new("ScreenGui")
+        gui.Name = HttpService:GenerateGUID(false)
+        gui.ResetOnSpawn = false
+        gui.DisplayOrder = 49
+        gui.Parent = K.hudParent()
+        return gui
+    end
+
+    local function accent()
+        local ok, t = pcall(tbl17.z)
+        local c = ok and type(t) == "table" and t.Accent or nil
+        return typeof(c) == "Color3" and c or Color3.fromHex("#A21FF2")
+    end
+    local IDLE = Color3.fromRGB(30, 30, 36)
+
+    local function slotPosition(slot)
+        local camera = workspace.CurrentCamera
+        local height = 600
+        local size = camera and camera.ViewportSize
+        if typeof(size) == "Vector2" and type(size.Y) == "number" then height = size.Y end
+        local top = math.min(300, math.floor(height * 0.45))
+        local rows = math.max(1, math.floor((height - top - 60) / 44))
+        return UDim2.fromOffset(20 + math.floor(slot / rows) * 130, top + (slot % rows) * 44)
+    end
+
+    local function editing()
+        local hud = getgenv().LYHud
+        return hud ~= nil and hud.Editing == true
+    end
+
+    local function refresh(entry)
+        local spec = entry.Spec
+        local mode = spec.Mode()
+        local show = Keys.Enabled and not Keys.Hidden[entry.Label] and mode ~= "Always" and spec.Visible()
+        entry.Button.Visible = show or entry.Forced == true
+        local active = spec.Active() == true or entry.Down == true
+        entry.Button.BackgroundColor3 = active and accent() or IDLE
+    end
+
+    function Keys.Sync()
+        for _, entry in ipairs(Keys.Entries) do pcall(refresh, entry) end
+    end
+
+    function Keys.setEnabled(v)
+        Keys.Enabled = v == true
+        save()
+        Keys.Sync()
+    end
+
+    -- spec: Mode() -> "Always" / "Hold" / "Toggle", Visible() -> the feature is on, Active() -> bool, Down(down)
+    function Keys.register(label, spec)
+        local slot = #Keys.Entries
+        local button = Instance.new("TextButton")
+        button.Name = "KeyButton"
+        button.Position = slotPosition(slot)
+        button.Size = UDim2.fromOffset(0, 36)
+        button.AutomaticSize = Enum.AutomaticSize.X
+        button.AutoButtonColor = false
+        button.Active = true
+        button.Visible = false
+        button.Text = label
+        button.Font = Enum.Font.GothamMedium
+        button.TextSize = 14
+        button.TextColor3 = Color3.new(1, 1, 1)
+        button.BackgroundColor3 = IDLE
+        button.BackgroundTransparency = 0.25
+        button.BorderSizePixel = 0
+        button.Parent = ensureGui()
+        local padding = Instance.new("UIPadding")
+        padding.PaddingLeft = UDim.new(0, 14)
+        padding.PaddingRight = UDim.new(0, 14)
+        padding.Parent = button
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 8)
+        corner.Parent = button
+        local stroke = Instance.new("UIStroke")
+        stroke.Color = accent()
+        stroke.Thickness = 1.5
+        stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        stroke.Parent = button
+        local entry = { Spec = spec, Button = button, Label = label }
+        table.insert(Keys.Entries, entry)
+        button.InputBegan:Connect(function(input)
+            local kind = input.UserInputType
+            if (kind ~= Enum.UserInputType.Touch and kind ~= Enum.UserInputType.MouseButton1) or editing() then return end
+            entry.Down = true
+            pcall(spec.Down, true)
+            refresh(entry)
+        end)
+        button.InputEnded:Connect(function(input)
+            local kind = input.UserInputType
+            if (kind ~= Enum.UserInputType.Touch and kind ~= Enum.UserInputType.MouseButton1) or not entry.Down then return end
+            entry.Down = false
+            pcall(spec.Down, false)
+            refresh(entry)
+        end)
+        K.hudRegister("Key button: " .. label, {
+            Frame = button,
+            Title = label .. " key button",
+            Hideable = {
+                Get = function() return Keys.Hidden[label] == true end,
+                Set = function(hidden)
+                    Keys.Hidden[label] = hidden or nil
+                    save()
+                    Keys.Sync()
+                end,
+            },
+            MinScale = 0.5,
+            MaxScale = 3,
+            Show = function()
+                entry.Forced = true
+                button.Visible = true
+                return function()
+                    entry.Forced = false
+                    refresh(entry)
+                end
+            end,
+        })
+        refresh(entry)
+        return entry
+    end
+
+    task.spawn(function()
+        while not K.destroyed do
+            if #Keys.Entries > 0 then Keys.Sync() end
+            task.wait(0.15)
+        end
+    end)
+
+    K.onUnload(function()
+        if gui ~= nil then pcall(function() gui:Destroy() end) end
+        gui = nil
+        table.clear(Keys.Entries)
+    end)
+end
 end)()
 ;(function(S)
 --==========================================================================
@@ -91777,7 +92058,7 @@ end
     function Lib:CreateWindow(o)
         local md3 = LYUI.Load()
         local win = md3:CreateWindow({
-            Title = o.Name, Subtitle = o.Subtitle, Icon = "sports_esports", Mode = "Dark", ThemeColor = ACCENT,
+            Title = o.Name, Subtitle = o.Subtitle, Icon = "sports_esports", Logo = K.LithiumLogo, Mode = "Dark", ThemeColor = ACCENT,
             ToggleKey = Enum.KeyCode.F15, ConfigFolder = "LxYHook", SectionsAsSubTabs = false,
             LoadingScreen = false, KeybindNotify = false, MinimizeButton = false,
         })
@@ -91943,6 +92224,34 @@ end
         local hud = self._hud
         self._hud = nil
         if hud ~= nil and hud.Editor ~= nil then pcall(hud.Editor.destroy) end
+        -- every piece the editor moved goes back to where it was made
+        K.HudRegisterFn = nil
+        pcall(function()
+            local editor = hud ~= nil and hud.Editor or nil
+            if editor == nil then return end
+            for _, e in pairs(editor.Elements) do
+                if e.Frame ~= nil and e.Frame.Parent ~= nil then
+                    e.Frame.Position, e.Frame.AnchorPoint = e.Default.Position, e.Default.Anchor
+                    pcall(function() e.Scale:Destroy() end)
+                end
+            end
+        end)
+        -- the Target HUD card goes back to the position of its own settings
+        pcall(function()
+            K.TargetHudRegister, K.TargetHudLayout = nil, nil
+            local root = K.TargetHudRoot
+            if root ~= nil and hud ~= nil and hud._thRoot == root then
+                local cfg = self._config
+                local function num(path, default)
+                    local ok, v = pcall(function() return cfg.Data.Ragebot.TargetHud[path[3]] end)
+                    return ok and type(v) == "number" and v or default
+                end
+                root.AnchorPoint = Vector2.new(0.5, 0)
+                root.Position = UDim2.new(num({ "Ragebot", "TargetHud", "PosX" }, 50) / 100, 0, num({ "Ragebot", "TargetHud", "PosY" }, 15) / 100, 0)
+                local scale = root:FindFirstChild("LYHudScale")
+                if scale ~= nil then scale:Destroy() end
+            end
+        end)
         Menu.Destroy(self)
     end
 
@@ -92006,6 +92315,35 @@ end
                 end
             end
             end)
+            -- the Target HUD card: the editor owns its position and size while the LY menu is up
+            pcall(function()
+                local function reg(root)
+                    if root == nil or hud._thRoot == root then return end
+                    hud._thRoot = root
+                    local cfg = self._config
+                    local function num(path, default)
+                        local ok, v = pcall(function() return cfg.Data.Ragebot.TargetHud[path[3]] end)
+                        return ok and type(v) == "number" and v or default
+                    end
+                    K.TargetHudLayout = true
+                    root.Position = UDim2.new(num({ "Ragebot", "TargetHud", "PosX" }, 50) / 100, 0, num({ "Ragebot", "TargetHud", "PosY" }, 15) / 100, 0)
+                    editor.register("Target HUD", {
+                        Frame = root, Title = "Target HUD",
+                        Show = function()
+                            local was = root.Visible
+                            root.Visible = true
+                            return function() root.Visible = was end
+                        end,
+                    })
+                end
+                K.TargetHudRegister = reg
+                if K.TargetHudRoot ~= nil then reg(K.TargetHudRoot) end
+            end)
+            -- the FIRE button and the on-screen key buttons of the script
+            K.HudRegisterFn = function(name, spec)
+                if editor.Elements[name] == nil or editor.Elements[name].Frame ~= spec.Frame then editor.register(name, spec) end
+            end
+            for name, spec in pairs(K.HudPieces or {}) do pcall(K.HudRegisterFn, name, spec) end
         else
             log("LY HUD editor failed: " .. tostring(editor))
         end
@@ -92040,6 +92378,14 @@ end
                     if e ~= nil then e.open() end
                 end,
             })
+            sec:AddToggle({
+                Label = "Mobile key buttons",
+                Tooltip = "An on-screen button for every key feature that is not Always: hold it for a Hold key, tap it for a Toggle key. On by default on phones. Move and hide them in the HUD editor",
+                Default = K.MobileKeys ~= nil and K.MobileKeys.Enabled == true,
+                OnChanged = function(on)
+                    if K.MobileKeys ~= nil then K.MobileKeys.setEnabled(on) end
+                end,
+            })
             sec:AddButton({
                 Label = "Reset HUD layout",
                 Tooltip = "Put every HUD piece back at its default place and size",
@@ -92072,8 +92418,296 @@ end
     function LMenu:SetWatermarkUsername(name)
         self._wmName = name
     end
+    ---------------------------------------------------------------------------------------------- skin changer
+    -- The picker of skins, wraps, charms and finishers as a card grid of MD3 (the classic menu's own widget is made of
+    -- the classic menu's controls). Same surface as the classic one: SetItems / SetState / SetFilter /
+    -- SetClearFilterAction / Set / Value / OnChanged; items are { Name, Image, Render }.
+    do
+        local SkinC = S.subclass()
+        local origMaker = S.Makers.SkinChanger
+
+        S.Makers.SkinChanger = function(sec, o)
+            -- only the LY menu has the keybind list entries of this form
+            if sec._menu._listAdd == nil then return origMaker(sec, o) end
+            return SkinC.new(sec, o or {})
+        end
+
+        local STATE_TEXT = {
+            Loading = { "Loading catalog", "The previews are being prepared." },
+            Unavailable = { "Unavailable", "The catalog could not be loaded." },
+            Empty = { "No items available", "This catalog does not have any items yet." },
+            NoMatches = { "No matches", "Nothing matches the search." },
+        }
+
+        local function indexOf(items, name)
+            for i, it in ipairs(items) do
+                if it.Name == name then return i end
+            end
+            return nil
+        end
+
+        function SkinC.new(sec, o)
+            local self = S.newControl(sec, "SkinChanger", SkinC)
+            self.Items = o.Items or {}
+            self._published = o.Items ~= nil
+            self.State = o.State or "Ready"
+            self._stateMsg = o.StateMessage
+            self._onClear = o.OnClearFilter
+            self._filter = nil
+            self._entries = {}
+            self._token = 0
+            self._label = "SkinChanger"
+            if o.OnChanged ~= nil then self:OnChanged(o.OnChanged) end
+            self:_defer(function() self:_build() end)
+            return self
+        end
+
+        function SkinC:_instance() return self._frame end
+        function SkinC:_isReady() return self._frame ~= nil end
+
+        function SkinC:_paint(entry, selected)
+            if entry == nil then return end
+            entry.Selected = selected
+            local themer = self._themer
+            themer:Bind(entry.Button, { BackgroundColor3 = selected and "SecondaryContainer" or "SurfaceContainerHighest" })
+            themer:Bind(entry.Title, { TextColor3 = selected and "OnSecondaryContainer" or "OnSurface" })
+            entry.Stroke.Enabled = selected
+        end
+
+        function SkinC:_applyFilter()
+            local filter = self._filter
+            for _, e in ipairs(self._entries) do
+                local show = filter == nil or filter(e.Item, e.Key)
+                if e.Button.Visible ~= show then e.Button.Visible = show end
+            end
+        end
+
+        function SkinC:_applyState()
+            if self._frame == nil then return end
+            local ready = self.State == "Ready"
+            self._holder.Visible = ready
+            self._overlay.Visible = not ready
+            local text = STATE_TEXT[self.State] or { "", "" }
+            self._stTitle.Text = text[1]
+            self._stMsg.Text = self._stateMsg or text[2]
+            self._clear.Visible = self.State == "NoMatches" and self._onClear ~= nil
+        end
+
+        function SkinC:_cards()
+            self._token = self._token + 1
+            local token = self._token
+            for _, e in ipairs(self._entries) do pcall(function() e.Button:Destroy() end) end
+            self._entries = {}
+            self._sel = nil
+            local items = self.Items
+            local themer = self._themer
+            task.spawn(function()
+                for i, item in ipairs(items) do
+                    if self._token ~= token or self._dead then return end
+                    local button = Instance.new("TextButton")
+                    button.Name = tostring(item.Name)
+                    button.Text = ""
+                    button.AutoButtonColor = false
+                    button.BorderSizePixel = 0
+                    button.LayoutOrder = i
+                    button.ClipsDescendants = true
+                    local corner = Instance.new("UICorner")
+                    corner.CornerRadius = UDim.new(0, 12)
+                    corner.Parent = button
+                    local stroke = Instance.new("UIStroke")
+                    stroke.Thickness = 2
+                    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+                    stroke.Enabled = false
+                    themer:Bind(stroke, { Color = "Primary" })
+                    stroke.Parent = button
+                    local preview = Instance.new("Frame")
+                    preview.BackgroundTransparency = 1
+                    preview.Size = UDim2.new(1, -12, 1, -34)
+                    preview.Position = UDim2.fromOffset(6, 6)
+                    preview.Parent = button
+                    local image = Instance.new("ImageLabel")
+                    image.BackgroundTransparency = 1
+                    image.Size = UDim2.fromScale(1, 1)
+                    image.ScaleType = Enum.ScaleType.Fit
+                    image.Image = item.Image or "rbxassetid://89204837120267"
+                    image.Parent = preview
+                    local title = Instance.new("TextLabel")
+                    title.BackgroundTransparency = 1
+                    title.Size = UDim2.new(1, -8, 0, 24)
+                    title.Position = UDim2.new(0, 4, 1, -27)
+                    title.Font = Enum.Font.GothamMedium
+                    title.TextSize = 12
+                    title.Text = tostring(item.Name)
+                    title.TextTruncate = Enum.TextTruncate.AtEnd
+                    title.TextWrapped = true
+                    title.Parent = button
+                    local entry = { Item = item, Button = button, Title = title, Stroke = stroke, Key = tostring(item.Name):lower() }
+                    self._entries[#self._entries + 1] = entry
+                    self:_paint(entry, item.Name == self.Value)
+                    if item.Name == self.Value then self._sel = entry end
+                    if item.Render ~= nil then
+                        local content = Instance.new("Frame")
+                        content.BackgroundTransparency = 1
+                        content.Size = UDim2.fromScale(1, 1)
+                        content.Parent = preview
+                        local ok, err = pcall(item.Render, item, {
+                            Content = content,
+                            HideImage = function() image.Visible = false end,
+                        })
+                        if not ok then log("LY skin preview failed: " .. tostring(err)) end
+                    end
+                    button.MouseButton1Click:Connect(function() self:Set(item.Name) end)
+                    local filter = self._filter
+                    if filter ~= nil and not filter(item, entry.Key) then button.Visible = false end
+                    button.Parent = self._holder
+                    if i % 8 == 0 then task.wait() end
+                end
+            end)
+        end
+
+        function SkinC:_build()
+            local gb = self._sec._gb
+            local md = gb._md
+            local win = gb._tab._lib.Window
+            local themer = win._themer
+            self._themer = themer
+            local frame = Instance.new("Frame")
+            frame.Name = "SkinChanger"
+            frame.BorderSizePixel = 0
+            frame.Size = UDim2.new(1, 0, 0, 340)
+            frame.LayoutOrder = md:_nextOrder()
+            themer:Bind(frame, { BackgroundColor3 = "SurfaceContainerHigh" })
+            local corner = Instance.new("UICorner")
+            corner.CornerRadius = UDim.new(0, 14)
+            corner.Parent = frame
+            local holder = Instance.new("ScrollingFrame")
+            holder.Name = "Cards"
+            holder.BackgroundTransparency = 1
+            holder.BorderSizePixel = 0
+            holder.Size = UDim2.new(1, -12, 1, -12)
+            holder.Position = UDim2.fromOffset(6, 6)
+            holder.ScrollBarThickness = 4
+            holder.CanvasSize = UDim2.new()
+            holder.AutomaticCanvasSize = Enum.AutomaticSize.Y
+            holder.ScrollingDirection = Enum.ScrollingDirection.Y
+            holder.Parent = frame
+            local grid = Instance.new("UIGridLayout")
+            grid.CellSize = UDim2.fromOffset(108, 124)
+            grid.CellPadding = UDim2.fromOffset(8, 8)
+            grid.SortOrder = Enum.SortOrder.LayoutOrder
+            grid.HorizontalAlignment = Enum.HorizontalAlignment.Center
+            grid.Parent = holder
+            local overlay = Instance.new("Frame")
+            overlay.Name = "State"
+            overlay.BackgroundTransparency = 1
+            overlay.Size = UDim2.fromScale(1, 1)
+            overlay.Visible = false
+            overlay.Parent = frame
+            local list = Instance.new("UIListLayout")
+            list.HorizontalAlignment = Enum.HorizontalAlignment.Center
+            list.VerticalAlignment = Enum.VerticalAlignment.Center
+            list.Padding = UDim.new(0, 6)
+            list.SortOrder = Enum.SortOrder.LayoutOrder
+            list.Parent = overlay
+            local stTitle = Instance.new("TextLabel")
+            stTitle.BackgroundTransparency = 1
+            stTitle.Size = UDim2.new(1, -24, 0, 22)
+            stTitle.Font = Enum.Font.GothamMedium
+            stTitle.TextSize = 16
+            stTitle.LayoutOrder = 1
+            themer:Bind(stTitle, { TextColor3 = "OnSurface" })
+            stTitle.Parent = overlay
+            local stMsg = Instance.new("TextLabel")
+            stMsg.BackgroundTransparency = 1
+            stMsg.Size = UDim2.new(1, -24, 0, 36)
+            stMsg.Font = Enum.Font.Gotham
+            stMsg.TextSize = 13
+            stMsg.TextWrapped = true
+            stMsg.LayoutOrder = 2
+            themer:Bind(stMsg, { TextColor3 = "OnSurfaceVariant" })
+            stMsg.Parent = overlay
+            local clear = Instance.new("TextButton")
+            clear.Size = UDim2.fromOffset(120, 32)
+            clear.AutoButtonColor = true
+            clear.Text = "Clear search"
+            clear.Font = Enum.Font.GothamMedium
+            clear.TextSize = 13
+            clear.BorderSizePixel = 0
+            clear.Visible = false
+            clear.LayoutOrder = 3
+            themer:Bind(clear, { BackgroundColor3 = "SecondaryContainer", TextColor3 = "OnSecondaryContainer" })
+            local clearCorner = Instance.new("UICorner")
+            clearCorner.CornerRadius = UDim.new(1, 0)
+            clearCorner.Parent = clear
+            clear.Parent = overlay
+            clear.MouseButton1Click:Connect(function()
+                local fn = self._onClear
+                if fn ~= nil then fn() end
+            end)
+            frame.Parent = md._holder
+            self._frame, self._holder, self._overlay, self._stTitle, self._stMsg, self._clear = frame, holder, overlay, stTitle, stMsg, clear
+            self._el = { Instance = frame, Destroy = function() frame:Destroy() end }
+            self:_cards()
+            self:_applyState()
+        end
+
+        function SkinC:Set(name, silent)
+            local v = name
+            if v ~= nil and self._published and indexOf(self.Items, v) == nil then v = nil end
+            local entry
+            for _, e in ipairs(self._entries) do
+                if e.Item.Name == v then entry = e break end
+            end
+            if self.Value == v and (entry == nil or self._sel == entry) and not (name ~= nil and v == nil) then return end
+            self.Value = v
+            if self._sel ~= nil and self._sel ~= entry then self:_paint(self._sel, false) end
+            self._sel = entry
+            if entry ~= nil then self:_paint(entry, true) end
+            self.ValueChanged:Fire(v)
+            if not silent then self.Changed:Fire(v) end
+        end
+
+        function SkinC:SetItems(items, silent)
+            self.Items = table.clone(items)
+            self._published = true
+            local value, emit = self.Value, false
+            if value == nil or indexOf(self.Items, value) == nil then
+                value = self.Items[1] and self.Items[1].Name or nil
+                emit = self.Value ~= nil
+            end
+            self.Value = value
+            if self._frame ~= nil then self:_cards() end
+            self.ValueChanged:Fire(value)
+            if emit and not silent then self.Changed:Fire(value) end
+        end
+
+        function SkinC:SetFilter(filter)
+            self._filter = filter
+            if self._frame ~= nil then self:_applyFilter() end
+            return self
+        end
+
+        function SkinC:SetState(state, message)
+            self.State = state
+            self._stateMsg = message
+            self:_applyState()
+            return self
+        end
+
+        function SkinC:SetClearFilterAction(fn)
+            self._onClear = fn
+            self:_applyState()
+            return self
+        end
+
+        function SkinC:Destroy()
+            self._token = self._token + 1
+            self._dead = true
+            pcall(function() self._frame:Destroy() end)
+        end
+    end
 end
-end)({ Menu = Menu, StarUI = StarUI, uid = uid, log = log, isMethodName = isMethodName })
+end)({ Menu = Menu, StarUI = StarUI, uid = uid, log = log, isMethodName = isMethodName, Makers = Makers, newControl = newControl, subclass = subclass })
 end
 
 --==========================================================================
