@@ -9,6 +9,143 @@ if not game:IsLoaded() then game.Loaded:Wait() end
 
 local K = { connections = {}, cleanups = {}, destroyed = false }
 getgenv().KiciaRebuild = K
+;(function()
+-- already done in this session (by LY.lua or an earlier load of this script)
+local existing = getgenv().LY_GameModules
+if type(existing) == "table" and existing.Patched then return end
+-- Game module discovery. After the game has loaded, every function in getgc() is walked
+-- and its upvalue tables are recognised by a hash of their instruction data, not by
+-- name, so renamed / obfuscated modules are still found. The hash is made from the
+-- original instructions (venom.getOriginalInstructions where the executor has it, else the
+-- raw number array): h = 2654435761; for each instruction a: h = h ~ (a + (h << 6) + (h >> 2)),
+-- then the result is xored with the instruction count and printed as 8 hex digits.
+-- Five module families are matched (Root, ReplicatedController, ClientFighter, ClientItem,
+-- MiscController); two more hashes (914dfeab, 4c7c940e) mark an upvalue table that is cleared
+-- and set to [1] = 57. The result is kept in getgenv().LY_GameModules.
+do
+	local KNOWN = {
+		Root            = { ["000f3c64"] = true, ["001d9356"] = true, ["01376267"] = true },
+		ReplicatedController = { ["26300cc2"] = true, ["3b713ab8"] = true, ["61a78249"] = true },
+		ClientFighter   = { ["0083fae0"] = true, ["04f15c38"] = true, ["138adef0"] = true },
+		ClientItem      = { ["033a8ef6"] = true, ["0362417b"] = true, ["0318b3a4"] = true, ["0571209b"] = true, ["0601d153"] = true },
+		MiscController  = { ["15d1968b"] = true, ["2e5052de"] = true, ["3798264a"] = true },
+	}
+	local PATCHED = { ["914dfeab"] = true, ["4c7c940e"] = true }
+
+	local env = type(getgenv) == "function" and getgenv() or _G
+	local state = { Found = {}, Patched = false, Done = false }
+	env.LY_GameModules = state
+
+	local function instructionsOf(value)
+		local venom = env.venom
+		if venom and venom.getOriginalInstructions then
+			local ok, instructions = pcall(venom.getOriginalInstructions, value)
+			if ok and instructions then
+				return instructions
+			end
+		end
+		if getmetatable(value) ~= nil or type(rawget(value, 1)) ~= "number" then
+			return nil
+		end
+		return value
+	end
+
+	local function hashOf(value)
+		local instructions = instructionsOf(value)
+		if instructions == nil then
+			return nil
+		end
+		local h, count = 2654435761, 0
+		for i = 1, 512 do
+			local a = instructions[i]
+			if type(a) ~= "number" then
+				break
+			end
+			h = bit32.bxor(h, a + bit32.lshift(h, 6) + bit32.rshift(h, 2))
+			count += 1
+		end
+		return string.format("%08x", bit32.bxor(h, count))
+	end
+	state.Hash = hashOf
+
+	-- Functions already examined: later passes skip them, so only new ones cost anything.
+	local seen = setmetatable({}, { __mode = "k" })
+
+	local function scan()
+		local worked, skipped = 0, 0
+		for _, func in next, setmetatable(getgc(), { __mode = "kv" }) do
+			if type(func) == "function" then
+				if seen[func] then
+					skipped += 1
+					if skipped % 20000 == 0 then
+						task.wait()
+					end
+				else
+					seen[func] = true
+					-- yield now and then so a big gc list never freezes a frame
+					worked += 1
+					if worked % 2000 == 0 then
+						task.wait()
+					end
+					local ok, upvalues = pcall(debug.getupvalues, func)
+					if ok then
+						for _, upvalue in next, upvalues do
+							if type(upvalue) == "table" then
+								local hash = hashOf(upvalue)
+								if hash then
+									if PATCHED[hash] then
+										table.clear(upvalue)
+										upvalue[1] = 57
+										state.Patched = true
+										break
+									end
+									for family, hashes in next, KNOWN do
+										if hashes[hash] then
+											state.Found[family] = true
+											break
+										end
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+
+	local function complete()
+		if not state.Patched then
+			return false
+		end
+		for family in next, KNOWN do
+			if not state.Found[family] then
+				return false
+			end
+		end
+		return true
+	end
+
+	-- Runs in the background: the hub UI no longer waits (up to 30 s) for the scan.
+	if type(getgc) == "function" and debug and debug.getupvalues then
+		task.spawn(function()
+			local deadline = tick() + 30
+			local passes = 0
+			while tick() < deadline do
+				if not pcall(scan) then
+					break
+				end
+				if complete() then
+					break
+				end
+				passes += 1
+				task.wait(passes < 3 and 1.5 or 4)
+			end
+			state.Done = complete()
+		end)
+	end
+end
+end)()
 --==========================================================================
 --  Starlight Interface Suite by Nebula Softworks (github.com/Nebula-Softworks/Starlight-Interface-Suite),
 --  embedded so the menu needs no download or loadstring of the library. Licensed CC BY-NC 4.0: credit stays with
@@ -30159,9 +30296,9 @@ end
 local function fn40(arg, arg2, arg3)
 arg:AddDropdown({
 Label = "UI Style",
-Options = { "Starlight", "Lite", "Setsuna", "Setsuna Drop", "Classic" },
+Options = { "Lite", "Setsuna", "Setsuna Drop", "LY", "Classic" },
 Default = K.UIMode(),
-Tooltip = "Starlight (default) is built into the script; if it fails, the classic menu is shown for that session. Classic is the script's own menu.",
+Tooltip = "Classic (default) is the script's own menu. Lite, Setsuna, Setsuna Drop and LY are built into the script; if one fails, the classic menu is shown for that session.",
 OnChanged = function(mode)
 if mode ~= nil and mode ~= K.UIMode() then K.SwitchUI(mode) end
 end,
@@ -32096,7 +32233,7 @@ return bd.c
 end
 end
 do -- be
-local function fn35()local I= tbl17 .i().atomic; tbl17 .aZ();local W,N,P= tbl17 .aU(), tbl17 .aW(), tbl17 .aY();return{Aimbot=W.buildConfig(),SilentAim=N.buildConfig(),Triggerbot=P.buildConfig(),Ragebot={Enabled=false,Keybind={State=false,Kind="Always",Bind=nil,ShowInList=true,Invisible=false},Stability=0.15,ShootFrames=1,Careful={EvadeBetweenShots=true,RetaliateOnly=true,RetaliateWindow=1.5},PrioritizeHackers=false,EvadeWhenHacking=false,StartDelay=false,FWWeaponCheck=false,DetectKnife=true,KnifeMode="Original",TargetHud={Enabled=false,Scale=100,ItemScale=100,PosX=50,PosY=15},UE={VoidSpam=true,NoVoid=false,KnifeCooldown08=false,AttackTime=0.1,HideTime=0.25,ShootAttempts=1,VoidDistance=2147483647,KnifeAttack="Heavy",KnifeLead=0,KnifeStand="Sphere"},Weapons={Priority=I({"Primary","Secondary","Melee"}),Enabled={Primary=true,Secondary=true,Melee=true},OnEmpty="SwapOrReload"},Evasion={Mode="Random",Random={AnchorFromCharacter=false,BaseRadius=100,RadiusRandomFactor=0.5},ProjectileBreaker={DepthForward={Min=0,Max=4},DepthForwardFrequency=5,DepthUp={Min=0,Max=5.5},DepthUpFrequency=5,RepositionInterval=0.3,FallbackAnchorFromCharacter=false,FallbackBaseRadius=100,FallbackRadiusRandomFactor=0.5},Translocate={Offset=-5}},UtilizeHealthLead=false},Flickbot={Enabled=false,Keybind={State=false,Kind="Hold",Bind=nil,ShowInList=true,Invisible=false},Shoot=false,ShotDelay=0,Cooldown=250,FlickDuration=110,Curvature=12,Humanness=30}};end
+local function fn35()local I= tbl17 .i().atomic; tbl17 .aZ();local W,N,P= tbl17 .aU(), tbl17 .aW(), tbl17 .aY();return{Aimbot=W.buildConfig(),SilentAim=N.buildConfig(),Triggerbot=P.buildConfig(),Ragebot={Enabled=false,Keybind={State=false,Kind="Always",Bind=nil,ShowInList=true,Invisible=false},Stability=0.15,ShootFrames=1,CustomAttackHeight=false,AttackHeight=-0.7,Careful={EvadeBetweenShots=true,RetaliateOnly=true,RetaliateWindow=1.5},PrioritizeHackers=false,EvadeWhenHacking=false,StartDelay=false,FWWeaponCheck=false,DetectKnife=true,KnifeMode="Original",TargetHud={Enabled=false,AlwaysShow=true,Scale=100,ItemScale=100,PosX=50,PosY=15},UE={VoidSpam=true,NoVoid=false,KnifeCooldown08=false,AttackTime=0.1,HideTime=0.25,ShootAttempts=1,VoidDistance=2147483647,KnifeAttack="Heavy",KnifeLead=0,KnifeStand="Sphere"},Weapons={Priority=I({"Primary","Secondary","Melee"}),Enabled={Primary=true,Secondary=true,Melee=true},OnEmpty="SwapOrReload"},Evasion={Mode="Random",Random={AnchorFromCharacter=false,BaseRadius=100,RadiusRandomFactor=0.5},ProjectileBreaker={DepthForward={Min=0,Max=4},DepthForwardFrequency=5,DepthUp={Min=0,Max=5.5},DepthUpFrequency=5,RepositionInterval=0.3,FallbackAnchorFromCharacter=false,FallbackBaseRadius=100,FallbackRadiusRandomFactor=0.5},Translocate={Offset=-5}},UtilizeHealthLead=false},Flickbot={Enabled=false,Keybind={State=false,Kind="Hold",Bind=nil,ShowInList=true,Invisible=false},Shoot=false,ShotDelay=0,Cooldown=250,FlickDuration=110,Curvature=12,Humanness=30}};end
 
 tbl17.be = function()
 local be = tbl17.cache.be
@@ -43433,30 +43570,57 @@ local weaponPool = v102(data, "WeaponPool")
 return v102(data, "WeaponPoolFilterType") == "Blacklist" and table.find(weaponPool, arg2) ~= nil
 end
 
--- Picks the loadout, at most AUTO_LOADOUT_ATTEMPTS times: the pick is refused when the page has only just opened
--- (CanPickWeapons not set yet), and a refusal used to be swallowed, so that duel kept the default loadout. A try that
--- failed because the loadout is already there (4 items) ends quietly; the last failure is printed to the F9 console.
-local AUTO_LOADOUT_ATTEMPTS = 3
+-- Picks the loadout the way LY.lua does: through the pick screen's own remote (the one ahead of time in a
+-- staggered-spawn duel), once the server allows picking (CanPickWeapons, up to 12 tries 0.25 s apart), then the pick
+-- page is closed like the game's Finish does.
+local lastLYPickAt = 0
 local function fn37(arg, loadout)
-local function attempt(n)
-arg.LoadoutPicker:PickLoadoutAsync(loadout):andThen(function()
-K.Log("autoload", "try " .. n .. " ok: the server added the items")
-end):catch(function(err)
-local okItems, items = pcall(function() return arg.FighterState:GetItems() end)
--- what the picker saw, written to the session log: item count + names, CanPickWeapons, alive, skin changer on
-local names = {}
-if okItems and type(items) == "table" then
-for _, item in items do table.insert(names, tostring(item.Name)) end
-end
-local okCan, canPick = pcall(v102, arg.FighterState.Inner, "CanPickWeapons")
-K.Log("autoload", string.format("try %d failed: %s | items=%d [%s] canPick=%s alive=%s skins=%s", n, tostring(err), #names, table.concat(names, ","), tostring(okCan and canPick), tostring(arg.FighterState.Character.State.Alive), tostring(K.Skins ~= nil)))
-if okItems and type(items) == "table" and #items >= 4 then
+local list = { loadout[1], loadout[2], loadout[3], loadout[4] }
+if list[1] == nil then list = { loadout["1"], loadout["2"], loadout["3"], loadout["4"] } end
+if list[1] == nil or list[2] == nil or list[3] == nil or list[4] == nil then
+K.Log("autoload", "the loadout has an empty slot, nothing picked")
 return
 end
-if n < AUTO_LOADOUT_ATTEMPTS then
-task.delay(0.4, attempt, n + 1)
-else
-warn("[Kicia Rebuild] auto loadout failed after " .. n .. " tries: " .. tostring(err))
+local localPlayer = cloneref(game:GetService("Players")).LocalPlayer
+local replicatedStorage = cloneref(game:GetService("ReplicatedStorage"))
+local function attempt(n)
+local fighterController
+pcall(function() fighterController = require(localPlayer.PlayerScripts.Controllers.FighterController) end)
+local canPick = true
+pcall(function() canPick = fighterController.LocalFighter:Get("CanPickWeapons") ~= false end)
+if not canPick then
+if n < 12 then task.delay(0.25, attempt, n + 1) else K.Log("autoload", "picking is still not allowed after 12 tries") end
+return
+end
+if os.clock() - lastLYPickAt < 1 then return end
+lastLYPickAt = os.clock()
+local remotes = replicatedStorage:FindFirstChild("Remotes")
+local replication = remotes and remotes:FindFirstChild("Replication")
+local fighterFolder = replication and replication:FindFirstChild("Fighter")
+local remote = fighterFolder and fighterFolder:FindFirstChild("PickWeapons")
+if remote == nil then
+K.Log("autoload", "the PickWeapons remote was not found")
+return
+end
+pcall(function()
+local duelController = require(localPlayer.PlayerScripts.Controllers.DuelController)
+local duel = duelController:GetDuel(localPlayer)
+local dueler = duel and duel.LocalDueler
+if dueler and dueler:GetStaggeredSpawnsTurn() then
+local ahead = remotes.Duels:FindFirstChild("PickWeaponsAheadOfTime")
+if ahead then remote = ahead end
+end
+end)
+pcall(remote.FireServer, remote, list)
+K.Log("autoload", "pick sent: " .. table.concat(list, " / "))
+pcall(function()
+local pagesModule = localPlayer.PlayerScripts.Modules.UserInterface.Pages
+local pages = require(pagesModule)
+if pages and pages.PageSystem and pages.PageSystem.CurrentPage then
+local name = pages.PageSystem.CurrentPage.Name
+if name == "PickWeapons" or name == "PickWeaponsList" then
+pages.PageSystem:CloseCurrentPage()
+end
 end
 end)
 end
@@ -71826,7 +71990,7 @@ return ie.c
 end
 end
 do -- ih
-local function fn35() tbl17 .aE();local cfgd= tbl17 .bG();local I= tbl17 .h6();local function l(W)I(W,"Enable Ragebot",{"Always","Toggle","Hold"},{"Ragebot"},true);local style=W:AddDropdown({Label="Ragebot Style",Tooltip="KH: Kicia's own ragebot. UE: the Unnamed Enhancements ragebot (void spam, backstab, gun and light attack). Picking UE hides the KH settings. Auto: plays as KH until the Hacker Detector flags an enemy, then switches this dropdown to FW UE and stays there. Careful: the LY hub's own ragebot in its Careful mode (its own targeting, teleport attack, evasion and reloads). Careful Settings, Weapon Strategy and Target HUD apply to it.",Options={"Original","UE","Careful","FWUE"},Labels={Original="KH",UE="UE",Careful="Careful",FWUE="FW UE trash kh"},Config={"Ragebot","KnifeMode"}});W:AddToggle({Label="Round Start Delay",Tooltip="At the start of a round, hide in the void for a random 1-6 s first, then start attacking. Applies to every Ragebot Style.",Config={"Ragebot","StartDelay"}});W:AddToggle({Label="Prioritize Hackers",Config={"Ragebot","PrioritizeHackers"}});W:AddToggle({Label="Evade When Target Hacking",Config={"Ragebot","EvadeWhenHacking"}});W:AddButton({Label="Clear Hacker Tags",OnClick=function()local d=K.HackerDetector;local ok,n=pcall(function()return d and d:ClearTags() or nil;end);local text=(not ok or n==nil) and "Hacker detector is not ready" or string.format("Cleared %d hacker tag(s)",n);pcall(function()tbl17.aB().get():Notify(text);end);end});return style;end;local function kf(W)W:AddToggle({Label="Detect Knife",Config={"Ragebot","DetectKnife"}});W:AddSlider({Label="Stability",Min=0,Max=1.5,Step=0.001,Config={"Ragebot","Stability"}});W:AddSlider({Label="Shoot Frames",Min=1,Max=5,Config={"Ragebot","ShootFrames"}});end;local function cf(W)W:AddToggle({Label="Evade Between Shots",Tooltip="Slow weapons (shotgun, sniper, knife): evade in the gaps instead of standing on the target",Config={"Ragebot","Careful","EvadeBetweenShots"}});W:AddToggle({Label="Attack After Enemy",Tooltip="Only shoot an enemy in the gap right after it fired or swung, or while its weapon cools down or reloads",Config={"Ragebot","Careful","RetaliateOnly"}});W:AddSlider({Label="Gap Window",Tooltip="How long after its shot or swing an enemy can still be shot (its weapon cooldown or reload also counts)",Min=0.5,Max=5,Step=0.1,Suffix="s",Config={"Ragebot","Careful","RetaliateWindow"}});end;local function uf(W)W:AddToggle({Label="Never Void",Tooltip="Never hide in the void (UE style): no hide phase, and none while reloading, swapping, without a target or between knife stabs. You stay where you are.",Config={"Ragebot","UE","NoVoid"}});W:AddToggle({Label="Backstab Cooldown 0.8",Tooltip="On: the time between two backstabs is HeavyAttackCooldown x 0.8. Off: UE's own x 0.75.",Config={"Ragebot","UE","KnifeCooldown08"}});W:AddToggle({Label="Void Spam",Tooltip="Hide in the void between attack bursts (UE void spam). Used by the gun and the light attack, not by the backstab.",Config={"Ragebot","UE","VoidSpam"}});W:AddSlider({Label="Void Spam Attack",Tooltip="the amount of time attacking before hiding again (UE adds 0.1 s on top)",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","AttackTime"}});W:AddSlider({Label="Void Spam Hide",Tooltip="how long it stays in void for",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","HideTime"}});W:AddSlider({Label="Shoot Attempts",Tooltip="how many times it will try to fire your weapon (UE: ragebot_shoot_attempts)",Min=1,Max=2,Step=1,Config={"Ragebot","UE","ShootAttempts"}});W:AddDropdown({Label="Knife Attack",Tooltip="Heavy Backstab = UE attack mode knife. Light Attack = UE attack mode melee (fast light attacks with the knife).",Options={"Heavy","Light"},Labels={Heavy="Heavy Backstab",Light="Light Attack"},Config={"Ragebot","UE","KnifeAttack"}});end;local function I(W)local N={"Primary","Secondary","Melee"};for P,P in N,nil,nil do W:AddToggle({Label=string.format("%s Enabled",tostring(P)),Config={"Ragebot","Weapons","Enabled",P}});end;W:AddOrderedList({Label="Weapon Priority",Items=N,Default=N,Config={"Ragebot","Weapons","Priority"}});W:AddDropdown({Label="On Empty",Options={"Reload","Swap","SwapOrReload"},Labels={SwapOrReload="Swap or Reload"},Config={"Ragebot","Weapons","OnEmpty"}});end;local function W(N,P)local a=N:AddGroup({Source=P,Option="ProjectileBreaker"});a:AddRangeSlider({Label="Forward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForward"}});a:AddSlider({Label="Forward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForwardFrequency"}});a:AddRangeSlider({Label="Upward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUp"}});a:AddSlider({Label="Upward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUpFrequency"}});a:AddSlider({Label="Reposition Interval (s)",Min=0.05,Max=2,Step=0.01,Config={"Ragebot","Evasion","ProjectileBreaker","RepositionInterval"}});a:AddToggle({Label="Fallback Character Origin",Config={"Ragebot","Evasion","ProjectileBreaker","FallbackAnchorFromCharacter"}});a:AddSlider({Label="Fallback Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackBaseRadius"}});a:AddSlider({Label="Fallback Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackRadiusRandomFactor"}});end;local function N(P)local a=P:AddDropdown({Label="Evasion Mode",Options={"Off","Random","Translocate","ProjectileBreaker"},Labels={ProjectileBreaker="Projectile Breaker"},Config={"Ragebot","Evasion","Mode"}});local e=P:AddGroup({Source=a,Option="Random"});e:AddToggle({Label="Character Origin",Config={"Ragebot","Evasion","Random","AnchorFromCharacter"}});e:AddSlider({Label="Base Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","Random","BaseRadius"}});e:AddSlider({Label="Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","Random","RadiusRandomFactor"}});P:AddGroup({Source=a,Option="Translocate"}):AddSlider({Label="Offset",Min=-5,Max=5,Step=0.1,Config={"Ragebot","Evasion","Translocate","Offset"}});W(P,a);end;local function H(P)P:AddToggle({Label="Target HUD",Config={"Ragebot","TargetHud","Enabled"}});P:AddSlider({Label="Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","Scale"}});P:AddSlider({Label="Item Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","ItemScale"}});P:AddSlider({Label="Offset X (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosX"}});P:AddSlider({Label="Offset Y (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosY"}});end;return function(W)local style=l(W:AddSection({Title="Activation",Side="left"}));local khSection=W:AddSection({Title="KH Settings",Side="left"});kf(khSection);local carefulSection=W:AddSection({Title="Careful Settings",Side="left"});cf(carefulSection);local ueSection=W:AddSection({Title="UE Settings",Side="left"});uf(ueSection);local weaponSection=W:AddSection({Title="Weapon Strategy",Side="left"});I(weaponSection);local evasionSection=W:AddSection({Title="Evasion",Side="right"});N(evasionSection);local hudSection=W:AddSection({Title="Target HUD",Side="right"});H(hudSection);local fwSection=W:AddSection({Title="FW UE Settings",Side="left"});fwSection:AddToggle({Label="FW Weapon Check",Tooltip="Hide only while the weapon window is open. Slow weapons: the shot / swing cooldown must have at least 0.6 s left. Fast weapons (cooldown up to 0.3 s): the magazine must be nearly empty. Nobody may be reloading, and an enemy starting to reload sends you back to the void. No time limit on the wait.",Config={"Ragebot","FWWeaponCheck"}});local function applyStyle()local picked=style.Value;local isUE=picked=="UE";local isCareful=picked=="Careful";local isEmpty=picked=="FWUE";khSection:SetVisible(not isUE and not isCareful and not isEmpty);evasionSection:SetVisible(not isUE and not isCareful and not isEmpty);ueSection:SetVisible(isUE);carefulSection:SetVisible(isCareful);weaponSection:SetVisible(not isEmpty);hudSection:SetVisible(not isEmpty);fwSection:SetVisible(picked=="FWUE");end;applyStyle();pcall(function()style.ValueChanged:Connect(applyStyle);end);end;end
+local function fn35() tbl17 .aE();local cfgd= tbl17 .bG();local I= tbl17 .h6();local function l(W)I(W,"Enable Ragebot",{"Always","Toggle","Hold"},{"Ragebot"},true);local style=W:AddDropdown({Label="Ragebot Style",Tooltip="KH: Kicia's own ragebot. UE: the Unnamed Enhancements ragebot (void spam, backstab, gun and light attack). Picking UE hides the KH settings. Auto: plays as KH until the Hacker Detector flags an enemy, then switches this dropdown to FW UE and stays there. Careful: the LY hub's own ragebot in its Careful mode (its own targeting, teleport attack, evasion and reloads). Careful Settings, Weapon Strategy and Target HUD apply to it.",Options={"Original","UE","Careful","FWUE"},Labels={Original="KH",UE="UE",Careful="Careful",FWUE="FW UE trash kh"},Config={"Ragebot","KnifeMode"}});W:AddToggle({Label="Round Start Delay",Tooltip="At the start of a round, hide in the void for a random 1-6 s first, then start attacking. Applies to every Ragebot Style.",Config={"Ragebot","StartDelay"}});W:AddToggle({Label="Prioritize Hackers",Config={"Ragebot","PrioritizeHackers"}});W:AddToggle({Label="Evade When Target Hacking",Config={"Ragebot","EvadeWhenHacking"}});W:AddButton({Label="Clear Hacker Tags",OnClick=function()local d=K.HackerDetector;local ok,n=pcall(function()return d and d:ClearTags() or nil;end);local text=(not ok or n==nil) and "Hacker detector is not ready" or string.format("Cleared %d hacker tag(s)",n);pcall(function()tbl17.aB().get():Notify(text);end);end});return style;end;local function kf(W)W:AddToggle({Label="Detect Knife",Config={"Ragebot","DetectKnife"}});W:AddSlider({Label="Stability",Min=0,Max=1.5,Step=0.001,Config={"Ragebot","Stability"}});W:AddSlider({Label="Shoot Frames",Min=1,Max=5,Config={"Ragebot","ShootFrames"}});W:AddToggle({Label="Custom Attack Height",Tooltip="Off: the fixed stand height (0.7 below the head hitbox of the target). On: the Attack Height below is used.",Config={"Ragebot","CustomAttackHeight"}});W:AddSlider({Label="Attack Height",Tooltip="How far above (+) or below (-) the head hitbox of the target you stand. A shield pointing down is 3.15 lower.",Min=-15,Max=15,Step=0.05,Config={"Ragebot","AttackHeight"}});end;local function cf(W)W:AddToggle({Label="Evade Between Shots",Tooltip="Slow weapons (shotgun, sniper, knife): evade in the gaps instead of standing on the target",Config={"Ragebot","Careful","EvadeBetweenShots"}});W:AddToggle({Label="Attack After Enemy",Tooltip="Only shoot an enemy in the gap right after it fired or swung, or while its weapon cools down or reloads",Config={"Ragebot","Careful","RetaliateOnly"}});W:AddSlider({Label="Gap Window",Tooltip="How long after its shot or swing an enemy can still be shot (its weapon cooldown or reload also counts)",Min=0.5,Max=5,Step=0.1,Suffix="s",Config={"Ragebot","Careful","RetaliateWindow"}});W:AddToggle({Label="Custom Attack Height",Tooltip="Off: the fixed stand height (0.7 below the head hitbox of the target). On: the Attack Height below is used.",Config={"Ragebot","CustomAttackHeight"}});W:AddSlider({Label="Attack Height",Tooltip="How far above (+) or below (-) the head hitbox of the target you stand. A shield pointing down is 3.15 lower.",Min=-15,Max=15,Step=0.05,Config={"Ragebot","AttackHeight"}});end;local function uf(W)W:AddToggle({Label="Never Void",Tooltip="Never hide in the void (UE style): no hide phase, and none while reloading, swapping, without a target or between knife stabs. You stay where you are.",Config={"Ragebot","UE","NoVoid"}});W:AddToggle({Label="Backstab Cooldown 0.8",Tooltip="On: the time between two backstabs is HeavyAttackCooldown x 0.8. Off: UE's own x 0.75.",Config={"Ragebot","UE","KnifeCooldown08"}});W:AddToggle({Label="Void Spam",Tooltip="Hide in the void between attack bursts (UE void spam). Used by the gun and the light attack, not by the backstab.",Config={"Ragebot","UE","VoidSpam"}});W:AddSlider({Label="Void Spam Attack",Tooltip="the amount of time attacking before hiding again (UE adds 0.1 s on top)",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","AttackTime"}});W:AddSlider({Label="Void Spam Hide",Tooltip="how long it stays in void for",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","HideTime"}});W:AddSlider({Label="Shoot Attempts",Tooltip="how many times it will try to fire your weapon (UE: ragebot_shoot_attempts)",Min=1,Max=2,Step=1,Config={"Ragebot","UE","ShootAttempts"}});W:AddDropdown({Label="Knife Attack",Tooltip="Heavy Backstab = UE attack mode knife. Light Attack = UE attack mode melee (fast light attacks with the knife).",Options={"Heavy","Light"},Labels={Heavy="Heavy Backstab",Light="Light Attack"},Config={"Ragebot","UE","KnifeAttack"}});end;local function I(W)local N={"Primary","Secondary","Melee"};for P,P in N,nil,nil do W:AddToggle({Label=string.format("%s Enabled",tostring(P)),Config={"Ragebot","Weapons","Enabled",P}});end;W:AddOrderedList({Label="Weapon Priority",Items=N,Default=N,Config={"Ragebot","Weapons","Priority"}});W:AddDropdown({Label="On Empty",Options={"Reload","Swap","SwapOrReload"},Labels={SwapOrReload="Swap or Reload"},Config={"Ragebot","Weapons","OnEmpty"}});end;local function W(N,P)local a=N:AddGroup({Source=P,Option="ProjectileBreaker"});a:AddRangeSlider({Label="Forward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForward"}});a:AddSlider({Label="Forward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForwardFrequency"}});a:AddRangeSlider({Label="Upward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUp"}});a:AddSlider({Label="Upward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUpFrequency"}});a:AddSlider({Label="Reposition Interval (s)",Min=0.05,Max=2,Step=0.01,Config={"Ragebot","Evasion","ProjectileBreaker","RepositionInterval"}});a:AddToggle({Label="Fallback Character Origin",Config={"Ragebot","Evasion","ProjectileBreaker","FallbackAnchorFromCharacter"}});a:AddSlider({Label="Fallback Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackBaseRadius"}});a:AddSlider({Label="Fallback Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackRadiusRandomFactor"}});end;local function N(P)local a=P:AddDropdown({Label="Evasion Mode",Options={"Off","Random","Translocate","ProjectileBreaker"},Labels={ProjectileBreaker="Projectile Breaker"},Config={"Ragebot","Evasion","Mode"}});local e=P:AddGroup({Source=a,Option="Random"});e:AddToggle({Label="Character Origin",Config={"Ragebot","Evasion","Random","AnchorFromCharacter"}});e:AddSlider({Label="Base Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","Random","BaseRadius"}});e:AddSlider({Label="Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","Random","RadiusRandomFactor"}});P:AddGroup({Source=a,Option="Translocate"}):AddSlider({Label="Offset",Min=-5,Max=5,Step=0.1,Config={"Ragebot","Evasion","Translocate","Offset"}});W(P,a);end;local function H(P)P:AddToggle({Label="Target HUD",Config={"Ragebot","TargetHud","Enabled"}});P:AddToggle({Label="Always Show",Tooltip="Keep the card up: without a ragebot target it shows the nearest enemy.",Config={"Ragebot","TargetHud","AlwaysShow"}});P:AddSlider({Label="Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","Scale"}});P:AddSlider({Label="Item Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","ItemScale"}});P:AddSlider({Label="Offset X (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosX"}});P:AddSlider({Label="Offset Y (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosY"}});end;return function(W)local style=l(W:AddSection({Title="Activation",Side="left"}));local khSection=W:AddSection({Title="KH Settings",Side="left"});kf(khSection);local carefulSection=W:AddSection({Title="Careful Settings",Side="left"});cf(carefulSection);local ueSection=W:AddSection({Title="UE Settings",Side="left"});uf(ueSection);local weaponSection=W:AddSection({Title="Weapon Strategy",Side="left"});I(weaponSection);local evasionSection=W:AddSection({Title="Evasion",Side="right"});N(evasionSection);local hudSection=W:AddSection({Title="Target HUD",Side="right"});H(hudSection);local fwSection=W:AddSection({Title="FW UE Settings",Side="left"});fwSection:AddToggle({Label="FW Weapon Check",Tooltip="Hide only while the weapon window is open. Slow weapons: the shot / swing cooldown must have at least 0.6 s left. Fast weapons (cooldown up to 0.3 s): the magazine must be nearly empty. Nobody may be reloading, and an enemy starting to reload sends you back to the void. No time limit on the wait.",Config={"Ragebot","FWWeaponCheck"}});local function applyStyle()local picked=style.Value;local isUE=picked=="UE";local isCareful=picked=="Careful";local isEmpty=picked=="FWUE";khSection:SetVisible(not isUE and not isCareful and not isEmpty);evasionSection:SetVisible(not isUE and not isCareful and not isEmpty);ueSection:SetVisible(isUE);carefulSection:SetVisible(isCareful);weaponSection:SetVisible(not isEmpty);hudSection:SetVisible(true);fwSection:SetVisible(picked=="FWUE");end;applyStyle();pcall(function()style.ValueChanged:Connect(applyStyle);end);end;end
 
 tbl17.ih = function()
 local ih = tbl17.cache.ih
@@ -73314,6 +73478,7 @@ if mode=="Starlight" and K.StarUI~=nil then MenuClass=K.StarUI.Menu end
 if mode=="Lite" and K.SetsunaUI~=nil then MenuClass=K.SetsunaUI.Lite end
 if mode=="Setsuna" and K.SetsunaUI~=nil then MenuClass=K.SetsunaUI.Menu end
 if mode=="Setsuna Drop" and K.SetsunaUI~=nil then MenuClass=K.SetsunaUI.Drop end
+if mode=="LY" and K.LYUI~=nil then MenuClass=K.LYUI.Menu end
 local t=MenuClass.new({Icon=K.LithiumLogo,Title=string.format("LxYHook | Rivals | %s",tostring("Premium Build")),Directory=K.AccountDir,Config=l.ReactiveStoreAdapter,ColorAnimation=l.ColorAnimation,Persistence=I,State=l.GeneralState,StateData=l.GeneralStateData,OnUnload=function()e:Destroy();end})
 current=t
 e:Add(t)
@@ -75823,6 +75988,10 @@ local hitboxHead = arg3.AliveState.HitboxHead
 local flag19 = v117(arg3.FighterState) ~= "Below"
 local ragebot = v115.Data.Ragebot
 local v119 = flag19 and vector or vector2
+if ragebot.CustomAttackHeight == true then
+local height = tonumber(ragebot.AttackHeight) or -0.7
+v119 = flag19 and Vector3.new(0, height, 0.05) or Vector3.new(0, height - 3.15, 0.05)
+end
 local v120 = arg._partGlue:Acquire(arg5, hitboxHead)
 local n
 
@@ -76169,6 +76338,10 @@ local hitboxHead = aliveState.HitboxHead
 local flag19 = v117(arg3.FighterState) ~= "Below"
 local ragebot = v115.Data.Ragebot
 local v119 = flag19 and vector or vector2
+if ragebot.CustomAttackHeight == true then
+local height = tonumber(ragebot.AttackHeight) or -0.7
+v119 = flag19 and Vector3.new(0, height, 0.05) or Vector3.new(0, height - 3.15, 0.05)
+end
 local v120 = arg._partGlue:Acquire(gluedOurPart, hitboxHead)
 arg._gluedOurPart = gluedOurPart
 local n
@@ -77608,9 +77781,37 @@ end
 end
 local gradientFrom, gradientAccent
 
-return {
-Hide = hide,
-Update = function(target)
+local updateCard
+-- Always Show: with no ragebot target the card shows the nearest living enemy (looked up 10 times a second)
+local lastFallbackAt, lastFallback = 0, nil
+local function fallbackTarget()
+local now = os.clock()
+if now - lastFallbackAt < 0.1 then return lastFallback end
+lastFallbackAt = now
+lastFallback = nil
+pcall(function()
+local fighters = K.TargetHudFighters
+local cam = workspace.CurrentCamera
+if fighters == nil or cam == nil then return end
+local best, bestDistance
+for _, state in pairs(fighters.EnemyByPlayer) do
+local alive = state.Character and state.Character.State
+if alive ~= nil and alive.Alive and alive.RootPart ~= nil then
+local distance = (alive.RootPart.Position - cam.CFrame.Position).Magnitude
+if bestDistance == nil or distance < bestDistance then
+bestDistance, best = distance, { FighterState = state, AliveState = alive }
+end
+end
+end
+lastFallback = best
+end)
+return lastFallback
+end
+local function alwaysShow()
+local settings = config.Data.Ragebot.TargetHud
+return settings.Enabled == true and settings.AlwaysShow ~= false
+end
+updateCard = function(target)
 local settings = config.Data.Ragebot.TargetHud
 if target == nil or not settings.Enabled then
 hide()
@@ -77686,6 +77887,37 @@ put(card.barFill, "Size", UDim2.new(maxHealth > 0 and math.clamp(health / maxHea
 if not card.root.Visible then
 card.root.Visible = true
 end
+end
+
+-- the ragebot calls Hide / Update every frame while its controller runs; with nobody calling (no controller yet,
+-- ragebot switched off further up) this keeps the card going on its own
+local lastCall = 0
+local standalone = game:GetService("RunService").Heartbeat:Connect(function()
+if os.clock() - lastCall < 0.25 then return end
+if alwaysShow() then
+pcall(updateCard, fallbackTarget())
+else
+hide()
+end
+end)
+K.onUnload(function() standalone:Disconnect() end)
+
+return {
+Hide = function()
+lastCall = os.clock()
+if alwaysShow() then
+local target = fallbackTarget()
+if target ~= nil then
+updateCard(target)
+return
+end
+end
+hide()
+end,
+Update = function(target)
+lastCall = os.clock()
+if target == nil and alwaysShow() then target = fallbackTarget() end
+updateCard(target)
 end,
 }
 end
@@ -77802,6 +78034,7 @@ local rage = {
 	Provoked = setmetatable({}, { __mode = "k" }),
 	AntiTranslocate = true,   -- always on with the ragebot (no toggle): tracks enemies hiding below OutOfBoundsParts
 	PrioritizeHackers = false,
+	EvadeWhenHacking = false, -- kh: a hacker (Hacker Detector tag) is only evaded while our health is above his
 	Evasion = "Random",
 	EvadeRadius = 100,
 	AttackPrep = 0,           -- the other hub has no hold before the first shot
@@ -78024,8 +78257,23 @@ end
 
 -- Is this player flagged by the hacker detector (movement anomaly)?
 local function rageIsHacker(player)
+	-- kh: the Hacker Detector's tag
+	local tags = K.HackerTags
+	if tags ~= nil then
+		local ok, has = pcall(tags.Has, tags, player, "Hacker")
+		if ok and has then return true end
+	end
 	local flagged = getgenv().InstanceHackerFlagged
 	return type(flagged) == "table" and flagged[player] == true
+end
+
+-- Evade When Target Hacking: a hacker is not a target while our health is above his (only evasion runs against
+-- him, as in KH style); once he has the same or more health he is attacked again
+local function rageSkipHacker(player, character)
+	if not rage.EvadeWhenHacking or not rageIsHacker(player) then return false end
+	local mine = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+	local theirs = character and character:FindFirstChildOfClass("Humanoid")
+	return mine ~= nil and theirs ~= nil and mine.Health > theirs.Health
 end
 
 local function rageSlotConfig(slot)
@@ -78209,6 +78457,7 @@ local function ragePickTarget()
 		if rageSameArena(player) and isEnemy(player) and character and isAlive(character)
 			and not rageIsInvincible(player)
 			and not character:FindFirstChildOfClass("ForceField")
+			and not rageSkipHacker(player, character)
 			and rage.retaliateOk(player, retNow)
 		then
 			if not (rage.AntiDeflect and rageIsDeflecting(player)) then
@@ -78249,6 +78498,7 @@ local function ragePickTarget()
 			and not rageIsInvincible(player)
 				and not character:FindFirstChildOfClass("ForceField")
 				and not (rage.AntiDeflect and rageIsDeflecting(player))
+				and not rageSkipHacker(player, character)
 				and rage.retaliateOk(player, now2)
 			then
 				local root2 = character:FindFirstChild("HumanoidRootPart")
@@ -80652,6 +80902,11 @@ if type(saved.EvadeBetweenShots) == "boolean" then
 rage.EvadeBetweenShots = saved.EvadeBetweenShots
 end
 -- Attack Prep (0.2 s) and the gun fire rates (20/s) stay at LY Careful's values: no menu for them
+local ragebotData = config.Data.Ragebot
+rage.AttackHeight = (ragebotData.CustomAttackHeight == true and type(ragebotData.AttackHeight) == "number") and ragebotData.AttackHeight or -0.7
+-- the two hacker options of the Activation section
+rage.PrioritizeHackers = ragebotData.PrioritizeHackers == true
+rage.EvadeWhenHacking = ragebotData.EvadeWhenHacking == true
 -- Attack After Enemy / Gap Window: LY's own RetaliateOnly / RetaliateWindow
 if type(saved.RetaliateOnly) == "boolean" then
 rage.RetaliateOnly = saved.RetaliateOnly
@@ -80838,6 +81093,8 @@ index2.__index = index2
 
 index2.new = function(arg, arg2, arg3, arg4, arg5)
 local ragebot = v126.new("ragebot")
+-- the Target HUD looks the nearest enemy up here when it has no ragebot target
+K.TargetHudFighters = arg
 local v130 = ragebot:Add(v123.new(arg))
 
 local tbl18 = {
@@ -84302,6 +84559,7 @@ v147:Add(tbl17.jt().new(v193))
 local v197 = v147:Add(v124.new(v190, decoratorFactory))
 local v198 = v147:Add(v148.new(v190, playerTags))
 K.HackerDetector = v198
+K.HackerTags = playerTags
 
 local v199 = v147:Add(v164.new(v190))
 v185(storeProfiles, v147, v199)
@@ -84628,7 +84886,7 @@ end
 do
     -- one file per account (like the rest of its settings, in K.AccountDir), so each account keeps its own menu form
     local MODE_FILE = K.AccountDir .. "/ui_style.txt"
-    local function valid(m) return m == "Classic" or m == "Starlight" or m == "Lite" or m == "Setsuna" or m == "Setsuna Drop" end
+    local function valid(m) return m == "Classic" or m == "Lite" or m == "Setsuna" or m == "Setsuna Drop" or m == "LY" end
     function K.UIMode()
         local m = getgenv().LxYUI
         if valid(m) then return m end
@@ -84640,7 +84898,7 @@ do
                 if valid(text) then return text end
             end
         end
-        return "Starlight"
+        return "Classic"
     end
     function K.SetUIMode(m)
         if not valid(m) then return end
@@ -85707,6 +85965,8 @@ end
     end
 
     function ColorC:_instance()
+        local n = self._nested
+        if n ~= nil and n.LYRow ~= nil then return n.LYRow end
         return self._host and self._host._el and self._host._el.Instance
     end
 
@@ -85763,6 +86023,31 @@ end
         return nil
     end
 
+    -- a keybind list entry per keybind control, lit while its feature is active: the LY form draws it with MD3
+    -- (menu:_listAdd), the other forms with K.KeyHud
+    function Control:_attachListEntry(sec, o, host)
+        self.ShowInList = o.InKeybindList == true
+        self.FeatureEnabled = false
+        self.FeatureChanged = Signal.new()
+        self.ListLabel = tostring(o.ListLabel or o.Label or host._label or "Keybind")
+        local menu = sec._menu
+        local entry
+        if menu._listAdd ~= nil then
+            entry = menu:_listAdd(self.ListLabel)
+        elseif K.KeyHud ~= nil then
+            entry = K.KeyHud.add(self.ListLabel)
+        end
+        if entry == nil then return end
+        local function sync()
+            entry.update(self.ShowInList and self.FeatureEnabled, self.Value.Key, self.Active == true, self.Value.Mode == "Always")
+        end
+        self._lySync = sync
+        self.ActiveChanged:Connect(sync)
+        self.ShowInListChanged:Connect(sync)
+        self.FeatureChanged:Connect(sync)
+        self.ValueChanged:Connect(sync)
+    end
+
     function KeybindC.new(sec, o)
         local self = newControl(sec, "Keybind", KeybindC)
         local host, own = hostFor(sec, o)
@@ -85773,11 +86058,12 @@ end
         for _, m in ipairs(o.Modes or {}) do modes[#modes + 1] = tostring(m) end
         self.Modes = modes
         self.Value = { Key = nil, Mode = modes[1] or "Toggle" }
-        self.ShowInList = true
+        self.ShowInList = o.InKeybindList == true
         self.Invisible = false
         self.ShowInListChanged = Signal.new()
         self.InvisibleChanged = Signal.new()
         self.ActiveChanged = Signal.new()
+        self:_attachListEntry(sec, o, host)
         self:_defer(function()
             if not host._realized then host:_realizeNow() end
             self._nested = host._el:AddBind({
@@ -85813,6 +86099,8 @@ end
     end
 
     function KeybindC:_instance()
+        local n = self._nested
+        if n ~= nil and n.LYRow ~= nil then return n.LYRow end
         return self._host and self._host._el and self._host._el.Instance
     end
 
@@ -85853,6 +86141,13 @@ end
         self.InvisibleChanged:Fire(self.Invisible)
     end
 
+    function KeybindC:SetFeatureEnabled(v)
+        v = v == true
+        if self.FeatureEnabled == v then return end
+        self.FeatureEnabled = v
+        self.FeatureChanged:Fire(v)
+    end
+
     function KeybindC:SetActive(v)
         self.Active = v == true
         self.ActiveChanged:Fire(self.Active)
@@ -85888,6 +86183,24 @@ end
             local iv = config:Get(map.Invisible)
             if type(iv) == "boolean" then self.Invisible = iv end
         end
+        -- the state of the feature, written by the keybind controller (what a keybind list shows), and the
+        -- list switches, which can change later
+        if map.Active ~= nil then
+            local av = config:Get(map.Active)
+            if type(av) == "boolean" then self:SetActive(av) end
+            self:Connect(config:Changed(map.Active), function(v) self:SetActive(v == true) end)
+        end
+        if map.ShowInList ~= nil then
+            self:Connect(config:Changed(map.ShowInList), function(v)
+                if type(v) == "boolean" then self:SetShowInList(v) end
+            end)
+        end
+        if map.Invisible ~= nil then
+            self:Connect(config:Changed(map.Invisible), function(v)
+                if type(v) == "boolean" then self:SetInvisible(v) end
+            end)
+        end
+        if self._lySync ~= nil then self._lySync() end
     end
 
     ----------------------------------------------------------------------------------------------- ordered list
@@ -86654,9 +86967,9 @@ end
         local ok, err = pcall(function()
             result = tbl17.aC()(self:View(), tab, self._trove, {
                 SetAccent = function(c) menu.AccentChanged:Fire(c) end,
-                SetWatermarkEnabled = function(v) menu._watermark = v end,
+                SetWatermarkEnabled = function(v) menu._watermark = v if K.KeyHud then K.KeyHud.setWatermark(v) end end,
                 IsWatermarkEnabled = function() return menu._watermark end,
-                SetKeybindListEnabled = function(v) menu._keybindList = v end,
+                SetKeybindListEnabled = function(v) menu._keybindList = v if K.KeyHud then K.KeyHud.setList(v) end end,
                 IsKeybindListEnabled = function() return menu._keybindList end,
                 SetMenuPillHidden = function() end,
                 EnterMobileButtonDragMode = function() end,
@@ -86671,10 +86984,12 @@ end
         return buildDialog(self, o or {}, builder)
     end
 
-    function Menu:SetWatermarkUsername() end
-    function Menu:SetWatermarkEnabled(v) self._watermark = v end
+    function Menu:SetWatermarkUsername(name)
+        if K.KeyHud then K.KeyHud.ensure(name, self._watermark, self._keybindList) end
+    end
+    function Menu:SetWatermarkEnabled(v) self._watermark = v if K.KeyHud then K.KeyHud.setWatermark(v) end end
     function Menu:IsWatermarkEnabled() return self._watermark end
-    function Menu:SetKeybindListEnabled(v) self._keybindList = v end
+    function Menu:SetKeybindListEnabled(v) self._keybindList = v if K.KeyHud then K.KeyHud.setList(v) end end
     function Menu:IsKeybindListEnabled() return self._keybindList end
     function Menu:SetAccent(c) self.AccentChanged:Fire(c) end
 
@@ -86721,6 +87036,7 @@ end
 
     function Menu:Destroy()
         if self._destroyed then return end
+        if K.KeyHud then K.KeyHud.destroy() end
         self._destroyed = true
         self:SaveState()
         if self._cursor ~= nil then pcall(self._cursor.Set, self._cursor, false) end
@@ -87612,7 +87928,7 @@ end
 
     ----------------------------------------------------------------------------------------------- keybind
     local SKeybind = subclass()
-    for _, name in ipairs({ "SetKey", "SetMode", "SetShowInList", "SetInvisible", "SetActive", "_BindConfigMap" }) do
+    for _, name in ipairs({ "SetKey", "SetMode", "SetShowInList", "SetInvisible", "SetActive", "SetFeatureEnabled", "_BindConfigMap" }) do
         SKeybind[name] = KeybindC[name]
     end
 
@@ -87631,6 +87947,7 @@ end
         self.ShowInListChanged = Signal.new()
         self.InvisibleChanged = Signal.new()
         self.ActiveChanged = Signal.new()
+        self:_attachListEntry(sec, o, host)
         self:_defer(function()
             if not host._realized then host:_realizeNow() end
             if host._row == nil then return end
@@ -88513,6 +88830,7 @@ end
     function SMenu:Destroy()
         pcall(function() self._dim.Modal = false end)
         if self._destroyed then return end
+        if K.KeyHud then K.KeyHud.destroy() end
         self._destroyed = true
         self:SaveState()
         if self._cursor ~= nil then pcall(self._cursor.Set, self._cursor, false) end
@@ -89568,6 +89886,2194 @@ end
         self:_setVisibleState(visible)
         return true
     end
+;(function()
+--==========================================================================
+--  Shared HUD for the Starlight / Lite / Setsuna forms: the watermark and the keybind list. Those forms only keep
+--  the two on / off flags; this draws the HUD the same way for all of them (the LY form draws its own with MD3, the
+--  classic menu has its own). Entries are made by the keybind controls (see attachListEntry).
+--==========================================================================
+do
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local UserInputService = game:GetService("UserInputService")
+    local HttpService = game:GetService("HttpService")
+    local KeyHud = { entries = {} }
+    K.KeyHud = KeyHud
+
+    local gui, wm, wmText, list, rows, wmStroke, listStroke, listTitle
+    local wmOn, listOn = true, true
+    local playerName = Players.LocalPlayer and Players.LocalPlayer.Name or "Player"
+    local dirty, tickConn = true, nil
+    local fps, fpsAt, frames = 60, os.clock(), 0
+
+    local function mk(class, props, parent)
+        local inst = Instance.new(class)
+        for k, v in pairs(props) do inst[k] = v end
+        if parent ~= nil then inst.Parent = parent end
+        return inst
+    end
+
+    local function tokens()
+        local ok, t = pcall(tbl17.z)
+        return ok and type(t) == "table" and t or {}
+    end
+
+    local function color(t, name, fallback)
+        local c = t[name]
+        if typeof(c) == "Color3" then return c end
+        return fallback
+    end
+
+    -- the pieces can be dragged; where they were left is kept in LxYHook/hud_positions.json (fractions of the screen)
+    local POSITIONS = "LxYHook/hud_positions.json"
+    local placed = {}
+    pcall(function()
+        local readFile, isFile = K.fn("readfile"), K.fn("isfile")
+        if readFile and isFile and isFile(POSITIONS) then
+            local decoded = HttpService:JSONDecode(readFile(POSITIONS))
+            if type(decoded) == "table" then placed = decoded end
+        end
+    end)
+    local function savePositions()
+        pcall(function()
+            local writeFile = K.fn("writefile")
+            if writeFile then
+                local makeFolder, isFolder = K.fn("makefolder"), K.fn("isfolder")
+                if makeFolder and isFolder and not isFolder("LxYHook") then makeFolder("LxYHook") end
+                writeFile(POSITIONS, HttpService:JSONEncode(placed))
+            end
+        end)
+    end
+    local function viewport()
+        local cam = workspace.CurrentCamera
+        local size = cam and cam.ViewportSize
+        if typeof(size) == "Vector2" and type(size.X) == "number" and size.X > 0 then return size end
+        return Vector2.new(1920, 1080)
+    end
+    local function place(frame, key, default)
+        local saved = placed[key]
+        if type(saved) == "table" and type(saved.x) == "number" and type(saved.y) == "number" then
+            local v = viewport()
+            frame.Position = UDim2.fromOffset(saved.x * v.X, saved.y * v.Y)
+        else
+            frame.Position = default
+        end
+    end
+    local function draggable(frame, key)
+        frame.Active = true
+        frame.InputBegan:Connect(function(input)
+            if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+            local start = input.Position
+            local origin = Vector2.new(frame.Position.X.Offset, frame.Position.Y.Offset)
+            local moveConn, endConn
+            local function stop()
+                if moveConn then moveConn:Disconnect() end
+                if endConn then endConn:Disconnect() end
+                savePositions()
+            end
+            moveConn = UserInputService.InputChanged:Connect(function(i)
+                if i.UserInputType ~= Enum.UserInputType.MouseMovement and i ~= input then return end
+                local v, own = viewport(), frame.AbsoluteSize
+                local x = math.clamp(origin.X + (i.Position.X - start.X), 0, math.max(0, v.X - own.X))
+                local y = math.clamp(origin.Y + (i.Position.Y - start.Y), 0, math.max(0, v.Y - own.Y))
+                frame.Position = UDim2.fromOffset(x, y)
+                placed[key] = { x = x / v.X, y = y / v.Y }
+            end)
+            endConn = UserInputService.InputEnded:Connect(function(i)
+                if i == input or (i.UserInputType == Enum.UserInputType.MouseButton1 and input.UserInputType == Enum.UserInputType.MouseButton1) then
+                    stop()
+                end
+            end)
+        end)
+    end
+
+    local function build()
+        if gui ~= nil then return end
+        gui = mk("ScreenGui", { Name = "LxYHud", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 99990,
+            ZIndexBehavior = Enum.ZIndexBehavior.Sibling })
+        local placed = pcall(function() gui.Parent = gethui() end)
+        if not placed or gui.Parent == nil then gui.Parent = game:GetService("CoreGui") end
+
+        wm = mk("Frame", { Name = "Watermark", Position = UDim2.fromOffset(14, 14), AutomaticSize = Enum.AutomaticSize.XY,
+            BorderSizePixel = 0, Size = UDim2.fromOffset(0, 28) }, gui)
+        mk("UICorner", { CornerRadius = UDim.new(0, 8) }, wm)
+        wmStroke = mk("UIStroke", { Thickness = 1 }, wm)
+        mk("UIPadding", { PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12) }, wm)
+        wmText = mk("TextLabel", { BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 28),
+            Font = Enum.Font.GothamMedium, TextSize = 13, Text = "", TextXAlignment = Enum.TextXAlignment.Left }, wm)
+
+        place(wm, "watermark", UDim2.fromOffset(14, 14))
+        draggable(wm, "watermark")
+
+        list = mk("Frame", { Name = "Keybinds", Position = UDim2.fromOffset(14, 56), Size = UDim2.fromOffset(200, 0),
+            AutomaticSize = Enum.AutomaticSize.Y, BorderSizePixel = 0 }, gui)
+        mk("UICorner", { CornerRadius = UDim.new(0, 8) }, list)
+        listStroke = mk("UIStroke", { Thickness = 1 }, list)
+        mk("UIPadding", { PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12), PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 10) }, list)
+        mk("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6) }, list)
+        listTitle = mk("TextLabel", { Name = "Title", LayoutOrder = 0, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 18),
+            Font = Enum.Font.GothamBold, TextSize = 13, Text = "Keybinds", TextXAlignment = Enum.TextXAlignment.Left }, list)
+        rows = list
+        place(list, "keybinds", UDim2.fromOffset(14, 56))
+        draggable(list, "keybinds")
+    end
+
+    local function repaint()
+        if gui == nil then return end
+        local t = tokens()
+        local bg = color(t, "ElementBackground", Color3.fromRGB(20, 20, 24))
+        local outline = color(t, "Outline", Color3.fromRGB(60, 60, 70))
+        local accent = color(t, "Accent", Color3.fromRGB(154, 213, 222))
+        local text = color(t, "TextColor", Color3.fromRGB(220, 220, 220))
+        local dim = color(t, "Unselected", Color3.fromRGB(130, 130, 130))
+
+        wm.BackgroundColor3 = bg
+        wmStroke.Color = outline
+        wmText.TextColor3 = text
+        local ping = 0
+        pcall(function() ping = math.floor(Players.LocalPlayer:GetNetworkPing() * 1000 + 0.5) end)
+        wmText.Text = string.format("LxYHook  |  %s  |  %d fps  |  %d ms", playerName, math.floor(fps + 0.5), ping)
+        wm.Visible = wmOn
+
+        list.BackgroundColor3 = bg
+        listStroke.Color = outline
+        listTitle.TextColor3 = accent
+        for _, child in ipairs(rows:GetChildren()) do
+            if child.Name == "Row" then child:Destroy() end
+        end
+        local shown = {}
+        for _, entry in ipairs(KeyHud.entries) do
+            if entry.show then shown[#shown + 1] = entry end
+        end
+        table.sort(shown, function(a, b) return a.label < b.label end)
+        for index, entry in ipairs(shown) do
+            local active = entry.active or entry.always
+            local row = mk("Frame", { Name = "Row", LayoutOrder = index, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 20) }, rows)
+            mk("TextLabel", { BackgroundTransparency = 1, Size = UDim2.new(1, -70, 1, 0), Font = Enum.Font.GothamMedium, TextSize = 13,
+                Text = entry.label, TextColor3 = active and text or dim, TextXAlignment = Enum.TextXAlignment.Left,
+                TextTruncate = Enum.TextTruncate.AtEnd }, row)
+            local chip = mk("TextLabel", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.fromScale(1, 0.5), Size = UDim2.fromOffset(0, 18),
+                AutomaticSize = Enum.AutomaticSize.X, BorderSizePixel = 0, Font = Enum.Font.GothamBold, TextSize = 11,
+                Text = entry.key and entry.key.Name or (entry.always and "Always" or "None"),
+                BackgroundColor3 = active and accent or outline, TextColor3 = active and bg or text }, row)
+            mk("UICorner", { CornerRadius = UDim.new(0, 5) }, chip)
+            mk("UIPadding", { PaddingLeft = UDim.new(0, 7), PaddingRight = UDim.new(0, 7) }, chip)
+        end
+        list.Visible = listOn and #shown > 0
+    end
+
+    local function startTick()
+        if tickConn ~= nil then return end
+        local last = 0
+        tickConn = RunService.Heartbeat:Connect(function(dt)
+            frames += 1
+            local now = os.clock()
+            if now - fpsAt >= 0.5 then
+                fps, fpsAt, frames = frames / (now - fpsAt), now, 0
+            end
+            -- redraw on a change, and twice a second for the numbers and the theme
+            if dirty or now - last >= 0.5 then
+                dirty, last = false, now
+                pcall(repaint)
+            end
+        end)
+    end
+
+    function KeyHud.ensure(name, watermark, keybinds)
+        if type(name) == "string" and name ~= "" then playerName = name end
+        wmOn, listOn = watermark ~= false, keybinds ~= false
+        pcall(build)
+        pcall(startTick)
+        dirty = true
+    end
+
+    function KeyHud.setWatermark(v) wmOn = v ~= false dirty = true end
+    function KeyHud.setList(v) listOn = v ~= false dirty = true end
+
+    -- one entry per keybind control: update(show, key, active, always)
+    function KeyHud.add(label)
+        local entry = { label = tostring(label), show = false, key = nil, active = false, always = false }
+        function entry.update(show, key, active, always)
+            entry.show, entry.key, entry.active, entry.always = show == true, key, active == true, always == true
+            dirty = true
+        end
+        table.insert(KeyHud.entries, entry)
+        return entry
+    end
+
+    function KeyHud.destroy()
+        if tickConn ~= nil then tickConn:Disconnect() tickConn = nil end
+        if gui ~= nil then pcall(function() gui:Destroy() end) end
+        gui, wm, wmText, list, rows, wmStroke, listStroke, listTitle = nil, nil, nil, nil, nil, nil, nil, nil
+        table.clear(KeyHud.entries)
+    end
+
+    K.onUnload(KeyHud.destroy)
+end
+end)()
+;(function(S)
+--==========================================================================
+--  LY UI form: the menu of LY Hub (Material Design 3, engnyg/Material-Design-3-Roblox-lua-ui)
+--  The page builders talk to the Menu surface (AddTab / Grid / AddSection / AddToggle ...). This form gives
+--  the Starlight form's controls a small Starlight-shaped facade (window, tab section, tab, groupbox, elements)
+--  that is made of MD3 elements, so every page builds unchanged and the controls, groups and settings store
+--  binding are the ones of the Starlight form. It also draws LY's HUD (watermark and keybind list).
+--  Chosen in Settings > General > UI Style > "LY". If the library cannot be loaded or built, the classic menu is shown.
+--==========================================================================
+do
+    local Menu, StarUI, uid, log, isMethodName = S.Menu, S.StarUI, S.uid, S.log, S.isMethodName
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local UserInputService = game:GetService("UserInputService")
+
+    local LYUI = {}
+    K.LYUI = LYUI
+
+    ---------------------------------------------------------------------------------------------- library
+    function LYUI.LoadMD3()
+local MD3_PICKER_PATCHES = {
+	{
+[==[	local function normalize(value)
+]==],
+[==[	-- LY: gradient / animation state ------------------------------------------
+	local ext = { mode = "Solid", stops = nil, sel = nil, anim = "None", speed = 1, restoring = false }
+	local function toColor(v)
+		if typeof(v) == "Color3" then
+			return v
+		elseif type(v) == "string" then
+			local ok, color = pcall(Color3.fromHex, v)
+			if ok then
+				return color
+			end
+		end
+		return nil
+	end
+	function ext.parse(value)
+		if type(value.Mode) ~= "string" then
+			return
+		end
+		ext.restoring = true
+		ext.mode = if value.Mode == "Gradient" then "Gradient" else "Solid"
+		ext.anim = if value.Anim == "Breathing" or value.Anim == "Rainbow" or value.Anim == "Cycle" then value.Anim else "None"
+		if type(value.Speed) == "number" then
+			ext.speed = math.clamp(value.Speed, 0.1, 5)
+		end
+		local solid = toColor(value.Color)
+		if solid then
+			ext.solid = solid
+		end
+		if type(value.Stops) == "table" then
+			local list = {}
+			for _, stop in value.Stops do
+				local col = type(stop) == "table" and toColor(stop.Color) or nil
+				if col and type(stop.Pos) == "number" then
+					table.insert(list, { pos = math.clamp(stop.Pos, 0, 1), color = col })
+				end
+			end
+			if #list >= 2 then
+				table.sort(list, function(a, b)
+					return a.pos < b.pos
+				end)
+				ext.stops = list
+				ext.sel = list[1]
+			end
+		end
+	end
+
+	local function normalize(value)
+]==],
+	},
+	{
+[==[			value = value.Color
+]==],
+[==[			ext.parse(value)
+			value = value.Color
+]==],
+	},
+	{
+[==[	element.Value = normalize(props.Default or props.Value or props.Color)
+	local hue, sat, val = element.Value:ToHSV()
+]==],
+[==[	element.Value = normalize(props.Default or props.Value or props.Color)
+	ext.solid = ext.solid or element.Value
+	if not ext.stops then
+		local h0, s0, v0 = ext.solid:ToHSV()
+		ext.stops = {
+			{ pos = 0, color = ext.solid },
+			{ pos = 1, color = Color3.fromHSV((h0 + 0.12) % 1, s0, v0) },
+		}
+		ext.sel = ext.stops[1]
+	end
+	local hue, sat, val = element.Value:ToHSV()
+]==],
+	},
+	{
+[==[	local panelHeight = infoY + 30
+]==],
+[==[	local panelHeight = infoY + 176
+]==],
+	},
+	{
+[==[	local function paint()
+		local color = element.Value
+		swatch.BackgroundColor3 = color
+]==],
+[==[	-- LY: solid / gradient stops / animation controls --------------------------
+	local paint, paintBase
+	local getEdit, setEdit, refresh, paintExtras, syncAnim
+	local EXTRA_Y = infoY + 40
+	local MAX_STOPS = 8
+
+	local function sortStops()
+		table.sort(ext.stops, function(a, b)
+			return a.pos < b.pos
+		end)
+	end
+
+	function getEdit()
+		if ext.mode == "Gradient" and ext.sel then
+			return ext.sel.color
+		end
+		return ext.solid
+	end
+
+	function setEdit(color)
+		if ext.mode == "Gradient" and ext.sel then
+			ext.sel.color = color
+		else
+			ext.solid = color
+		end
+	end
+
+	local function loadEditIntoHSV()
+		local h, s, v = getEdit():ToHSV()
+		if s > 0 then
+			hue = h
+		end
+		sat, val = s, v
+	end
+
+	local function sampleList(list, p)
+		if p <= list[1].pos then
+			return list[1].color
+		end
+		for i = 2, #list do
+			if p <= list[i].pos then
+				local a, b = list[i - 1], list[i]
+				return a.color:Lerp(b.color, (p - a.pos) / math.max(b.pos - a.pos, 1e-4))
+			end
+		end
+		return list[#list].color
+	end
+
+	local function sampleLoop(p)
+		local list = table.clone(ext.stops)
+		table.insert(list, { pos = ext.stops[1].pos + 1, color = ext.stops[1].color })
+		return sampleList(list, ext.stops[1].pos + p)
+	end
+
+	local function evaluate(t)
+		local anim, speed = ext.anim, ext.speed
+		if anim == "Rainbow" then
+			return Color3.fromHSV((t * speed * 0.15) % 1, 1, 1)
+		end
+		if ext.mode == "Gradient" then
+			if anim == "Breathing" then
+				return sampleList(ext.stops, 0.5 - 0.5 * math.cos(t * speed * 1.2))
+			elseif anim == "Cycle" then
+				return sampleLoop((t * speed * 0.2) % 1)
+			end
+			return ext.stops[1].color
+		end
+		if anim == "Breathing" then
+			local f = 0.5 + 0.5 * math.sin(t * speed * 2)
+			return ext.solid:Lerp(Color3.new(0, 0, 0), (1 - f) * 0.8)
+		elseif anim == "Cycle" then
+			local h, s, v = ext.solid:ToHSV()
+			return Color3.fromHSV((h + t * speed * 0.15) % 1, s, v)
+		end
+		return ext.solid
+	end
+
+	-- One shared ~30 Hz driver per window ticks every picker that is animated.
+	local function tick()
+		local color = evaluate(os.clock())
+		element.Value = color
+		swatch.BackgroundColor3 = color
+		element:_emit(color)
+	end
+	function syncAnim()
+		local registry = window._lyPickerAnims
+		if not registry then
+			registry = {}
+			window._lyPickerAnims = registry
+			local acc = 0
+			window._maid:GiveTask(game:GetService("RunService").Heartbeat:Connect(function(dt)
+				acc += dt
+				if acc < 1 / 30 then
+					return
+				end
+				acc = 0
+				for _, fn in registry do
+					fn()
+				end
+			end))
+		end
+		if ext.anim ~= "None" then
+			if not registry[element] then
+				element._maid:GiveTask(function()
+					registry[element] = nil
+				end)
+			end
+			registry[element] = tick
+		else
+			registry[element] = nil
+		end
+	end
+
+	function refresh(emit)
+		element.Value = evaluate(os.clock())
+		paint()
+		syncAnim()
+		if emit then
+			element:_emit(element.Value)
+		end
+	end
+
+	local function makeButton(text, position, size)
+		local button = Create("TextButton") {
+			AutoButtonColor = false,
+			Text = text,
+			Position = position,
+			Size = size,
+			BorderSizePixel = 0,
+			Parent = panel,
+		}
+		Shape.Corner(Shape.Full, button)
+		Typography.Apply(button, "LabelMedium")
+		return button
+	end
+
+	local modeButtons = {
+		Solid = makeButton("Solid", UDim2.fromOffset(0, EXTRA_Y), UDim2.fromOffset(84, 26)),
+		Gradient = makeButton("Gradient", UDim2.fromOffset(90, EXTRA_Y), UDim2.fromOffset(84, 26)),
+	}
+
+	local gradY = EXTRA_Y + 34
+	local minusButton = makeButton("-", UDim2.fromOffset(0, gradY), UDim2.fromOffset(26, 26))
+	local plusButton = makeButton("+", UDim2.new(1, -26, 0, gradY), UDim2.fromOffset(26, 26))
+	local gradBar = Create("Frame") {
+		Name = "GradientBar",
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BorderSizePixel = 0,
+		Position = UDim2.fromOffset(34, gradY + 2),
+		Size = UDim2.new(1, -68, 0, 22),
+		Parent = panel,
+	}
+	Shape.Corner(Shape.Small, gradBar)
+	local gradFill = Create("UIGradient") { Parent = gradBar }
+	local markerLayer = Create("Frame") {
+		Name = "Markers",
+		BackgroundTransparency = 1,
+		Size = UDim2.fromScale(1, 1),
+		ZIndex = 3,
+		Parent = gradBar,
+	}
+
+	local animNames = { "None", "Breathing", "Rainbow", "Cycle" }
+	local animButtons = {}
+	local animY = EXTRA_Y + 68
+	for i, name in animNames do
+		animButtons[name] = makeButton(name, UDim2.new((i - 1) * 0.25, if i == 1 then 0 else 2, 0, animY), UDim2.new(0.25, -2, 0, 26))
+	end
+
+	local speedY = EXTRA_Y + 104
+	local speedLabel = Create("TextLabel") {
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(0, speedY),
+		Size = UDim2.fromOffset(84, 26),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = panel,
+	}
+	Typography.Apply(speedLabel, "BodySmall")
+	local speedTrack = Create("TextButton") {
+		AutoButtonColor = false,
+		Text = "",
+		Position = UDim2.new(0, 90, 0, speedY + 8),
+		Size = UDim2.new(1, -90, 0, 10),
+		BorderSizePixel = 0,
+		Parent = panel,
+	}
+	Shape.Corner(Shape.Full, speedTrack)
+	local speedFill = Create("Frame") {
+		BorderSizePixel = 0,
+		Size = UDim2.fromScale(0.5, 1),
+		Parent = speedTrack,
+	}
+	Shape.Corner(Shape.Full, speedFill)
+
+	local dragStop, dragSpeed = nil, false
+	local rebuildMarkers
+
+	function paintExtras()
+		local c = window.Theme.Colors
+		local off = c.SurfaceContainerHighest or c.SurfaceContainer
+		local function style(button, active)
+			button.BackgroundColor3 = if active then c.SecondaryContainer else off
+			button.TextColor3 = if active then c.OnSecondaryContainer else c.OnSurfaceVariant
+		end
+		for name, button in modeButtons do
+			style(button, ext.mode == name)
+		end
+		for name, button in animButtons do
+			style(button, ext.anim == name)
+		end
+		local gradient = ext.mode == "Gradient"
+		style(minusButton, false)
+		style(plusButton, false)
+		minusButton.TextTransparency = if gradient and #ext.stops > 2 then 0 else 0.6
+		plusButton.TextTransparency = if gradient and #ext.stops < MAX_STOPS then 0 else 0.6
+		speedTrack.BackgroundColor3 = off
+		speedFill.BackgroundColor3 = c.Primary
+		speedFill.Size = UDim2.fromScale(math.clamp((ext.speed - 0.1) / 4.9, 0, 1), 1)
+		speedLabel.TextColor3 = c.OnSurfaceVariant
+		speedLabel.Text = string.format("Speed %.1fx", ext.speed)
+
+		if gradient then
+			local keys = {}
+			local first, last = ext.stops[1], ext.stops[#ext.stops]
+			if first.pos > 0 then
+				table.insert(keys, ColorSequenceKeypoint.new(0, first.color))
+			end
+			for _, stop in ext.stops do
+				table.insert(keys, ColorSequenceKeypoint.new(stop.pos, stop.color))
+			end
+			if last.pos < 1 then
+				table.insert(keys, ColorSequenceKeypoint.new(1, last.color))
+			end
+			gradFill.Color = ColorSequence.new(keys)
+		else
+			gradFill.Color = ColorSequence.new(ext.solid)
+		end
+		rebuildMarkers(c)
+	end
+
+	function rebuildMarkers(c)
+		markerLayer:ClearAllChildren()
+		if ext.mode ~= "Gradient" then
+			return
+		end
+		for _, stop in ext.stops do
+			local selected = stop == ext.sel
+			local marker = Create("TextButton") {
+				AutoButtonColor = false,
+				Text = "",
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(stop.pos, 0.5),
+				Size = UDim2.fromOffset(if selected then 12 else 9, 32),
+				BackgroundColor3 = stop.color,
+				BorderSizePixel = 0,
+				ZIndex = if selected then 5 else 4,
+				Parent = markerLayer,
+				[1] = Create("UICorner") { CornerRadius = UDim.new(0, 4) },
+				[2] = Create("UIStroke") {
+					Color = if selected then c.Primary else Color3.new(1, 1, 1),
+					Thickness = if selected then 2.5 else 1.5,
+				},
+			}
+			marker.InputBegan:Connect(function(input)
+				if isPress(input) then
+					ext.sel = stop
+					dragStop = stop
+					loadEditIntoHSV()
+					refresh(true)
+				end
+			end)
+		end
+	end
+
+	for name, button in modeButtons do
+		element._maid:GiveTask(button.Activated:Connect(function()
+			if ext.mode == name then
+				return
+			end
+			ext.mode = name
+			if name == "Gradient" and not ext.sel then
+				ext.sel = ext.stops[1]
+			end
+			loadEditIntoHSV()
+			refresh(true)
+		end))
+	end
+	for name, button in animButtons do
+		element._maid:GiveTask(button.Activated:Connect(function()
+			ext.anim = name
+			refresh(true)
+		end))
+	end
+	element._maid:GiveTask(plusButton.Activated:Connect(function()
+		if ext.mode ~= "Gradient" or #ext.stops >= MAX_STOPS then
+			return
+		end
+		local bestGap, bestAt = -1, 0.5
+		local previous = 0
+		for i = 1, #ext.stops + 1 do
+			local nextPos = if ext.stops[i] then ext.stops[i].pos else 1
+			if nextPos - previous > bestGap then
+				bestGap, bestAt = nextPos - previous, (previous + nextPos) / 2
+			end
+			previous = nextPos
+		end
+		local stop = { pos = bestAt, color = sampleList(ext.stops, bestAt) }
+		table.insert(ext.stops, stop)
+		sortStops()
+		ext.sel = stop
+		loadEditIntoHSV()
+		refresh(true)
+	end))
+	element._maid:GiveTask(minusButton.Activated:Connect(function()
+		if ext.mode ~= "Gradient" or #ext.stops <= 2 then
+			return
+		end
+		table.remove(ext.stops, table.find(ext.stops, ext.sel))
+		ext.sel = ext.stops[1]
+		loadEditIntoHSV()
+		refresh(true)
+	end))
+	element._maid:GiveTask(speedTrack.InputBegan:Connect(function(input)
+		if isPress(input) then
+			dragSpeed = true
+			ext.speed = 0.1 + 4.9 * math.clamp((input.Position.X - speedTrack.AbsolutePosition.X) / math.max(speedTrack.AbsoluteSize.X, 1), 0, 1)
+			refresh(true)
+		end
+	end))
+	element._maid:GiveTask(UserInputService.InputChanged:Connect(function(input)
+		if not isMove(input) then
+			return
+		end
+		if dragStop then
+			dragStop.pos = math.clamp((input.Position.X - gradBar.AbsolutePosition.X) / math.max(gradBar.AbsoluteSize.X, 1), 0, 1)
+			sortStops()
+			refresh(true)
+		elseif dragSpeed then
+			ext.speed = 0.1 + 4.9 * math.clamp((input.Position.X - speedTrack.AbsolutePosition.X) / math.max(speedTrack.AbsoluteSize.X, 1), 0, 1)
+			refresh(true)
+		end
+	end))
+	element._maid:GiveTask(UserInputService.InputEnded:Connect(function(input)
+		if isPress(input) then
+			dragStop = nil
+			dragSpeed = false
+		end
+	end))
+	element._maid:GiveTask(window.Theme.Changed:Connect(function()
+		paintExtras()
+	end))
+
+	function paintBase()
+		local color = getEdit()
+		swatch.BackgroundColor3 = element.Value
+]==],
+	},
+	{
+[==[	end
+
+	if alphaEnabled then
+		-- Callback / Changed get (color, transparency).
+]==],
+[==[	end
+
+	function paint()
+		paintBase()
+		paintExtras()
+	end
+
+	if alphaEnabled then
+		-- Callback / Changed get (color, transparency).
+]==],
+	},
+	{
+[==[	-- Sets only the transparency (0 = solid, 1 = invisible).
+]==],
+[==[	-- LY: what configs store (Color3 still loads through the old path).
+	function element:GetSaveValue()
+		local stops = {}
+		for i, stop in ext.stops do
+			stops[i] = { Pos = stop.pos, Color = stop.color }
+		end
+		local out = { Color = ext.solid, Mode = ext.mode, Stops = stops, Anim = ext.anim, Speed = ext.speed }
+		if alphaEnabled then
+			out.Transparency = element.Transparency
+		end
+		return out
+	end
+
+	-- LY: far end of the gradient, for features that draw a two-color gradient.
+	function element:GetColor2()
+		if ext.anim ~= "None" then
+			return evaluate(os.clock() + 0.6)
+		end
+		if ext.mode == "Gradient" then
+			return ext.stops[#ext.stops].color
+		end
+		return ext.solid
+	end
+
+	-- Sets only the transparency (0 = solid, 1 = invisible).
+]==],
+	},
+	{
+[==[	local function commit()
+		element.Value = Color3.fromHSV(hue, sat, val)
+		paint()
+		element:_emit(element.Value)
+	end
+]==],
+[==[	local function commit()
+		setEdit(Color3.fromHSV(hue, sat, val))
+		refresh(true)
+	end
+]==],
+	},
+	{
+[==[	element._render = function(color)
+		-- Keep the current hue for greys, where ToHSV can't recover one.
+		local h, s, v = color:ToHSV()
+]==],
+[==[	element._render = function(color)
+		if ext.restoring then
+			ext.restoring = false
+		else
+			setEdit(color)
+		end
+		color = getEdit()
+		-- Keep the current hue for greys, where ToHSV can't recover one.
+		local h, s, v = color:ToHSV()
+]==],
+	},
+	{
+[==[		sat, val = s, v
+		paint()
+	end
+]==],
+[==[		sat, val = s, v
+		refresh(false)
+	end
+]==],
+	},
+	{
+[==[	paint()
+	return Base.Finish(element)
+]==],
+[==[	paint()
+	syncAnim()
+	return Base.Finish(element)
+]==],
+	},
+}
+
+local function patchMD3ColorPicker(source)
+	local startAt = string.find(source, 'loaders[newNode("ColorPicker", N_Window_Elements)]', 1, true)
+	local endAt = string.find(source, 'loaders[newNode("Dropdown", N_Window_Elements)]', 1, true)
+	if not (startAt and endAt and endAt > startAt) then
+		return nil
+	end
+	local segment = string.sub(source, startAt, endAt - 1)
+	for _, patch in ipairs(MD3_PICKER_PATCHES) do
+		local from, to = string.find(segment, patch[1], 1, true)
+		if not from then
+			return nil
+		end
+		segment = string.sub(segment, 1, from - 1) .. patch[2] .. string.sub(segment, to + 1)
+	end
+	return string.sub(source, 1, startAt - 1) .. segment .. string.sub(source, endAt)
+end
+
+-- Icons for the section buttons (sub-tabs), read by the patched AddSubTab below.
+getgenv().LYSubTabIcons = {
+	["Silent Aim"] = "target",
+	["Silent Aim FOV"] = "radar",
+	["Aimbot"] = "my_location",
+	["Aimbot FOV"] = "radar",
+	["Aimbot Target"] = "tune",
+	["Theme Config"] = "palette",
+	["Target HUD"] = "dashboard",
+	["HUD editor"] = "dashboard",
+	["Gun"] = "build",
+	["Anti Aim"] = "shield",
+	["Triggerbot"] = "ads_click",
+	["Flickbot"] = "fast_forward",
+	["Target Lock"] = "gps_fixed",
+	["Ragebot"] = "crisis_alert",
+	["Primary"] = "star",
+	["Secondary"] = "bookmark",
+	["Knife"] = "content_cut",
+	["Melee"] = "swords",
+	["Player ESP"] = "person_search",
+	["Utility ESP"] = "widgets",
+	["Ambience"] = "wb_twilight",
+	["Bloom"] = "auto_awesome",
+	["Color Grading"] = "palette",
+	["Depth Of Field"] = "camera_alt",
+	["Sun Rays"] = "sunny",
+	["Fog & Atmosphere"] = "cloudy",
+	["Shaders"] = "blur_on",
+	["Weather"] = "thunderstorm",
+	["Skybox"] = "landscape",
+	["Performance"] = "speed",
+	["Ambient Sounds"] = "graphic_eq",
+	["World Textures"] = "texture",
+	["Tonemapper"] = "tonality",
+	["Lightning"] = "bolt",
+	["Auras"] = "auto_awesome",
+	["Camera FOV"] = "fit_screen",
+	["Stretched Resolution"] = "aspect_ratio",
+	["Camera Shake"] = "vibration",
+	["Weapon"] = "build",
+	["Viewmodel"] = "visibility",
+	["Third Person"] = "view_in_ar",
+	["Crosshair"] = "add",
+	["Text"] = "edit",
+	["Hit Feedback"] = "check_circle",
+	["Kill Feedback"] = "skull",
+	["Removables"] = "delete",
+	["Hit Effects"] = "auto_awesome",
+	["Bullet Tracers"] = "timeline",
+	["Hit Notifications"] = "notifications",
+	["Notifications"] = "notifications",
+	["Profile Spoof"] = "person",
+	["FPS Spoof"] = "speed",
+	["Ping Spoof"] = "wifi",
+	["Region Spoof"] = "language",
+	["Movement"] = "directions_run",
+	["Emotes & Animations"] = "sports_esports",
+	["Auto Strafe"] = "sync_alt",
+	["Utility"] = "build",
+	["Auto Execute"] = "code",
+	["Interface"] = "dashboard",
+	["Match"] = "flag",
+	["Movement Recorder"] = "fiber_manual_record",
+	["Server"] = "cloud",
+	["Auto Ban (Ranked)"] = "block",
+	["Auto Queue"] = "schedule",
+	["Miscellaneous"] = "more_horiz",
+	["Device Spoof"] = "keyboard",
+	["QOL"] = "verified",
+	["Rank Charm Override"] = "military_tech",
+	["Rank Charm"] = "military_tech",
+	["Detectors"] = "search",
+	["Presets"] = "bookmark_border",
+	["Overview"] = "home",
+	["Skins"] = "palette",
+	["Wraps"] = "image",
+	["Charms"] = "favorite",
+	["Finishers"] = "emoji_events",
+	["Appearance"] = "palette",
+	["Background"] = "image",
+	["Theme editor"] = "colorize",
+	["HUD"] = "dashboard",
+	["Configuration"] = "settings",
+}
+
+-- Sub-tab icons: every section button (SectionsAsSubTabs) gets a Material icon
+-- taken from getgenv().LYSubTabIcons (or opts.Icon). Patched in memory like the
+-- color picker; skipped silently if the library layout changed.
+local function patchMD3SubTabIcons(source)
+	local a1 = "\t\tThickness = 1,\n\t\tParent = btn,\n\t}\n\tself._window._maid:GiveTask(btn.Activated:Connect(function()\n\t\tself:SelectSubTab(index)"
+	local b1 = "\n\tend\nend\n\nfunction Tab:_paintSubTabs()"
+	local from1, to1 = string.find(source, a1, 1, true)
+	local from2, to2 = string.find(source, b1, 1, true)
+	if not (from1 and from2 and from2 < from1) then
+		return nil
+	end
+	local add1 = [==[
+		Thickness = 1,
+		Parent = btn,
+	}
+	do
+		local icons = getgenv and getgenv().LYSubTabIcons
+		local iconName = opts.Icon or (icons and icons[name])
+		if iconName and Base.CanShowIcon(iconName) then
+			local glyph = Base.Glyph(self._window._themer, iconName, 16, nil, btn)
+			glyph.Name = "SubIcon"
+			glyph.AnchorPoint = Vector2.new(0, 0.5)
+			-- Children sit inside the button's padding, so the icon is placed with a
+			-- negative offset; the text is left-aligned after it and the button
+			-- sizes itself to the text.
+			glyph.Position = UDim2.new(0, 12 - 34, 0.5, 0)
+			glyph.ZIndex = btn.ZIndex + 1
+			btn.TextXAlignment = Enum.TextXAlignment.Left
+			btn.AutomaticSize = Enum.AutomaticSize.X
+			btn.Size = UDim2.new(0, 0, 0, 32)
+			Create("UIPadding") { PaddingLeft = UDim.new(0, 34), PaddingRight = UDim.new(0, 14), Parent = btn }
+		end
+	end
+	self._window._maid:GiveTask(btn.Activated:Connect(function()
+		self:SelectSubTab(index)]==]
+	local add2 = [==[
+
+	end
+	local subIcon = btn:FindFirstChild("SubIcon")
+	if subIcon then
+		Base.SetIconColor(subIcon, btn.TextColor3)
+	end
+end
+
+function Tab:_paintSubTabs()]==]
+	-- paintSubButton sits before AddSubTab in the file, so patch the later spot first
+	local out = string.sub(source, 1, from1 - 1) .. add1 .. string.sub(source, to1 + 1)
+	return string.sub(out, 1, from2 - 1) .. add2 .. string.sub(out, to2 + 1)
+end
+
+-- Keybinds only take keyboard keys. Let them also take the right and middle mouse buttons (the
+-- left one is how you click the chip). Patched in memory like the others; skipped silently if the
+-- library layout changed.
+local function patchMD3KeybindMouse(source)
+	local startAt = string.find(source, "-- Window/Elements/Keybind.lua", 1, true)
+	local endAt = string.find(source, "-- Window/Elements/Slider.lua", 1, true)
+	if not (startAt and endAt and startAt < endAt) then
+		return nil
+	end
+	local part = string.sub(source, startAt, endAt - 1)
+	local function replaceOnce(text, old, new)
+		local from, to = string.find(text, old, 1, true)
+		if not from then
+			return nil
+		end
+		return string.sub(text, 1, from - 1) .. new .. string.sub(text, to + 1)
+	end
+	local SIDE_BUTTON_BLOCK = [==[
+	do
+		local getEnv = getgenv
+		local pressed = (getEnv and getEnv().iskeypressed) or iskeypressed
+		if type(pressed) == "function" then
+			local codes = { [Enum.KeyCode.World90] = 0x05, [Enum.KeyCode.World91] = 0x06 }
+			local last = {}
+			local function isDown(code)
+				local ok, down = pcall(pressed, code)
+				return ok and down == true
+			end
+			element._maid:GiveTask(game:GetService("RunService").Heartbeat:Connect(function()
+				local focused = true
+				if type(iswindowactive) == "function" then
+					local ok, active = pcall(iswindowactive)
+					focused = not ok or active ~= false
+				end
+				if not focused then
+					for key in codes do
+						last[key] = false
+					end
+					return
+				end
+				if listening then
+					for key, code in codes do
+						local down = isDown(code)
+						if down and not last[key] then
+							last[key] = true
+							setListening(false)
+							element:Set(key)
+							return
+						end
+						last[key] = down
+					end
+					return
+				end
+				local key = element.Value
+				local code = key and codes[key]
+				for other in codes do
+					if other ~= key then
+						last[other] = false
+					end
+				end
+				if not code then
+					return
+				end
+				local down = isDown(code)
+				if down == (last[key] == true) then
+					return
+				end
+				last[key] = down
+				if UserInputService:GetFocusedTextBox() then
+					return
+				end
+				if down then
+					if mode == "Toggle" then
+						setState(not element.State)
+						fire(element.State)
+						announce(if element.State then "Enabled" else "Disabled", if element.State then "toggle_on" else "toggle_off")
+					elseif mode == "Hold" then
+						setState(true)
+						fire(true)
+						announce("Holding", "keyboard")
+					else
+						fire()
+						announce("Activated", "keyboard")
+					end
+				elseif mode == "Hold" and element.State then
+					setState(false)
+					fire(false)
+				end
+			end))
+		end
+	end
+	paint()
+	window.KeybindsChanged:Fire()
+	return Base.Finish(element)
+end]==]
+	local steps = {
+		{
+			"\t\treturn value.EnumType == Enum.KeyCode and value ~= Enum.KeyCode.Unknown and value or nil\n\telseif type(value) == \"string\" and value ~= \"\" and value ~= \"None\" then\n\t\tlocal ok, key = pcall(function()\n\t\t\treturn (Enum.KeyCode :: any)[value]\n\t\tend)\n\t\treturn ok and key or nil",
+			"\t\tif value == Enum.UserInputType.MouseButton2 or value == Enum.UserInputType.MouseButton3 then\n\t\t\treturn value\n\t\tend\n\t\treturn value.EnumType == Enum.KeyCode and value ~= Enum.KeyCode.Unknown and value or nil\n\telseif type(value) == \"string\" and value ~= \"\" and value ~= \"None\" then\n\t\tif value == \"MouseButton2\" or value == \"MouseButton3\" then\n\t\t\treturn Enum.UserInputType[value]\n\t\tend\n\t\tlocal ok, key = pcall(function()\n\t\t\treturn (Enum.KeyCode :: any)[value]\n\t\tend)\n\t\treturn ok and key or nil",
+		},
+		{
+			"\t\t\tif input.UserInputType ~= Enum.UserInputType.Keyboard then\n\t\t\t\treturn\n\t\t\tend",
+			"\t\t\tlocal mouseKey = (input.UserInputType == Enum.UserInputType.MouseButton2 or input.UserInputType == Enum.UserInputType.MouseButton3) and input.UserInputType or nil\n\t\t\tif input.UserInputType ~= Enum.UserInputType.Keyboard and not mouseKey then\n\t\t\t\treturn\n\t\t\tend",
+		},
+		{ "element:Set(input.KeyCode)", "element:Set(mouseKey or input.KeyCode)" },
+		{
+			"if element.Value and input.KeyCode == element.Value then",
+			"if element.Value and (input.KeyCode == element.Value or input.UserInputType == element.Value) then",
+		},
+		{
+			"if element.State and element.Value and input.KeyCode == element.Value then",
+			"if element.State and element.Value and (input.KeyCode == element.Value or input.UserInputType == element.Value) then",
+		},
+		-- the chip shows the side buttons by their mouse names
+		{
+			"\t\tchip.Text = listening and \"...\" or (element.Value and element.Value.Name or \"None\")",
+			"\t\tlocal shown = element.Value and (element.Value == Enum.KeyCode.World90 and \"Mouse4\" or element.Value == Enum.KeyCode.World91 and \"Mouse5\" or element.Value.Name)\n\t\tchip.Text = listening and \"...\" or (shown or \"None\")",
+		},
+		-- Side mouse buttons: Roblox doesn't report them, so where the executor has iskeypressed
+		-- (Windows virtual keys 0x05 / 0x06) they are polled. They are stored as the unused keys
+		-- World90 / World91. Without iskeypressed nothing changes: keys and the right / middle
+		-- mouse buttons still go through Roblox's own input.
+		{
+			"\tpaint()\n\twindow.KeybindsChanged:Fire()\n\treturn Base.Finish(element)\nend",
+			SIDE_BUTTON_BLOCK,
+		},
+	}
+	for _, step in steps do
+		part = replaceOnce(part, step[1], step[2])
+		if not part then
+			return nil
+		end
+	end
+	return string.sub(source, 1, startAt - 1) .. part .. string.sub(source, endAt)
+end
+
+-- Lets LY lock the library's HUD pieces (watermark, keybind list): while
+-- getgenv().__LYHudLocks[target] is set, dragging that frame does nothing. They are then
+-- only moved in LY's HUD editor.
+local function patchMD3HudLock(source)
+	local anchor = [==[	local connChanged = UserInputService.InputChanged:Connect(function(input)
+		if not controller.dragging or not isMove(input) then
+			return
+		end
+]==]
+	local from, to = string.find(source, anchor, 1, true)
+	if not from then
+		return nil
+	end
+	local lock = [==[		do
+			local getEnv = getgenv
+			local locks = getEnv and getEnv().__LYHudLocks
+			if locks and locks[target] then
+				return
+			end
+		end
+]==]
+	return string.sub(source, 1, to) .. lock .. string.sub(source, to + 1)
+end
+
+local MD3
+do
+	local MD3_URL = "https://raw.githubusercontent.com/engnyg/Material-Design-3-Roblox-lua-ui/main/dist/MaterialDesign3.luau"
+	-- The patched library is cached on disk and refreshed in the background (at most hourly), so
+	-- a start-up needs no download. Bump MD3_CACHE_REV whenever the patches above change or this
+	-- file starts to need a newer library build: a different revision ignores the old cache.
+	local MD3_CACHE_REV = "1"
+	local MD3_CACHE_PATH = "LYHub/md3_cache.luau"
+	local MD3_CACHE_TTL = 3600
+
+	-- Downloads the library and applies the patches. Returns the source to run and its chunk.
+	local function buildMD3()
+		local source = game:HttpGet(MD3_URL)
+		pcall(function()
+			source = patchMD3KeybindMouse(source) or source
+		end)
+		pcall(function()
+			source = patchMD3HudLock(source) or source
+		end)
+		local patched = nil
+		pcall(function()
+			patched = patchMD3ColorPicker(source)
+		end)
+		local withIcons = nil
+		pcall(function()
+			withIcons = patchMD3SubTabIcons(patched or source)
+		end)
+		local candidates = table.create(3)
+		candidates[1], candidates[2], candidates[3] = withIcons, patched, source
+		for index = 1, 3 do
+			local candidate = candidates[index]
+			local chunk = candidate and loadstring(candidate)
+			if chunk then
+				return candidate, chunk
+			end
+		end
+		return source, nil
+	end
+
+	local canCache = type(readfile) == "function" and type(writefile) == "function" and type(isfile) == "function"
+	local function saveCache(finalSource)
+		if not canCache then
+			return
+		end
+		pcall(function()
+			if type(makefolder) == "function" and type(isfolder) == "function" and not isfolder("LYHub") then
+				makefolder("LYHub")
+			end
+			writefile(MD3_CACHE_PATH, ("--LYMD3:%s:%d\n"):format(MD3_CACHE_REV, os.time()) .. finalSource)
+		end)
+	end
+
+	local cachedChunk, cacheAge = nil, nil
+	if canCache then
+		pcall(function()
+			if not isfile(MD3_CACHE_PATH) then
+				return
+			end
+			local body = readfile(MD3_CACHE_PATH)
+			local rev, stamp, rest = string.match(body, "^%-%-LYMD3:([^:\n]*):(%d+)\n()")
+			if rev ~= MD3_CACHE_REV then
+				return
+			end
+			cachedChunk = loadstring(string.sub(body, rest))
+			cacheAge = os.time() - tonumber(stamp)
+		end)
+	end
+
+	if cachedChunk then
+		MD3 = cachedChunk()
+		if not cacheAge or cacheAge < 0 or cacheAge > MD3_CACHE_TTL then
+			task.spawn(function()
+				pcall(function()
+					local finalSource, chunk = buildMD3()
+					if chunk then
+						saveCache(finalSource)
+					end
+				end)
+			end)
+		end
+	else
+		local finalSource, chunk = buildMD3()
+		MD3 = chunk()
+		saveCache(finalSource)
+	end
+end
+
+-- MD3's ripple parents its circle straight to the pressed row. Rows use
+-- AutomaticSize.Y, which counts that growing circle (ClipsDescendants only
+-- hides it), so a tap blew the row up to fill the page. Grow the circle
+-- inside a ScrollingFrame instead: AutomaticSize doesn't look past one (a
+-- plain Frame or CanvasGroup holder still grows the row).
+do
+	local emit = MD3.Ripple and MD3.Ripple.Emit
+	if type(emit) == "function" then
+		MD3.Ripple.Emit = function(parent, inputPosition, color)
+			if typeof(parent) ~= "Instance" or not parent:IsA("GuiObject") then
+				return emit(parent, inputPosition, color)
+			end
+			local holder = Instance.new("ScrollingFrame")
+			holder.Name = "RippleHolder"
+			holder.BackgroundTransparency = 1
+			holder.BorderSizePixel = 0
+			holder.ClipsDescendants = true
+			holder.ScrollingEnabled = false
+			holder.ScrollBarThickness = 0
+			holder.CanvasSize = UDim2.new()
+			holder.Active = false
+			holder.Selectable = false
+			pcall(function()
+				holder.Interactable = false -- never swallows the next tap on the row
+			end)
+			holder.Size = UDim2.fromScale(1, 1)
+			holder.ZIndex = parent.ZIndex
+			local corner = parent:FindFirstChildOfClass("UICorner")
+			if corner then
+				corner:Clone().Parent = holder
+			end
+			holder.Parent = parent
+			emit(holder, inputPosition, color)
+			task.delay(1, function()
+				holder:Destroy()
+			end)
+		end
+	end
+end
+
+    return MD3
+    end
+
+    local md3lib
+    function LYUI.Load()
+        if md3lib ~= nil then return md3lib end
+        local t0 = os.clock()
+        md3lib = LYUI.LoadMD3()
+        log(string.format("LY: Material Design 3 library ready in %.2f s", os.clock() - t0))
+        return md3lib
+    end
+
+    ---------------------------------------------------------------------------------------------- HUD layout editor
+    -- LY's HUD layout (every HUD piece registers; the editor page moves and resizes them, the layout is saved to
+    -- LxYHook/hud_layout.json). Taken from LY.lua; `Window` is the MD3 window.
+    function LYUI.InstallHud(Window)
+        local MD3 = LYUI.Load()
+        local HttpService = game:GetService("HttpService")
+        local owned, cleanups = {}, {}
+        local function own(x) owned[#owned + 1] = x return x end
+        local function track(fn) cleanups[#cleanups + 1] = fn end
+-- HUD layout ---------------------------------------------------------------------------
+-- Every on-screen HUD piece (watermark, keybind list, Target HUD, the manual FIRE button)
+-- registers here. They can only be moved or resized in the HUD editor (Settings > HUD
+-- editor); the layout is saved to LxYHook/hud_layout.json and applied again at the next start.
+do
+	local Hud = { Elements = {}, Order = {}, Editing = false }
+	MD3.LYHud = Hud
+	getgenv().LYHud = Hud
+	local LAYOUT_FILE = "LxYHook/hud_layout.json"
+	local env = (getgenv and getgenv()) or _G
+	env.__LYHudLocks = setmetatable({}, { __mode = "k" })
+
+	local saved = {}
+	pcall(function()
+		if type(isfile) == "function" and isfile(LAYOUT_FILE) then
+			local decoded = HttpService:JSONDecode(readfile(LAYOUT_FILE))
+			if type(decoded) == "table" then
+				saved = decoded
+			end
+		end
+	end)
+
+	local function write()
+		pcall(function()
+			if type(writefile) ~= "function" then
+				return
+			end
+			if type(isfolder) == "function" and not isfolder("LxYHook") then
+				makefolder("LxYHook")
+			end
+			writefile(LAYOUT_FILE, HttpService:JSONEncode(saved))
+		end)
+	end
+
+	-- spec: Frame, Title, Lib (a library piece: also lock its own dragging), Show (returns a
+	-- restore function; makes the piece visible while editing), MinScale, MaxScale.
+	function Hud.register(name, spec)
+		local frame = spec.Frame
+		local scale = frame:FindFirstChild("LYHudScale")
+		if not scale then
+			scale = Instance.new("UIScale")
+			scale.Name = "LYHudScale"
+			scale.Parent = frame
+		end
+		local entry = {
+			Name = name,
+			Title = spec.Title or name,
+			Frame = frame,
+			Scale = scale,
+			Show = spec.Show,
+			Hideable = spec.Hideable,
+			Min = spec.MinScale or 0.5,
+			Max = spec.MaxScale or 3,
+			Touched = false,
+			Default = { Position = frame.Position, Anchor = frame.AnchorPoint, Scale = scale.Scale },
+		}
+		if not Hud.Elements[name] then
+			table.insert(Hud.Order, name)
+		end
+		Hud.Elements[name] = entry
+		if spec.Lib then
+			env.__LYHudLocks[frame] = true
+		end
+		local layout = saved[name]
+		if type(layout) == "table" and type(layout.x) == "number" and type(layout.y) == "number" then
+			frame.AnchorPoint = Vector2.zero
+			frame.Position = UDim2.fromScale(layout.x, layout.y)
+			scale.Scale = math.clamp(tonumber(layout.s) or 1, entry.Min, entry.Max)
+			entry.Fraction = Vector2.new(layout.x, layout.y)
+			entry.Touched = true
+		end
+		return entry
+	end
+
+	function Hud.save()
+		for name, entry in Hud.Elements do
+			if entry.Touched and entry.Fraction then
+				saved[name] = { x = entry.Fraction.X, y = entry.Fraction.Y, s = entry.Scale.Scale }
+			end
+		end
+		write()
+	end
+
+	function Hud.reset()
+		for name, entry in Hud.Elements do
+			entry.Frame.Position = entry.Default.Position
+			entry.Frame.AnchorPoint = entry.Default.Anchor
+			entry.Scale.Scale = entry.Default.Scale
+			entry.Touched = false
+			entry.Fraction = nil
+			saved[name] = nil
+		end
+		write()
+	end
+end
+
+-- A full-screen page (the hub window hides while it is open): every HUD piece gets a frame
+-- you drag to move and a dot at its corner you drag to resize. "Done" saves the layout and
+-- locks the pieces in place.
+do
+	local Hud = MD3.LYHud
+	local Create, Typography, Shape = MD3.Create, MD3.Typography, MD3.Shape
+	local session = nil
+
+	local GuiService = game:GetService("GuiService")
+
+	-- Every GuiObject's AbsolutePosition is measured from just below the top bar, whether or
+	-- not its ScreenGui ignores the inset (an ignoring GUI even reports its own origin as
+	-- (0, -inset)). A GUI that keeps the inset has the same origin, so the frames are drawn
+	-- in one, at AbsolutePosition as it is.
+	local function topInset()
+		local ok, inset = pcall(GuiService.GetGuiInset, GuiService)
+		return ok and inset.Y or 0
+	end
+
+	local function viewport()
+		if session and session.Gui then
+			return session.Gui.AbsoluteSize
+		end
+		local camera = workspace.CurrentCamera
+		return camera and camera.ViewportSize or Vector2.new(1920, 1080)
+	end
+
+	local function parentBounds(frame)
+		local parent = frame.Parent
+		if parent and parent:IsA("GuiBase2d") then
+			return parent.AbsolutePosition, parent.AbsoluteSize
+		end
+		return Vector2.zero, viewport()
+	end
+
+	-- Puts the piece's top-left at a position in its own GUI's coordinates (clamped to that
+	-- GUI). The piece is always anchored top-left, so its resize scales from that corner.
+	local function placeAt(entry, at, userMoved)
+		local frame = entry.Frame
+		local origin, size = parentBounds(frame)
+		local own = frame.AbsoluteSize
+		local screen = entry.BoxGui and entry.BoxGui.AbsoluteSize or viewport()
+		local x = math.clamp(at.X, 0, math.max(0, screen.X - own.X))
+		local y = math.clamp(at.Y, -topInset(), math.max(-topInset(), screen.Y - own.Y))
+		frame.AnchorPoint = Vector2.zero
+		local fraction = Vector2.new((x - origin.X) / math.max(size.X, 1), (y - origin.Y) / math.max(size.Y, 1))
+		frame.Position = UDim2.fromScale(fraction.X, fraction.Y)
+		entry.Fraction = fraction
+		if userMoved then
+			entry.Touched = true
+		end
+	end
+
+	local function isPress(input)
+		return input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch
+	end
+
+	function Hud.close()
+		if not session then
+			return
+		end
+		local done = session
+		session = nil
+		for _, connection in done.Connections do
+			connection:Disconnect()
+		end
+		done.Gui:Destroy()
+		if done.InsetGui then
+			done.InsetGui:Destroy()
+		end
+		for _, restore in done.Restores do
+			pcall(restore)
+		end
+		Hud.Editing = false
+		Hud.save()
+		pcall(function()
+			Window:SetVisible(done.WasVisible ~= false)
+		end)
+	end
+
+	function Hud.open()
+		if session then
+			return
+		end
+		Hud.Editing = true
+		local c = Window.Theme.Colors
+		local screen = viewport()
+		local newSession = { Connections = {}, Restores = {}, WasVisible = Window.Visible }
+		session = newSession
+		pcall(function()
+			Window:SetVisible(false)
+		end)
+
+		local gui = Instance.new("ScreenGui")
+		gui.Name = MD3.Env.RandomName()
+		gui.ResetOnSpawn = false
+		gui.IgnoreGuiInset = true
+		gui.DisplayOrder = 1000
+		gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+		MD3.Env.ProtectGui(gui)
+		gui.Parent = MD3.Env.GetGuiParent()
+		own(gui)
+		newSession.Gui = gui
+
+		-- Frames live in a GUI that keeps the top bar inset: same origin as AbsolutePosition.
+		local insetGui = Instance.new("ScreenGui")
+		insetGui.Name = MD3.Env.RandomName()
+		insetGui.ResetOnSpawn = false
+		insetGui.IgnoreGuiInset = false
+		insetGui.DisplayOrder = 1001
+		insetGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+		MD3.Env.ProtectGui(insetGui)
+		insetGui.Parent = MD3.Env.GetGuiParent()
+		own(insetGui)
+		newSession.InsetGui = insetGui
+
+		-- A modal button frees the mouse (the game keeps it locked for aiming).
+		Create("TextButton") {
+			Name = "Modal", Text = "", BackgroundTransparency = 1, Modal = true,
+			Size = UDim2.fromScale(1, 1), Parent = gui,
+		}
+		Create("Frame") {
+			Name = "Backdrop", BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.55,
+			BorderSizePixel = 0, Active = true, Size = UDim2.fromScale(1, 1), ZIndex = 1, Parent = gui,
+		}
+
+		-- Toolbar ---------------------------------------------------------------------------
+		local width = math.min(460, screen.X - 24)
+		local toolbar = Create("Frame") {
+			Name = "Toolbar", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 12),
+			Size = UDim2.fromOffset(width, 66), BackgroundColor3 = c.SurfaceContainerHigh,
+			BorderSizePixel = 0, Active = true, ZIndex = 20, Parent = gui,
+		}
+		Shape.Corner(Shape.Large, toolbar)
+		Create("UIStroke") { Color = c.OutlineVariant, Thickness = 1, Parent = toolbar }
+		local title = Create("TextLabel") {
+			Text = "HUD editor  \u{00B7}  HUD 編輯器", Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -230, 0, 22),
+			BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = c.OnSurface,
+			ZIndex = 21, Parent = toolbar,
+		}
+		Typography.Apply(title, "TitleSmall")
+		local hint = Create("TextLabel") {
+			Text = "Drag to move, drag the dot to resize\n拖曳移動，拖曳圓點縮放", Position = UDim2.fromOffset(16, 30),
+			Size = UDim2.new(1, -230, 0, 30), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Top, TextWrapped = true, TextColor3 = c.OnSurfaceVariant,
+			ZIndex = 21, Parent = toolbar,
+		}
+		Typography.Apply(hint, "BodySmall")
+
+		local function button(text, x, w, background, foreground, onPress)
+			local b = Create("TextButton") {
+				Text = text, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, x, 0.5, 0),
+				Size = UDim2.fromOffset(w, 40), BackgroundColor3 = background, TextColor3 = foreground,
+				AutoButtonColor = true, BorderSizePixel = 0, ZIndex = 22, Parent = toolbar,
+			}
+			Typography.Apply(b, "LabelLarge")
+			Shape.Corner(Shape.Full, b)
+			table.insert(newSession.Connections, b.Activated:Connect(onPress))
+			return b
+		end
+		button("Done 完成", -12, 100, c.Primary, c.OnPrimary, function()
+			Hud.close()
+		end)
+		button("Reset 重設", -120, 100, c.SecondaryContainer, c.OnSecondaryContainer, function()
+			Hud.reset()
+		end)
+
+		-- One frame + resize dot per HUD piece -----------------------------------------------
+		local boxes = {}
+		local drag = nil
+		for _, name in Hud.Order do
+			local entry = Hud.Elements[name]
+			if entry.Show then
+				local ok, restore = pcall(entry.Show)
+				if ok and restore then
+					table.insert(newSession.Restores, restore)
+				end
+			end
+		end
+		-- Pieces that were hidden only get their real size and place on the next frame.
+		RunService.RenderStepped:Wait()
+		if session ~= newSession then
+			return
+		end
+		for _, name in Hud.Order do
+			local entry = Hud.Elements[name]
+			entry.BoxGui = insetGui
+			placeAt(entry, entry.Frame.AbsolutePosition, false)
+
+			local box = Create("Frame") {
+				Name = name, BackgroundColor3 = c.Primary, BackgroundTransparency = 0.82,
+				BorderSizePixel = 0, Active = true, ZIndex = 5, Parent = entry.BoxGui,
+			}
+			Shape.Corner(UDim.new(0, 10), box)
+			Create("UIStroke") { Color = c.Primary, Thickness = 2, Parent = box }
+			local tag = Create("TextLabel") {
+				Text = " " .. entry.Title .. " ", AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromOffset(0, -4),
+				AutomaticSize = Enum.AutomaticSize.XY, BackgroundColor3 = c.Primary, TextColor3 = c.OnPrimary,
+				BorderSizePixel = 0, ZIndex = 6, Parent = box,
+			}
+			Typography.Apply(tag, "LabelSmall")
+			Shape.Corner(Shape.Full, tag)
+			if entry.Hideable then
+				local chip = Create("TextButton") {
+					AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, 0, 0, -4),
+					AutomaticSize = Enum.AutomaticSize.XY, BackgroundColor3 = c.SecondaryContainer,
+					TextColor3 = c.OnSecondaryContainer, BorderSizePixel = 0, AutoButtonColor = true,
+					ZIndex = 8, Parent = box,
+				}
+				Typography.Apply(chip, "LabelSmall")
+				Shape.Corner(Shape.Full, chip)
+				local function paint()
+					local hidden = entry.Hideable.Get()
+					chip.Text = hidden and " Show 顯示 " or " Hide 隱藏 "
+					box.BackgroundTransparency = hidden and 0.94 or 0.82
+					tag.BackgroundTransparency = hidden and 0.6 or 0
+				end
+				paint()
+				table.insert(newSession.Connections, chip.Activated:Connect(function()
+					entry.Hideable.Set(not entry.Hideable.Get())
+					paint()
+				end))
+			end
+			local grip = Create("Frame") {
+				Name = "Grip", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(1, 1),
+				Size = UDim2.fromOffset(26, 26), BackgroundColor3 = c.Primary, BorderSizePixel = 0,
+				Active = true, ZIndex = 7, Parent = box,
+			}
+			Shape.Corner(Shape.Full, grip)
+			Create("UIStroke") { Color = c.OnPrimary, Thickness = 2, Parent = grip }
+			boxes[name] = box
+
+			table.insert(newSession.Connections, box.InputBegan:Connect(function(input)
+				if isPress(input) and not drag then
+					drag = { Mode = "move", Entry = entry, Input = input, Pointer = input.Position, Start = entry.Frame.AbsolutePosition }
+				end
+			end))
+			table.insert(newSession.Connections, grip.InputBegan:Connect(function(input)
+				if isPress(input) and not drag then
+					drag = {
+						Mode = "resize", Entry = entry, Input = input, Pointer = input.Position,
+						Scale = entry.Scale.Scale, Size = entry.Frame.AbsoluteSize,
+					}
+				end
+			end))
+		end
+
+		table.insert(newSession.Connections, UserInputService.InputChanged:Connect(function(input)
+			if not drag then
+				return
+			end
+			if input.UserInputType ~= Enum.UserInputType.MouseMovement and input ~= drag.Input then
+				return
+			end
+			local delta = input.Position - drag.Pointer
+			if drag.Mode == "move" then
+				placeAt(drag.Entry, drag.Start + Vector2.new(delta.X, delta.Y), true)
+			else
+				local size = drag.Size
+				local ratio = ((size.X + delta.X) / math.max(size.X, 1) + (size.Y + delta.Y) / math.max(size.Y, 1)) / 2
+				drag.Entry.Scale.Scale = math.clamp(drag.Scale * ratio, drag.Entry.Min, drag.Entry.Max)
+				drag.Entry.Touched = true
+			end
+		end))
+		table.insert(newSession.Connections, UserInputService.InputEnded:Connect(function(input)
+			if drag and isPress(input) and (input.UserInputType ~= Enum.UserInputType.Touch or input == drag.Input) then
+				drag = nil
+			end
+		end))
+		table.insert(newSession.Connections, RunService.RenderStepped:Connect(function()
+			for name, box in boxes do
+				local frame = Hud.Elements[name].Frame
+				local at, size = frame.AbsolutePosition, frame.AbsoluteSize
+				box.Position = UDim2.fromOffset(at.X, at.Y)
+				box.Size = UDim2.fromOffset(math.max(size.X, 48), math.max(size.Y, 32))
+			end
+		end))
+	end
+
+	track(function()
+		Hud.close()
+	end)
+
+end
+        local Hud = MD3.LYHud
+        function Hud.destroy()
+            for _, fn in ipairs(cleanups) do pcall(fn) end
+            for _, g in ipairs(owned) do pcall(function() g:Destroy() end) end
+        end
+        return Hud
+    end
+
+    ---------------------------------------------------------------------------------------------- facade
+    local ACCENT = Color3.fromHex("#A21FF2")
+
+    local function iconArg(icon)
+        if type(icon) == "string" and icon ~= "" then return icon end
+        return "widgets"
+    end
+
+    local function tip(o)
+        local t = o and o.Tooltip
+        if type(t) == "string" and t ~= "" then return t end
+        return nil
+    end
+
+    -- an element of the facade: what the Starlight controls hold in `_el`
+    local El = {}
+    El.__index = El
+
+    local function newEl(gb, md, text)
+        return setmetatable({ _gb = gb, _md = md, Instance = md.Instance, _text = text }, El)
+    end
+
+    function El:Set(t)
+        if type(t) ~= "table" then return end
+        local md = self._md
+        if t.Name ~= nil then
+            self._text = tostring(t.Name)
+            if md.Type == "Label" then
+                md:Set(self._text, true)
+            elseif md.SetTitle ~= nil then
+                md:SetTitle(self._text)
+            end
+        end
+        if t.CurrentValue ~= nil then
+            pcall(md.Set, md, t.CurrentValue, true)
+        end
+    end
+
+    function El:Lock() end
+    function El:Unlock() end
+
+    function El:Destroy()
+        pcall(function() self._md:Destroy() end)
+        local n = self._nested
+        if n ~= nil then pcall(function() n._md:Destroy() end) end
+    end
+
+    -- the label row that carries a dropdown / colour picker / key box is replaced by that control's own row
+    -- (MD3 has no inline controls): the label's text becomes its title and the host points at the new row
+    local function takeOver(host, row)
+        pcall(function() host._md:SetVisible(false) end)
+        host._md = row
+        host.Instance = row.Instance
+    end
+
+    local function nestedWrapper(row, extra)
+        local n = setmetatable({ _md = row, Instance = row.Instance, LYRow = row.Instance,
+            Instances = { row.Instance, row.Instance } }, El)
+        if extra then for k, v in pairs(extra) do n[k] = v end end
+        return n
+    end
+
+    function El:AddDropdown(spec)
+        local multi = spec.MultipleOptions == true
+        local current = spec.CurrentOption
+        local default
+        if multi then
+            default = type(current) == "table" and current or {}
+        else
+            default = type(current) == "table" and current[1] or current
+        end
+        local cb = spec.Callback
+        local row = self._gb._md:AddDropdown({
+            Title = self._text, Options = spec.Options or {}, Default = default, Multi = multi,
+            Callback = function(v)
+                if cb ~= nil then cb(type(v) == "table" and v or { v }) end
+            end,
+        })
+        takeOver(self, row)
+        local n = nestedWrapper(row)
+        n.Set = function(_, t)
+            if type(t) ~= "table" then return end
+            if t.Options ~= nil then pcall(row.SetOptions, row, t.Options) end
+            if t.CurrentOption ~= nil then
+                local cur = t.CurrentOption
+                pcall(row.Set, row, multi and cur or cur[1], true)
+            end
+        end
+        self._nested = n
+        return n
+    end
+
+    function El:AddColorPicker(spec)
+        local cb = spec.Callback
+        local own = self._md.Type == "Label"
+        local title = own and self._text or (tostring(self._text) .. " Color")
+        local row = self._gb._md:AddColorPicker({
+            Title = title, Default = spec.CurrentValue or Color3.new(1, 1, 1),
+            Transparency = type(spec.Transparency) == "number" and spec.Transparency or 0,
+            Callback = function(color, transparency)
+                if cb ~= nil then cb(color, transparency) end
+            end,
+        })
+        if own then takeOver(self, row) end
+        local n = nestedWrapper(row)
+        n.Set = function(_, t)
+            if type(t) ~= "table" then return end
+            local color = t.CurrentValue
+            if typeof(color) ~= "Color3" then return end
+            pcall(row.Set, row, { Color = color, Transparency = t.Transparency or 0 }, true)
+        end
+        self._nested = n
+        return n
+    end
+
+    local function keyFromText(text)
+        if type(text) ~= "string" or text == "No Bind" or text == "" then return nil end
+        local ok, key = pcall(function() return Enum.KeyCode[text] end)
+        if ok and key ~= nil then return key end
+        return nil
+    end
+
+    function El:AddBind(spec)
+        local own = self._md.Type == "Label"
+        local title = own and self._text or (tostring(self._text) .. " Key")
+        local changed = spec.OnChangedCallback
+        local row = self._gb._md:AddKeybind({
+            Title = title, Default = keyFromText(spec.CurrentValue), Mode = "Press", Notify = false,
+            ChangedCallback = function(key)
+                if changed ~= nil then changed(key and key.Name or "No Bind") end
+            end,
+        })
+        if own then takeOver(self, row) end
+        -- the keybind list is fed by the menu's list entries, not by this row
+        local win = self._gb._tab._lib.Window
+        local keybinds = win and win._keybinds
+        local at = keybinds and table.find(keybinds, row)
+        if at then table.remove(keybinds, at) end
+        local n = nestedWrapper(row)
+        n.Set = function(_, t)
+            if type(t) ~= "table" or t.CurrentValue == nil then return end
+            pcall(row.Set, row, keyFromText(t.CurrentValue), true)
+        end
+        self._nested = n
+        return n
+    end
+
+    -- groupbox: one MD3 section
+    local Gb = {}
+    Gb.__index = Gb
+
+    function Gb:CreateLabel(o)
+        local md = self._md:AddLabel({ Text = tostring(o.Name or "") })
+        return newEl(self, md, tostring(o.Name or ""))
+    end
+
+    function Gb:CreateToggle(o)
+        local md = self._md:AddToggle({
+            Title = tostring(o.Name or ""), Description = tip(o), Default = o.CurrentValue == true, Callback = o.Callback,
+        })
+        return newEl(self, md, tostring(o.Name or ""))
+    end
+
+    function Gb:CreateSlider(o)
+        local range = o.Range or { 0, 100 }
+        local md = self._md:AddSlider({
+            Title = tostring(o.Name or ""), Description = tip(o), Min = range[1], Max = range[2],
+            Step = o.Increment or 1, Default = o.CurrentValue, Suffix = o.Suffix or "", Callback = o.Callback,
+        })
+        return newEl(self, md, tostring(o.Name or ""))
+    end
+
+    function Gb:CreateButton(o)
+        local md = self._md:AddButton({ Title = tostring(o.Name or ""), Description = tip(o), Callback = o.Callback })
+        return newEl(self, md, tostring(o.Name or ""))
+    end
+
+    function Gb:CreateDivider()
+        local md = self._md:AddDivider()
+        return newEl(self, md, "")
+    end
+
+    function Gb:CreateInput(o)
+        local md = self._md:AddInput({
+            Title = tostring(o.Name or ""), Description = tip(o), Placeholder = tostring(o.PlaceholderText or ""),
+            Default = tostring(o.CurrentValue or ""), Callback = o.Callback,
+        })
+        return newEl(self, md, tostring(o.Name or ""))
+    end
+
+    -- tab (a page of the menu): one MD3 sub tab
+    local TabC = {}
+    TabC.__index = TabC
+
+    function TabC:CreateGroupbox(o)
+        local side = (o.Column or 1) >= 2 and "Right" or "Left"
+        local title = o.Name
+        if title == " " then title = nil end
+        local sec = self._sub:AddSection(title, side)
+        return setmetatable({ _md = sec, Instance = sec.Instance, _tab = self }, Gb)
+    end
+
+    -- Settings > Theme: MD3's own theme editor
+    function TabC:BuildThemeGroupbox()
+        local win = self._lib.Window
+        local ok, err = pcall(win.AddThemeEditor, win, self._sub)
+        if not ok then log("LY theme editor failed: " .. tostring(err)) end
+    end
+
+    -- sidebar section: one MD3 tab
+    local TS = {}
+    TS.__index = TS
+
+    function TS:CreateTab(o)
+        local mdTab = self._mdTab
+        local columns = (o.Columns or 2) >= 2 and 2 or 1
+        local sub = mdTab:AddSubTab(tostring(o.Name), { Columns = columns })
+        -- the button row of the sub tabs scrolls sideways; a mouse wheel only scrolls pages up and down, so over
+        -- the row the wheel moves the row (and the page stays still meanwhile)
+        local nav = mdTab._subNav
+        if nav ~= nil and not mdTab._lyWheel then
+            mdTab._lyWheel = true
+            pcall(function()
+                nav.InputChanged:Connect(function(input)
+                    if input.UserInputType ~= Enum.UserInputType.MouseWheel then return end
+                    local limit = math.max(0, nav.AbsoluteCanvasSize.X - nav.AbsoluteSize.X)
+                    nav.CanvasPosition = Vector2.new(math.clamp(nav.CanvasPosition.X - input.Position.Z * 70, 0, limit), 0)
+                end)
+                nav.MouseEnter:Connect(function() mdTab.Instance.ScrollingEnabled = false end)
+                nav.MouseLeave:Connect(function() mdTab.Instance.ScrollingEnabled = true end)
+            end)
+        end
+        local index = #mdTab._subTabs
+        local t = setmetatable({ _sub = sub, _ts = self, _lib = self._lib }, TabC)
+        -- the first page of the tab that is open is built at once; any other page when its button is first pressed
+        -- (the first page of another tab: the sidebar button of that tab)
+        if index == 1 then
+            t.Active = self._lib.Window.SelectedTab == mdTab
+            t.Instances = { Button = { Interact = mdTab._button } }
+        else
+            t.Active = false
+            t.Instances = { Button = { Interact = sub.Button } }
+        end
+        return t
+    end
+
+    local Lib = {}
+    Lib.__index = Lib
+
+    function Lib.new()
+        return setmetatable({ Minimized = false }, Lib)
+    end
+
+    function Lib:CreateWindow(o)
+        local md3 = LYUI.Load()
+        local win = md3:CreateWindow({
+            Title = o.Name, Subtitle = o.Subtitle, Icon = "sports_esports", Mode = "Dark", ThemeColor = ACCENT,
+            ToggleKey = Enum.KeyCode.F15, ConfigFolder = "LxYHook", SectionsAsSubTabs = false,
+            LoadingScreen = false, KeybindNotify = false, MinimizeButton = false,
+        })
+        pcall(win.SetVisible, win, false)
+        self.Window = win
+        return win
+    end
+
+    function Lib:CreateTabSection(name, icon)
+        local win = self.Window
+        local mdTab = win:AddTab({ Title = tostring(name), Icon = iconArg(icon) })
+        return setmetatable({ _mdTab = mdTab, _lib = self }, TS)
+    end
+
+    function Lib:Destroy()
+        local win = self.Window
+        self.Window = nil
+        if win ~= nil then pcall(win.Destroy, win) end
+    end
+
+    ---------------------------------------------------------------------------------------------- menu
+    local LMenu = {}
+    LMenu.__index = function(t, k)
+        local v = rawget(LMenu, k)
+        if v ~= nil then return v end
+        v = rawget(Menu, k)
+        if v ~= nil then return v end
+        if isMethodName(k) then return function() return nil end end
+        return nil
+    end
+    LYUI.Menu = LMenu
+
+    function LMenu.new(opts)
+        -- Menu.new asks StarUI.Load for its library: hand it the facade
+        local saved = StarUI.Load
+        -- the library is loaded here, inside the build that falls back to the classic menu when it fails
+        LYUI.Load()
+        StarUI.Load = function() return Lib.new() end
+        local ok, self = pcall(Menu.new, opts)
+        StarUI.Load = saved
+        if not ok then error(self, 0) end
+        setmetatable(self, LMenu)
+        self._listEntries = {}
+        return self
+    end
+
+    -- Keybind list entries: one per keybind control, made when the control is (the control's page may never be
+    -- opened). Each is a keybind element of MD3 that lives in a section nobody sees; the list of the HUD reads
+    -- those. update(show, key, active, always): `show` = the feature is on and its key is meant for the list.
+    function LMenu:_listMake(entry)
+        local win = self._lib.Window
+        if win == nil or entry.el ~= nil then return end
+        local saved = rawget(win, "_registerSearchable")
+        win._registerSearchable = function() end
+        local ok, err = pcall(function()
+            if self._listSection == nil then
+                self._listSection = win.Tabs[1]:_addSectionIn(Instance.new("Frame"), "KeybindList", nil)
+            end
+            entry.el = self._listSection:AddKeybind({ Title = entry.label, Mode = "Press", Notify = false })
+        end)
+        win._registerSearchable = saved
+        if not ok then
+            log("LY keybind list entry failed: " .. tostring(err))
+            return
+        end
+        entry.apply()
+    end
+
+    function LMenu:_listAdd(label)
+        local entry = { label = label, show = false, key = nil, active = false, always = false }
+        function entry.apply()
+            local el = entry.el
+            if el == nil then return end
+            if entry.show then
+                el.Value = entry.key or { Name = entry.always and "Always" or "None" }
+                el:SetState(entry.active or entry.always)
+            else
+                el.Value = nil
+                el:SetState(false)
+            end
+        end
+        function entry.update(show, key, active, always)
+            entry.show, entry.key, entry.active, entry.always = show == true, key, active == true, always == true
+            entry.apply()
+        end
+        table.insert(self._listEntries, entry)
+        if self._hud ~= nil then self:_listMake(entry) end
+        return entry
+    end
+
+    function LMenu:_materialize()
+        if self._materialized or self._materializing or self._destroyed then return end
+        self._materializing = true
+        local L, opts = self._lib, self._opts
+        local t0 = os.clock()
+        L:CreateWindow({ Name = self.Title, Subtitle = opts.Subtitle or "Rivals" })
+        -- the menu's tabs and dialogs ask its "window" for sidebar sections: that is the facade
+        self._win = L
+        if coroutine.isyieldable() then task.wait() end
+        local function owner(o)
+            if o._ts == nil then o._ts = L:CreateTabSection(o.Label, o.Icon) end
+            for _, page in ipairs(o._pagesOrder) do
+                if self._destroyed then return end
+                page:_physical()
+            end
+            -- a tab with a single page has no use for a button row of one
+            if #o._pagesOrder == 1 then
+                pcall(function() o._ts._mdTab._subNav.Visible = false end)
+            end
+            if coroutine.isyieldable() then task.wait() end
+        end
+        for _, tab in ipairs(self._tabs) do owner(tab) end
+        for _, o in ipairs(self._owners) do owner(o) end
+        self._materialized = true
+        self._materializing = false
+        self:_buildHud()
+        log(string.format("menu step: LY menu built on first show in %.3f s", os.clock() - t0))
+        -- the window's own visibility (its mobile button) is followed
+        task.spawn(function()
+            local last
+            while not self._destroyed do
+                task.wait(0.25)
+                pcall(function()
+                    local win = L.Window
+                    local vis = win ~= nil and win.Visible == true
+                    if vis ~= last then
+                        last = vis
+                        self:_setVisibleState(vis)
+                    end
+                end)
+            end
+        end)
+    end
+
+    function LMenu:SetVisible(visible, instant)
+        if K.UIMark then K.UIMark(visible and "window shown" or "window hidden") end
+        if not self._materialized then
+            if self._destroyed then return true end
+            if self._materializing then self._wantShow = visible return true end
+            if not visible then
+                self:_setVisibleState(false)
+                return true
+            end
+            self._wantShow = true
+            local ok, err = pcall(self._materialize, self)
+            if not ok then
+                self._materializing = false
+                log("LY menu failed to build: " .. tostring(err))
+                pcall(function() tbl17.aB().get():Notify("The LY menu could not be built, the classic menu is shown instead (see the log).") end)
+                if K.RebuildMenu then task.defer(K.RebuildMenu, "Classic") end
+                return true
+            end
+            if self._destroyed or not self._materialized then return true end
+            visible, instant = self._wantShow, true
+        end
+        local win = self._lib.Window
+        if win ~= nil then pcall(win.SetVisible, win, visible) end
+        self:_setVisibleState(visible)
+        return true
+    end
+
+    function LMenu:Destroy()
+        local hud = self._hud
+        self._hud = nil
+        if hud ~= nil and hud.Editor ~= nil then pcall(hud.Editor.destroy) end
+        Menu.Destroy(self)
+    end
+
+    function LMenu:SetAccent(c)
+        if typeof(c) == "table" then c = c.Rgb end
+        local win = self._lib.Window
+        if typeof(c) == "Color3" and win ~= nil then
+            pcall(function() win.Theme:SetSeedColor(c) end)
+        end
+        self.AccentChanged:Fire(c)
+    end
+
+    -- HUD: LY's watermark and keybind list, on the window's own HUD layer (they stay up while the menu is closed)
+    function LMenu:_buildHud()
+        local win = self._lib.Window
+        if win == nil then return end
+        local hud = {}
+        self._hud = hud
+        pcall(function()
+            hud.Watermark = win:AddWatermark({ Title = "LxYHook", Player = true, FPS = true, Ping = true, Clock = true })
+            hud.Watermark.Instance.Visible = self._watermark ~= false
+        end)
+        pcall(function()
+            -- every entry is a feature that is on: the active ones are lit; the box is hidden while it is empty
+            hud.Keybinds = win:AddKeybindList({ Title = "Keybinds", Position = "Left", ShowAll = true })
+            local list = hud.Keybinds
+            local function visibility()
+                list.Instance.Visible = self._keybindList ~= false and (list.Count or 0) > 0
+            end
+            -- after every draw of the list (the library's own handler order is not fixed)
+            local render = list._render
+            list._render = function(self2, ...)
+                render(self2, ...)
+                visibility()
+            end
+            self._listVisibility = visibility
+            for _, entry in ipairs(self._listEntries) do self:_listMake(entry) end
+            visibility()
+        end)
+        -- the layout editor; the library's own HUD pieces stay up while it is open and are locked afterwards
+        local okEditor, editor = pcall(LYUI.InstallHud, win)
+        if okEditor then
+            hud.Editor = editor
+            pcall(function()
+            for _, piece in ipairs({ { "Watermark", "Watermark", hud.Watermark }, { "Keybind list", "Keybinds", hud.Keybinds } }) do
+                local frame = piece[3] and piece[3].Instance
+                if frame then
+                    editor.register(piece[1], {
+                        Frame = frame, Title = piece[2], Lib = true,
+                        Show = function()
+                            local layer = win._hudLayer
+                            local layerWas, frameWas = layer and layer.Visible, frame.Visible
+                            if layer then layer.Visible = true end
+                            frame.Visible = true
+                            return function()
+                                if layer then layer.Visible = layerWas end
+                                frame.Visible = frameWas
+                            end
+                        end,
+                    })
+                end
+            end
+            end)
+        else
+            log("LY HUD editor failed: " .. tostring(editor))
+        end
+        -- the Target HUD card and the other kh pieces take their colours from the script's theme tokens: the
+        -- tokens follow the MD3 theme
+        local function syncTokens()
+            local c = win.Theme.Colors
+            local t = tbl17.z()
+            t.Accent, t.Outline, t.Background = c.Primary, c.Outline, c.Surface
+            t.ElementBackground, t.TabButtonSelected = c.SurfaceContainerHigh, c.SecondaryContainer
+            t.Unselected, t.TextColor = c.OnSurfaceVariant, c.OnSurface
+        end
+        pcall(syncTokens)
+        pcall(function() win.Theme.Changed:Connect(function() pcall(syncTokens) end) end)
+    end
+
+    -- Settings > HUD: the layout editor
+    function LMenu:AddSettingsTab()
+        local tab, result = Menu.AddSettingsTab(self)
+        pcall(function()
+            local page = tab:AddTab({ Label = "HUD" })
+            local sec = page:Grid({ Columns = 1 }):AddSection({ Title = "HUD editor" })
+            local function editor()
+                local hud = self._hud
+                return hud ~= nil and hud.Editor or nil
+            end
+            sec:AddButton({
+                Label = "Edit HUD layout",
+                Tooltip = "Move and resize the watermark and the keybind list. Leaving the editor locks them in place",
+                OnClick = function()
+                    local e = editor()
+                    if e ~= nil then e.open() end
+                end,
+            })
+            sec:AddButton({
+                Label = "Reset HUD layout",
+                Tooltip = "Put every HUD piece back at its default place and size",
+                OnClick = function()
+                    local e = editor()
+                    if e ~= nil then e.reset() end
+                end,
+            })
+        end)
+        return tab, result
+    end
+
+    function LMenu:SetWatermarkEnabled(v)
+        self._watermark = v
+        local hud = self._hud
+        if hud ~= nil and hud.Watermark ~= nil then pcall(function() hud.Watermark.Instance.Visible = v ~= false end) end
+    end
+
+    function LMenu:SetKeybindListEnabled(v)
+        self._keybindList = v
+        local hud = self._hud
+        if hud ~= nil and hud.Keybinds ~= nil then
+            pcall(function()
+                hud.Keybinds:SetVisible(v ~= false)
+                if self._listVisibility then self._listVisibility() end
+            end)
+        end
+    end
+
+    function LMenu:SetWatermarkUsername(name)
+        self._wmName = name
+    end
+end
+end)({ Menu = Menu, StarUI = StarUI, uid = uid, log = log, isMethodName = isMethodName })
 end
 
 --==========================================================================
@@ -90876,11 +93382,7 @@ do
 		K.Skins = result
 		local t0 = tick()
 		local registered = false
-		repeat
-			local okReg, done = pcall(result.RegisterAll)
-			if okReg and done then registered = true break end
-			task.wait(0.25)
-		until tick() - t0 > 30
+		local function finish()
 		-- Summary in the console: proves which build is running and which skins did not register.
 		local library = result.LYRequire and result.LYRequire("CosmeticLibrary")
 		local cosmetics = library and library.Cosmetics
@@ -90905,6 +93407,24 @@ do
 			total - #missing, total, tostring(registered),
 			tostring(type(sample) == "table" and sample.ItemName), tostring(type(sample) == "table" and sample.Rarity),
 			#missing > 0 and (" missing: " .. table.concat(missing, ", ")) or ""))
+		end
+		repeat
+			local okReg, done = pcall(result.RegisterAll)
+			if okReg and done then registered = true break end
+			task.wait(0.25)
+		until tick() - t0 > 3
+		if registered then
+			finish()
+		else
+			task.spawn(function()
+				repeat
+					local okReg, done = pcall(result.RegisterAll)
+					if okReg and done then registered = true break end
+					task.wait(0.25)
+				until tick() - t0 > 30
+				finish()
+			end)
+		end
 	end
 end
 
