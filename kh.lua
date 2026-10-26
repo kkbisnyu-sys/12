@@ -12004,7 +12004,22 @@ local player = Players.LocalPlayer
 -- Per-account storage: the configs and the general state (autoload, menu keybind, silent load, ...) are kept
 -- in one folder per UserId, so each account has its own set. Cosmetics, fonts, caches etc. stay shared.
 K.AccountId = tostring(player.UserId)
-K.AccountDir = "LxYHook/rivals/accounts/" .. K.AccountId
+-- the switch lives in a file of its own (outside the account folders): "shared" = one set of configs for every account
+K.PerAccount = true
+pcall(function()
+    local env = getgenv()
+    local file = "LxYHook/account_mode.txt"
+    if env.isfile and env.readfile and env.isfile(file) and tostring(env.readfile(file)):gsub("%s+", "") == "shared" then
+        K.PerAccount = false
+    end
+end)
+K.AccountDir = K.PerAccount and ("LxYHook/rivals/accounts/" .. K.AccountId) or "LxYHook/rivals"
+function K.SetPerAccount(on)
+    K.PerAccountNext = on == true
+    local make, write, isFolder = K.fn("makefolder"), K.fn("writefile"), K.fn("isfolder")
+    if make and isFolder and not isFolder("LxYHook") then pcall(make, "LxYHook") end
+    if write then pcall(write, "LxYHook/account_mode.txt", on and "account" or "shared") end
+end
 
 local rawget, rawset = rawget, rawset
 
@@ -30305,6 +30320,16 @@ OnChanged = function(mode)
 if mode ~= nil and mode ~= K.UIMode() then K.SwitchUI(mode) end
 end,
 })
+arg:AddToggle({
+Label = "Separate Configs Per Account",
+Tooltip = "On: every Roblox account has its own configs, autoload and menu settings. Off: all accounts share one set. Takes effect the next time the script is loaded.",
+Default = K.PerAccount,
+OnChanged = function(on)
+if on == K.PerAccount and K.PerAccountNext == nil then return end
+K.SetPerAccount(on)
+pcall(function() tbl17.aB().get():Notify("Configs are " .. (on and "separate per account" or "shared by all accounts") .. " from the next load.") end)
+end,
+})
 arg:AddToggle({ Label = "Re-run After Teleport", Config = arg3 })
 local stateData = arg2:GetStateData()
 
@@ -31383,7 +31408,7 @@ ReactionTime = v86[186],
 Mode = { Type = "Linear", Speed = 0.1 },
 }
 
-local fov = { Radius = 150 }
+local fov = { Radius = 150, FollowMuzzle = false }
 
 local circle = {
 Visible = false,
@@ -31791,7 +31816,7 @@ ReactionTime = 0,
 SwitchDelay = v86[186],
 }
 
-local fov = { Radius = 150 }
+local fov = { Radius = 150, FollowMuzzle = false }
 
 local circle = {
 Visible = false,
@@ -42221,7 +42246,7 @@ local v134 = v128.new()
 local aimbot = data.Aimbot
 local fov = aimbot.Fov
 local v135 = v126.new(arg2, arg, aimbot.TargetConditions, aimbot.TargetHitboxes[v129.DefaultProfile.Class], function(origin, part) return not data.Aimbot.TargetConditions.Visible or arg3:Check(origin, part, part.Parent) end)
-local v136 = v127.new(v135, v116.buildMeasure(fov.Radius, aimbot.TargetConditions.WithinFov), v132)
+local v136 = v127.new(v135, K.FovMeasure("Aimbot", v116.buildMeasure(fov.Radius, aimbot.TargetConditions.WithinFov)), v132)
 local followTarget = fov.Circle.FollowTarget
 local speed = followTarget.Speed
 local damper = followTarget.Damper
@@ -42253,7 +42278,7 @@ _playerContext = arg2,
 _targetLock = v138,
 _targetAcquisition = v139,
 _computeTargetPoint = v116.buildTargetPoint(aimbot.HitboxPoint),
-_aimApplier = v115.new(fn37, fn36),
+_aimApplier = v115.new(function() return K.FovCenter("Aimbot", fn37()) end, fn36),
 _fovRender = v140,
 _fovFollower = v137,
 _active = v86[153],
@@ -42271,7 +42296,7 @@ local v141 = v131(arg2, v134, "features.Aimbot", v135, function() return data.Ai
 local function fn39(selection) v136:SetHitboxSelectionMode(v116.buildHitboxSelectionMode(selection)) end
 v134:Connect(v120:GetPropertyChangedSignal({ "Aimbot", "HitboxPoint" }), function(point) tbl18._computeTargetPoint = v116.buildTargetPoint(point) end)
 v134:Connect(v120:GetPropertyChangedSignal({ "Aimbot", "Fov" }), function(f)
-v136:SetMeasure(v116.buildMeasure(f.Radius, data.Aimbot.TargetConditions.WithinFov))
+v136:SetMeasure(K.FovMeasure("Aimbot", v116.buildMeasure(f.Radius, data.Aimbot.TargetConditions.WithinFov)))
 v140:SetRadius(f.Radius)
 v140:SetProperties(f.Circle)
 local ft = f.Circle.FollowTarget
@@ -42279,7 +42304,7 @@ v137:SetProperties(ft.Speed, ft.Damper, ft.SnapDistance)
 end)
 v134:Connect(v120:GetPropertyChangedSignal({ "Aimbot", "TargetConditions" }), function(c)
 v135:SetConditions(c)
-v136:SetMeasure(v116.buildMeasure(data.Aimbot.Fov.Radius, c.WithinFov))
+v136:SetMeasure(K.FovMeasure("Aimbot", v116.buildMeasure(data.Aimbot.Fov.Radius, c.WithinFov)))
 end)
 v134:Connect(v120:GetPropertyChangedSignal({ "Aimbot", "TargetHitboxes" }), v141)
 v134:Connect(v120:GetPropertyChangedSignal({ "Aimbot", "HitboxSelection" }), fn39)
@@ -42306,7 +42331,7 @@ local flag19 = arg4.Enabled and circle.Visible and arg3 ~= nil
 local fovRender = arg._fovRender
 local fovFollower = arg._fovFollower
 fovRender:SetVisible(flag19)
-local v134 = v133()
+local v134 = K.FovCenter("Aimbot", v133())
 fovFollower:SetInitial(v134)
 local followTarget = circle.FollowTarget
 fovFollower:SetTarget(flag19 and followTarget.Enabled and arg._targetScreenPosition or nil)
@@ -62864,7 +62889,7 @@ end
 
 index2._SetupMotionDisabler = function(arg, arg2)
 local function fn36()
-arg._motionDisabler:SetMotionDisabled(v118.Data.ItemModifiers.NoMotion)
+arg._motionDisabler:SetMotionDisabled(false)
 end
 
 arg2:Connect(v118:GetPropertyChangedSignal({ "ItemModifiers", "NoMotion" }), fn36)
@@ -66098,7 +66123,7 @@ _trove = silentAim,
 _playerContext = arg2,
 _inputBinding = arg4,
 _textIndicatorList = arg5,
-_targetSelection = v125.new(v137, v115.buildMeasure(silentAim2.Fov.Radius, silentAim2.TargetConditions.WithinFov), v130),
+_targetSelection = v125.new(v137, K.FovMeasure("SilentAim", v115.buildMeasure(silentAim2.Fov.Radius, silentAim2.TargetConditions.WithinFov)), v130),
 _targetAcquisition = v123.new(),
 _computeTargetPoint = v115.buildTargetPoint(silentAim2.HitboxPoint),
 _fovRender = v135,
@@ -66129,7 +66154,7 @@ v137:UseBestFirstConditionCheck(m.Enabled and m.Mode == "OnBestTarget")
 end
 silentAim:Connect(v118:GetPropertyChangedSignal({ "SilentAim", "HitboxPoint" }), function(point) tbl18._computeTargetPoint = v115.buildTargetPoint(point) end)
 silentAim:Connect(v118:GetPropertyChangedSignal({ "SilentAim", "Fov" }), function(f)
-tbl18._targetSelection:SetMeasure(v115.buildMeasure(f.Radius, targetConditions.WithinFov))
+tbl18._targetSelection:SetMeasure(K.FovMeasure("SilentAim", v115.buildMeasure(f.Radius, targetConditions.WithinFov)))
 v135:SetRadius(f.Radius)
 v135:SetProperties(f.Circle)
 local ft = f.Circle.FollowTarget
@@ -66138,7 +66163,7 @@ end)
 silentAim:Connect(v118:GetPropertyChangedSignal({ "SilentAim", "TargetConditions" }), function(c)
 targetConditions = c
 v137:SetConditions(c)
-tbl18._targetSelection:SetMeasure(v115.buildMeasure(data.SilentAim.Fov.Radius, c.WithinFov))
+tbl18._targetSelection:SetMeasure(K.FovMeasure("SilentAim", v115.buildMeasure(data.SilentAim.Fov.Radius, c.WithinFov)))
 end)
 silentAim:Connect(v118:GetPropertyChangedSignal({ "SilentAim", "TargetHitboxes" }), v138)
 silentAim:Connect(v118:GetPropertyChangedSignal({ "SilentAim", "HitboxSelection" }), fn37)
@@ -66172,7 +66197,7 @@ local flag19 = arg4.Enabled and circle.Visible and arg3 ~= nil
 local fovRender = arg._fovRender
 local fovFollower = arg._fovFollower
 fovRender:SetVisible(flag19)
-local v134 = v133()
+local v134 = K.FovCenter("SilentAim", v133())
 fovFollower:SetInitial(v134)
 local followTarget = circle.FollowTarget
 fovFollower:SetTarget(flag19 and followTarget.Enabled and arg._targetScreenPosition or nil)
@@ -67781,7 +67806,7 @@ for _, v122 in groups, nil, nil do
 local v123 = configGroupMap[v122]
 
 v121:Connect(v116:GetPropertyChangedSignal({ "Chams", v123, "Enabled" }), function(arg2)
-tbl18:_SetEnabled(v122, arg2)
+tbl18:_SetEnabled(v122, false)
 end)
 
 local function fn37()
@@ -67794,7 +67819,7 @@ end
 
 v121:Connect(v116:GetPropertyChangedSignal({ "Chams", v123, "Color" }), function(I) tbl18 :_ApplyColor( v122 ,I);end)
 v121:Connect(v116:GetPropertyChangedSignal({ "Chams", v123, "Transparency" }), function(I) tbl18 :_ApplyTransparency( v122 ,I);end)
-tbl18:_SetEnabled(v122, data.Chams[v123].Enabled)
+tbl18:_SetEnabled(v122, false)
 end
 
 return tbl18
@@ -68457,7 +68482,7 @@ for _, v121 in groups, nil, nil do
 local v122 = configGroupMap[v121]
 
 v120:Connect(v117:GetPropertyChangedSignal({ "ViewModelWireframe", v122, v86[44] }), function(arg2)
-tbl18:_SetEnabled(v121, arg2)
+tbl18:_SetEnabled(v121, false)
 end)
 
 v120:Connect(v117:GetPropertyChangedSignal({ "ViewModelWireframe", v122, "Width" }), function(arg2)
@@ -68465,7 +68490,7 @@ tbl18:_ApplyWidth(v121, arg2)
 end)
 
 v120:Connect(v117:GetPropertyChangedSignal({ "ViewModelWireframe", v122, "Color" }), function(I) tbl18 :_ApplyColor( v121 ,I);end)
-tbl18:_SetEnabled(v121, fn36(v121).Enabled)
+tbl18:_SetEnabled(v121, false)
 end
 
 return tbl18
@@ -71777,7 +71802,7 @@ return h0.c
 end
 end
 do -- h1
-local function fn35() tbl17 .aE();return function(l,I)local function W(...)return{I,"Fov",...};end;l:AddColor({Row=l:AddToggle({Label="Show Targeting Circle",Config=W("Circle","Visible")}).Row,Gradient="editable",Alpha=true,Config=W("Circle","Stroke","Gradient"),Transparency=W("Circle","Stroke","Transparency")});l:AddSlider({Label="Radius (px)",Min=1,Max=600,Config=W("Radius")});l:AddSlider({Label="Thickness",Min=0,Max=25,Config=W("Circle","Stroke","Thickness")});l:AddColor({Row=l:AddToggle({Label="Filled",Config=W("Circle","Fill","Enabled")}).Row,Gradient="editable",Alpha=true,Config=W("Circle","Fill","Gradient"),Transparency=W("Circle","Fill","Transparency")});l:AddGroup({Source=l:AddToggle({Label="Animated",Config=W("Circle","Animated","Enabled")})}):AddSlider({Label="Animation Speed (deg/s)",Min=0,Max=360,Config=W("Circle","Animated","Speed")});local I=l:AddGroup({Source=l:AddToggle({Label="Follow Target",Config=W("Circle","FollowTarget","Enabled")})});I:AddSlider({Label="Follow Speed",Default=20,Min=1,Max=50,Config=W("Circle","FollowTarget","Speed")});I:AddSlider({Label="Follow Damper",Default=1,Min=0,Max=30,Config=W("Circle","FollowTarget","Damper")});I:AddSlider({Label="Snap Distance",Default=5,Min=0,Max=10,Config=W("Circle","FollowTarget","SnapDistance")});end;end
+local function fn35() tbl17 .aE();return function(l,I)local function W(...)return{I,"Fov",...};end;l:AddColor({Row=l:AddToggle({Label="Show Targeting Circle",Config=W("Circle","Visible")}).Row,Gradient="editable",Alpha=true,Config=W("Circle","Stroke","Gradient"),Transparency=W("Circle","Stroke","Transparency")});l:AddSlider({Label="Radius (px)",Min=1,Max=600,Config=W("Radius")});l:AddToggle({Label="Follow Muzzle",Tooltip="The circle, the target check inside it and the aimbot movement use the muzzle of your gun instead of the screen centre.",Config=W("FollowMuzzle")});l:AddSlider({Label="Thickness",Min=0,Max=25,Config=W("Circle","Stroke","Thickness")});l:AddColor({Row=l:AddToggle({Label="Filled",Config=W("Circle","Fill","Enabled")}).Row,Gradient="editable",Alpha=true,Config=W("Circle","Fill","Gradient"),Transparency=W("Circle","Fill","Transparency")});l:AddGroup({Source=l:AddToggle({Label="Animated",Config=W("Circle","Animated","Enabled")})}):AddSlider({Label="Animation Speed (deg/s)",Min=0,Max=360,Config=W("Circle","Animated","Speed")});local I=l:AddGroup({Source=l:AddToggle({Label="Follow Target",Config=W("Circle","FollowTarget","Enabled")})});I:AddSlider({Label="Follow Speed",Default=20,Min=1,Max=50,Config=W("Circle","FollowTarget","Speed")});I:AddSlider({Label="Follow Damper",Default=1,Min=0,Max=30,Config=W("Circle","FollowTarget","Damper")});I:AddSlider({Label="Snap Distance",Default=5,Min=0,Max=10,Config=W("Circle","FollowTarget","SnapDistance")});end;end
 
 tbl17.h1 = function()
 local h1 = tbl17.cache.h1
@@ -77817,11 +77842,11 @@ local function alwaysShow()
 local settings = config.Data.Ragebot.TargetHud
 return settings.Enabled == true and settings.AlwaysShow ~= false
 end
-updateCard = function(target)
+updateCard = function(target, isFallback)
 local settings = config.Data.Ragebot.TargetHud
 local lyCard = K.TargetHudLY
 if lyCard ~= nil then
-lyCard.target, lyCard.at = target, os.clock()
+if not isFallback then lyCard.target, lyCard.at = target, os.clock() end
 hide()
 return
 end
@@ -77907,7 +77932,7 @@ local lastCall = 0
 local standalone = game:GetService("RunService").Heartbeat:Connect(function()
 if os.clock() - lastCall < 0.25 then return end
 if alwaysShow() then
-pcall(updateCard, fallbackTarget())
+pcall(updateCard, fallbackTarget(), true)
 else
 hide()
 end
@@ -84922,7 +84947,7 @@ do
     local isfile_, isfolder_, listfiles_, readfile_, writefile_ =
         K.fn("isfile"), K.fn("isfolder"), K.fn("listfiles"), K.fn("readfile"), K.fn("writefile")
     local marker = "LxYHook/rivals/.account_migrated"
-    if isfile_ and isfolder_ and listfiles_ and readfile_ and writefile_ and not isfile_(marker) then
+    if K.PerAccount and isfile_ and isfolder_ and listfiles_ and readfile_ and writefile_ and not isfile_(marker) then
         pcall(function()
             local legacy = "LxYHook/rivals/configs"
             if isfolder_(legacy) then
@@ -86885,8 +86910,8 @@ end
         self.Keybind = Enum.KeyCode.RightShift
         self.VisibilityChanged = Signal.new()
         self.AccentChanged = Signal.new()
-        self._watermark = true
-        self._keybindList = true
+        self._watermark = not (self._stateData ~= nil and self._stateData.ShowWatermark == false)
+        self._keybindList = not (self._stateData ~= nil and self._stateData.ShowKeybinds == false)
         self._tabs = {}
 
         local saved
@@ -87085,9 +87110,9 @@ end
         local ok, err = pcall(function()
             result = tbl17.aC()(self:View(), tab, self._trove, {
                 SetAccent = function(c) menu.AccentChanged:Fire(c) end,
-                SetWatermarkEnabled = function(v) menu._watermark = v if K.KeyHud then K.KeyHud.setWatermark(v) end end,
+                SetWatermarkEnabled = function(v) menu:SetWatermarkEnabled(v) end,
                 IsWatermarkEnabled = function() return menu._watermark end,
-                SetKeybindListEnabled = function(v) menu._keybindList = v if K.KeyHud then K.KeyHud.setList(v) end end,
+                SetKeybindListEnabled = function(v) menu:SetKeybindListEnabled(v) end,
                 IsKeybindListEnabled = function() return menu._keybindList end,
                 SetMenuPillHidden = function() end,
                 EnterMobileButtonDragMode = function() end,
@@ -87105,9 +87130,16 @@ end
     function Menu:SetWatermarkUsername(name)
         if K.KeyHud then K.KeyHud.ensure(name, self._watermark, self._keybindList) end
     end
-    function Menu:SetWatermarkEnabled(v) self._watermark = v if K.KeyHud then K.KeyHud.setWatermark(v) end end
+    function Menu:_persistFlag(key, v)
+        local data = self._stateData
+        if data ~= nil and data[key] ~= (v ~= false) then
+            data[key] = v ~= false
+            self:SaveState()
+        end
+    end
+    function Menu:SetWatermarkEnabled(v) self._watermark = v self:_persistFlag("ShowWatermark", v) if K.KeyHud then K.KeyHud.setWatermark(v) end end
     function Menu:IsWatermarkEnabled() return self._watermark end
-    function Menu:SetKeybindListEnabled(v) self._keybindList = v if K.KeyHud then K.KeyHud.setList(v) end end
+    function Menu:SetKeybindListEnabled(v) self._keybindList = v self:_persistFlag("ShowKeybinds", v) if K.KeyHud then K.KeyHud.setList(v) end end
     function Menu:IsKeybindListEnabled() return self._keybindList end
     function Menu:SetAccent(c) self.AccentChanged:Fire(c) end
 
@@ -88698,8 +88730,8 @@ end
         self.Keybind = Enum.KeyCode.RightShift
         self.VisibilityChanged = Signal.new()
         self.AccentChanged = Signal.new()
-        self._watermark = true
-        self._keybindList = true
+        self._watermark = not (self._stateData ~= nil and self._stateData.ShowWatermark == false)
+        self._keybindList = not (self._stateData ~= nil and self._stateData.ShowKeybinds == false)
         self._tabs = {}
         self._acc, self._ov = DEFAULT_ACCENT, {}
         self._lite = class.__lite == true
@@ -89119,7 +89151,7 @@ end
 
     for _, name in ipairs({ "_setVisibleState", "View", "GetConfig", "GetColorAnimation", "GetPersistence", "GetStateData", "GetOverlayLayer",
         "SaveState", "Connect", "Add", "Notify", "AddSettingsTab", "SetWatermarkUsername", "SetWatermarkEnabled", "IsWatermarkEnabled",
-        "SetKeybindListEnabled", "IsKeybindListEnabled", "SetAccent", "Unload" }) do
+        "SetKeybindListEnabled", "IsKeybindListEnabled", "SetAccent", "Unload", "_persistFlag" }) do
         SMenu[name] = Menu[name]
     end
 
@@ -92657,12 +92689,14 @@ end
 
     function LMenu:SetWatermarkEnabled(v)
         self._watermark = v
+        self:_persistFlag("ShowWatermark", v)
         local hud = self._hud
         if hud ~= nil and hud.Watermark ~= nil then pcall(function() hud.Watermark.Instance.Visible = v ~= false end) end
     end
 
     function LMenu:SetKeybindListEnabled(v)
         self._keybindList = v
+        self:_persistFlag("ShowKeybinds", v)
         local hud = self._hud
         if hud ~= nil and hud.Keybinds ~= nil then
             pcall(function()
@@ -93427,14 +93461,6 @@ end
 		if tonumber(image) then
 			image = "rbxassetid://" .. image
 		end
-		-- the script's own picture list (the one the skin changer shows) when the game's library gave none
-		if image == "" then
-			local okKh, images = pcall(function() return tbl17.eT().Images end)
-			local found = okKh and type(images) == "table" and images[weapon] or nil
-			if type(found) == "string" and found ~= "" then
-				image = if tonumber(found) then "rbxassetid://" .. found else found
-			end
-		end
 		-- Only cache a hit: libraries may not be loaded yet on the first tries.
 		if image ~= "" or (library("ItemLibrary") and viewModels) then
 			iconCache[name] = image
@@ -93702,44 +93728,20 @@ end
 
 	-- The target is the one the script's Target HUD hands over (the ragebot's target, or with Always Show the nearest
 	-- enemy): K.TargetHudLY.target = { FighterState, AliveState }, set at the time of the last call.
-	-- the loadout the way the script's own fighter wrappers hold it (ItemObserver: the items in the order of the slots,
-	-- each view's .Inner is the game's item); empty when the wrappers are not there
-	local function loadoutFromScript(state)
-		local slots, held, ammo, heldAmmo = {}, nil, {}, nil
-		if state == nil or state.ItemObserver == nil then
-			return slots, held, ammo, heldAmmo
-		end
-		pcall(function()
-			local observer = state.ItemObserver
-			local order = 0
-			for _, view in ipairs(observer:GetItems()) do
-				order += 1
-				local inner = view.Inner
-				local slot = tonumber(inner and safeIndex(inner, "index")) or order
-				if type(view.Name) == "string" and slot >= 1 and slot <= 4 then
-					slots[slot] = view.Name
-					ammo[slot] = inner and ammoOf(inner) or nil
-				end
-			end
-			local equipped = observer:GetEquippedItem()
-			if equipped ~= nil then
-				held = equipped.Name
-				heldAmmo = equipped.Inner and ammoOf(equipped.Inner) or nil
-			end
-		end)
-		return slots, held, ammo, heldAmmo
-	end
-
-	-- The target is the one the script's Target HUD hands over (the ragebot's target, or with Always Show the nearest
-	-- enemy): K.TargetHudLY.target = { FighterState, AliveState }, set at the time of the last call.
+	-- Who the card shows: the ragebot's target when it has one (the script hands it over in K.TargetHudLY), otherwise
+	-- the nearest enemy player (LY.lua's closestPlayer: the TeamID attribute for teams, alive, closest to your root).
 	local function closestTarget()
 		local state = K.TargetHudLY
 		local t = state ~= nil and state.target or nil
 		if t ~= nil and state.at ~= nil and os.clock() - state.at < 0.8 then
 			local p = t.FighterState and t.FighterState.Player
-			if typeof(p) == "Instance" and p:IsA("Player") then
-				return p, nil, t.FighterState, t.AliveState
+			if typeof(p) == "Instance" and p:IsA("Player") and not isTeammate(p) then
+				return p, nil
 			end
+		end
+		local okSettings, always = pcall(function() return self._config.Data.Ragebot.TargetHud.AlwaysShow ~= false end)
+		if okSettings and always then
+			return closestPlayer(), nil
 		end
 		return nil, nil
 	end
@@ -93748,7 +93750,7 @@ end
 	local lastRatio, fillTween = nil, nil
 
 	local function refresh()
-		local player, monster, khState, khAlive = closestTarget()
+		local player, monster = closestTarget()
 		local settings = self._config.Data.Ragebot.TargetHud
 		local hudEditor = getgenv().LYHud
 		local editing = hudEditor ~= nil and hudEditor.Editing == true
@@ -93758,7 +93760,7 @@ end
 			return
 		end
 		local target = player or LocalPlayer
-		local humanoid = if monster then monster.humanoid else (target.Character and target.Character:FindFirstChildOfClass("Humanoid")) or (khAlive and khAlive.Humanoid)
+		local humanoid = if monster then monster.humanoid else (target.Character and target.Character:FindFirstChildOfClass("Humanoid"))
 		if not humanoid then
 			return
 		end
@@ -93795,10 +93797,7 @@ end
 				streakLabel.Text = string.format("%d streak", streak)
 			end
 
-			local slots, held, ammo, heldAmmo = loadoutFromScript(khState)
-			if next(slots) == nil then
-				slots, held, ammo, heldAmmo = loadoutOf(fighterOf(target))
-			end
+			local slots, held, ammo, heldAmmo = loadoutOf(fighterOf(target))
 			local weaponName = held or equippedWeapon(target)
 			weaponLabel.Text = weaponName
 			if heldAmmo then
@@ -93905,6 +93904,1304 @@ end
 end
 end)({ Menu = Menu, StarUI = StarUI, uid = uid, log = log, isMethodName = isMethodName, Makers = Makers, newControl = newControl, subclass = subclass })
 end
+
+--==========================================================================
+--  Targeting circle that follows the muzzle (LY.lua): with "Follow Muzzle" on, the circle of the Aimbot / Silent Aim
+--  is drawn at the muzzle of your gun, the "within the circle" test measures from the muzzle, and the aimbot moves
+--  from the muzzle. K.FovCenter / K.FovMeasure are used by those modules.
+--==========================================================================
+;(function()
+    local localPlayer = game:GetService("Players").LocalPlayer
+    local cached = { at = -1, screen = nil }
+
+    -- where the muzzle of your own gun is on the screen (nil when there is none): cached for a short while, the
+    -- measure asks for it once per hitbox
+    function K.MuzzleScreen()
+        local now = os.clock()
+        if now - cached.at < 0.008 then return cached.screen end
+        cached.at, cached.screen = now, nil
+        pcall(function()
+            local camera = workspace.CurrentCamera
+            local models = workspace:FindFirstChild("ViewModels")
+            local firstPerson = models and models:FindFirstChild("FirstPerson")
+            if camera == nil or firstPerson == nil then return end
+            local name = localPlayer.Name
+            for _, model in ipairs(firstPerson:GetChildren()) do
+                if model:IsA("Model") and model.Name:sub(1, #name) == name then
+                    local visual = model:FindFirstChild("ItemVisual")
+                    local body = visual and visual:FindFirstChild("Body")
+                    local primary = body and body:FindFirstChild("BodyPrimary")
+                    local muzzle = primary and primary:FindFirstChild("_muzzle")
+                    if muzzle ~= nil and muzzle:IsA("Attachment") then
+                        local point, onScreen = camera:WorldToViewportPoint(muzzle.WorldPosition)
+                        if onScreen and point.Z > 0 then
+                            cached.screen = Vector2.new(point.X, point.Y)
+                        end
+                        return
+                    end
+                end
+            end
+        end)
+        return cached.screen
+    end
+
+    local function follows(root)
+        local ok, on = pcall(function() return tbl17.bG().Data[root].Fov.FollowMuzzle end)
+        return ok and on == true
+    end
+
+    function K.FovCenter(root, default)
+        if follows(root) then
+            local screen = K.MuzzleScreen()
+            if screen ~= nil then return screen end
+        end
+        return default
+    end
+
+    -- the target check of the circle: the angle is measured from the muzzle ray instead of the view direction
+    function K.FovMeasure(root, base)
+        if type(base) ~= "function" then return base end
+        return function(camera, point)
+            if follows(root) then
+                local screen = K.MuzzleScreen()
+                if screen ~= nil then
+                    local ray = camera:ViewportPointToRay(screen.X, screen.Y)
+                    local from = camera.CFrame.Position
+                    return base({
+                        ViewportSize = camera.ViewportSize,
+                        FieldOfView = camera.FieldOfView,
+                        CFrame = CFrame.lookAt(from, from + ray.Direction),
+                    }, point)
+                end
+            end
+            return base(camera, point)
+        end
+    end
+end)()
+
+--==========================================================================
+--  Weapon Visuals from LY.lua: the first-person weapon motion switch, the arm and gun chams
+--  (material, colour, transparency, wireframe) and the muzzle flash switch run on the code of LY.lua; the options
+--  of the Weapon Visuals page are what drives it (kh's own versions of these are switched off).
+--  The LY code is used as it is: it makes its elements on a small stand-in section (no window), and each element
+--  that has a counterpart in the script's settings is linked to that setting.
+--==========================================================================
+;(function()
+local function setup()
+    local cfg = tbl17.bG()
+    local data = cfg.Data
+    local RunService = game:GetService("RunService")
+    local LocalPlayer = game:GetService("Players").LocalPlayer
+    local PREFIX = "LxYWeapon_"
+    local unloaders = {}
+    local function track(item)
+        unloaders[#unloaders + 1] = item
+        return item
+    end
+    local owned = setmetatable({}, { __mode = "k" })
+    local function camera()
+        return workspace.CurrentCamera
+    end
+    -- where first-person viewmodels live: RIVALS keeps them in Workspace.ViewModels.FirstPerson
+    local function viewmodelFolders()
+        local folders = {}
+        local root = workspace:FindFirstChild("ViewModels")
+        local firstPerson = root and root:FindFirstChild("FirstPerson")
+        if firstPerson then
+            table.insert(folders, firstPerson)
+        end
+        if camera() then
+            table.insert(folders, camera())
+        end
+        return folders
+    end
+    local function snapshot(instance, properties)
+        local saved = {}
+        for _, property in properties do
+            local ok, value = pcall(function()
+                return instance[property]
+            end)
+            if ok then
+                saved[property] = value
+            end
+        end
+        return function()
+            for property, value in saved do
+                pcall(function()
+                    instance[property] = value
+                end)
+            end
+        end
+    end
+    -- the elements LY makes: a value and the callback that applies it
+    local virtual = {}
+    local function element(options)
+        local e = { Flag = options.Flag, Value = options.Default, Callback = options.Callback }
+        function e:Set(value, silent)
+            self.Value = value
+            if not silent and self.Callback ~= nil then self.Callback(value) end
+        end
+        function e:SetVisible() end
+        if options.Flag ~= nil then virtual[options.Flag] = e end
+        return e
+    end
+    local Section = setmetatable({}, { __index = function() return function(_, options) return element(options or {}) end end })
+    local CameraTab = { AddSection = function() return Section end }
+    local Window = {
+        Notify = function(_, options)
+            pcall(function() tbl17.aB().get():Notify(tostring(options.Title) .. ": " .. tostring(options.Content)) end)
+        end,
+    }
+    local function patchToggle(section, options)
+        local toggle
+        toggle = section:AddToggle({
+            Title = options.Title,
+            Default = false,
+            Flag = options.Flag,
+            Callback = function(on)
+                if not options.Set(on) and on then
+                    Window:Notify({ Title = options.Title, Content = options.Failure })
+                    task.defer(function()
+                        toggle:Set(false, true)
+                    end)
+                end
+            end,
+        })
+        track(function()
+            options.Set(false)
+        end)
+        return toggle
+    end
+
+	local function noop() end
+
+	local function writeField(tbl, key, value)
+		local frozen = type(isreadonly) == "function" and isreadonly(tbl)
+		if frozen and type(setreadonly) == "function" then
+			setreadonly(tbl, false)
+		end
+		local ok = pcall(rawset, tbl, key, value)
+		if frozen and type(setreadonly) == "function" then
+			setreadonly(tbl, true)
+		end
+		return ok
+	end
+
+	local function requireGameModule(name)
+		local roots = { LocalPlayer:FindFirstChild("PlayerScripts"), cloneref(game:GetService("ReplicatedStorage")) }
+		for _, root in roots do
+			local module = root and root:FindFirstChild(name, true)
+			if module and module:IsA("ModuleScript") then
+				local ok, result = pcall(require, module)
+				if ok then
+					return result
+				end
+			end
+		end
+		return nil
+	end
+
+	-- The table that actually holds `method`: the module itself or its class
+	-- (metatable / __index). Falls back to the Lua heap when the module isn't
+	-- where we expect it.
+	local function findClass(moduleName, method)
+		local function holder(value)
+			if type(value) ~= "table" then
+				return nil
+			end
+			if type(rawget(value, method)) == "function" then
+				return value
+			end
+			local meta = getmetatable(value)
+			if type(meta) == "table" then
+				if type(rawget(meta, method)) == "function" then
+					return meta
+				end
+				local index = rawget(meta, "__index")
+				if type(index) == "table" and type(rawget(index, method)) == "function" then
+					return index
+				end
+			end
+			return nil
+		end
+		local found = holder(requireGameModule(moduleName))
+		if found or type(getgc) ~= "function" then
+			return found
+		end
+		local ok, objects = pcall(getgc, true)
+		if ok then
+			for _, object in objects do
+				if type(object) == "table" and type(rawget(object, method)) == "function" then
+					return object
+				end
+			end
+		end
+		return nil
+	end
+	local WeaponSection = CameraTab:AddSection("Weapon")
+	local MOTION_SPRINGS = {
+		_sliding_spring = 0,
+		_sprinting_spring = 0,
+		_bobbing_speed_spring = 0,
+		_bobbing_value_spring = Vector2.zero,
+		_landing_spring = 0,
+		_jump_spring = 0,
+		_tilt_spring = Vector2.zero,
+		_impulse_position_spring = Vector3.zero,
+		_recoil_spring = Vector3.zero,
+		_unrecoil_spring = Vector3.zero,
+	}
+	local motion = { Enabled = false, Connections = {} }
+	local frozenSprings = setmetatable({}, { __mode = "k" })
+
+	local function isLocalItem(viewModel)
+		local ok, isLocal = pcall(function()
+			return viewModel.ClientItem.ClientFighter.IsLocalPlayer
+		end)
+		return ok and isLocal == true
+	end
+
+	local function freezeViewModel(viewModel)
+		for field, rest in MOTION_SPRINGS do
+			local spring = rawget(viewModel, field)
+			if type(spring) == "table" and writeField(spring, "Value", rest) then
+				frozenSprings[spring] = true
+			end
+		end
+	end
+
+	local function freezeViewModels()
+		if type(getgc) ~= "function" then
+			return false
+		end
+		local ok, objects = pcall(getgc, true)
+		if not ok then
+			return false
+		end
+		local found = false
+		for _, object in objects do
+			-- CameraController has bobbing / sliding springs too; only viewmodels have
+			-- a recoil spring and a ClientItem. Other players' items have viewmodels
+			-- as well, so only your own are touched.
+			if type(object) == "table" and type(rawget(object, "_recoil_spring")) == "table"
+				and rawget(object, "ClientItem") ~= nil and isLocalItem(object)
+			then
+				freezeViewModel(object)
+				found = true
+			end
+		end
+		return found
+	end
+
+	local function restoreViewModels()
+		for spring in frozenSprings do
+			writeField(spring, "Value", nil)
+			frozenSprings[spring] = nil
+		end
+	end
+
+	local function watchViewModels()
+		for _, connection in motion.Connections do
+			connection:Disconnect()
+		end
+		table.clear(motion.Connections)
+		if not motion.Enabled then
+			return
+		end
+		for _, folder in viewmodelFolders() do
+			table.insert(motion.Connections, folder.ChildAdded:Connect(function(child)
+				if child:IsA("Model") and not owned[child] then
+					task.defer(freezeViewModels)
+				end
+			end))
+		end
+	end
+	track(workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(watchViewModels))
+
+	local function setNoMotion(on)
+		motion.Enabled = on
+		watchViewModels()
+		if not on then
+			restoreViewModels()
+			return true
+		end
+		if type(getgc) ~= "function" then
+			motion.Enabled = false
+			watchViewModels()
+			return false
+		end
+		freezeViewModels() -- nothing yet is fine: the next equip gets caught
+		return true
+	end
+
+	patchToggle(WeaponSection, {
+		Title = "No weapon motion",
+		Description = "Removes gun bob, tilt, landing and recoil motion from your viewmodel",
+		Flag = "NoMotion",
+		Set = setNoMotion,
+		Failure = "Your executor doesn't support getgc",
+	})
+
+	-- Viewmodel animations --------------------------------------------------------
+	-- Shoot / sprint / equip / reload: like LY-broken, ViewModelAnimator:
+	-- PlayAnimation(key, ...) is hooked (equip and sprint are played by the
+	-- animator itself, so the ClientViewModel wrapper would miss them). For a
+	-- suppressed key on your own viewmodel the track in _animation_tracks is
+	-- swapped for one whose Play / Stop do nothing, the original still runs (so
+	-- the game's state updates), then the real track goes back.
+	-- Idle / crouch / aim, and the four above when the hook can't be installed,
+	-- fall back to stopping matching tracks on the viewmodel's Animators each
+	-- frame (matched by track / animation name and id).
+
+	local animations = { Sprint = false, Shoot = false, Equip = false, Reload = false }
+	local animationPatch = nil
+	local silentTrack = { Play = noop, Stop = noop }
+
+	local function shouldSuppress(animator, key)
+		if type(key) ~= "string" then
+			return false
+		end
+		return (animations.Sprint and key == rawget(animator, "_sprint_animation"))
+			or (animations.Equip and key == rawget(animator, "_equip_animation"))
+			or (animations.Shoot and (key:find("Shoot", 1, true) ~= nil or key == "QuickShot"))
+			or (animations.Reload and key:find("Reload", 1, true) ~= nil)
+	end
+
+	local function isLocalAnimator(animator)
+		local ok, isLocal = pcall(function()
+			return animator.ClientViewModel.ClientItem.ClientFighter.IsLocalPlayer
+		end)
+		return ok and isLocal == true
+	end
+
+	local function installAnimationPatch()
+		if animationPatch then
+			return true
+		end
+		local class = findClass("ViewModelAnimator", "PlayAnimation")
+		local original = class and rawget(class, "PlayAnimation")
+		if type(original) ~= "function" then
+			return false
+		end
+		local function playAnimation(animator, key, ...)
+			local tracks = type(animator) == "table" and rawget(animator, "_animation_tracks")
+			if type(tracks) ~= "table" or rawget(tracks, key) == nil
+				or not shouldSuppress(animator, key) or not isLocalAnimator(animator)
+			then
+				return original(animator, key, ...)
+			end
+			local realTrack = rawget(tracks, key)
+			rawset(tracks, key, silentTrack)
+			local results = table.pack(pcall(original, animator, key, ...))
+			rawset(tracks, key, realTrack)
+			if not results[1] then
+				error(results[2], 0)
+			end
+			return table.unpack(results, 2, results.n)
+		end
+		if not writeField(class, "PlayAnimation", playAnimation) then
+			return false
+		end
+		animationPatch = { Class = class, Original = original }
+		return true
+	end
+
+	local function removeAnimationPatch()
+		if animationPatch then
+			writeField(animationPatch.Class, "PlayAnimation", animationPatch.Original)
+			animationPatch = nil
+		end
+	end
+
+	local TRACK_PATTERNS = {
+		Shoot = { "shoot", "fire", "shot" },
+		Sprint = { "sprint" },
+		Equip = { "equip" },
+		Reload = { "reload" },
+		Idle = { "idle" },
+		Crouch = { "crouch" },
+		Aim = { "aim", "ads", "scope" },
+	}
+	local stoppedKinds = {} -- kind -> true while handled by stopping tracks
+	local trackStopper = nil
+
+	local function trackLabel(animTrack)
+		local label = animTrack.Name
+		local anim = animTrack.Animation
+		if anim then
+			label ..= " " .. anim.Name .. " " .. anim.AnimationId
+		end
+		return label:lower()
+	end
+
+	local function shouldStopTrack(animTrack)
+		local ok, label = pcall(trackLabel, animTrack)
+		if not ok then
+			return false
+		end
+		for kind in stoppedKinds do
+			for _, pattern in TRACK_PATTERNS[kind] do
+				if label:find(pattern, 1, true) then
+					return true
+				end
+			end
+		end
+		return false
+	end
+
+	local function updateTrackStopper()
+		if next(stoppedKinds) == nil then
+			if trackStopper then
+				trackStopper:Disconnect()
+				trackStopper = nil
+			end
+			return
+		end
+		if trackStopper then
+			return
+		end
+		trackStopper = RunService.RenderStepped:Connect(function()
+			for _, folder in viewmodelFolders() do
+				for _, descendant in folder:GetDescendants() do
+					if descendant:IsA("Animator") and not owned[descendant] then
+						for _, animTrack in descendant:GetPlayingAnimationTracks() do
+							if shouldStopTrack(animTrack) then
+								pcall(animTrack.Stop, animTrack, 0)
+							end
+						end
+					end
+				end
+			end
+		end)
+	end
+
+	local function setAnimationDisabled(kind, on)
+		stoppedKinds[kind] = nil
+		if animations[kind] ~= nil then
+			animations[kind] = on
+			local any = animations.Sprint or animations.Shoot or animations.Equip or animations.Reload
+			if not any then
+				removeAnimationPatch()
+			elseif not installAnimationPatch() then
+				-- No hook available: stop the tracks instead.
+				animations[kind] = false
+				stoppedKinds[kind] = on or nil
+			end
+		else
+			stoppedKinds[kind] = on or nil
+		end
+		updateTrackStopper()
+		return true
+	end
+
+	for _, entry in {
+		{ Kind = "Shoot", Title = "No shoot animation", Description = "Your gun doesn't play its firing animation" },
+		{ Kind = "Sprint", Title = "No sprint animation", Description = "Your viewmodel doesn't play the sprint animation" },
+		{ Kind = "Equip", Title = "No equip animation", Description = "Skip the draw animation when you switch weapons" },
+		{ Kind = "Reload", Title = "No reload animation", Description = "Your viewmodel doesn't play the reload animation" },
+		{ Kind = "Idle", Title = "No idle animation", Description = "Your viewmodel stays still while idle" },
+		{ Kind = "Crouch", Title = "No crouch animation", Description = "Your viewmodel doesn't play the crouch animation" },
+		{ Kind = "Aim", Title = "No aim animation", Description = "Your viewmodel doesn't play the aim-down-sights animation" },
+	} do
+		patchToggle(WeaponSection, {
+			Title = entry.Title,
+			Description = entry.Description,
+			Flag = "No" .. entry.Kind .. "Animation",
+			Set = function(on)
+				return setAnimationDisabled(entry.Kind, on)
+			end,
+		})
+	end
+local viewmodel, muzzle
+do
+local ViewmodelSection = CameraTab:AddSection("Viewmodel")
+local MATERIAL_NAMES = { "ForceField", "Neon", "Glass", "SmoothPlastic", "Plastic", "Metal", "Foil" }
+viewmodel = {
+	Offset = false, X = 0, Y = 0, Z = 0,
+	-- Arms and gun are chammed separately.
+	Arm = {
+		Enabled = false, Material = "ForceField", Color = Color3.fromRGB(120, 170, 255), Transparency = 0,
+		Wireframe = false, WireWidth = 0.02, WireAngle = 0, WireMaterial = "Neon",
+	},
+	Gun = {
+		Enabled = false, Material = "Neon", Color = Color3.fromRGB(255, 255, 255), Transparency = 0,
+		Wireframe = false, WireWidth = 0.02, WireAngle = 0, WireMaterial = "Neon",
+	},
+}
+local chamRestores = setmetatable({}, { __mode = "k" }) -- part -> restore function
+local chamKinds = setmetatable({}, { __mode = "k" }) -- part -> "Arm" | "Gun" | false
+
+-- Arm / gun detection: arm models are named like "<Weapon> - Arms"; inside a
+-- gun model, arm parts are found by name or by an arm-ish ancestor folder.
+local CHAM_EXCLUDED_PARTS = {
+	ChamOutlineShell = true, ChamOutlineGlow = true, ChamOutlineBloom = true,
+	WeaponWireframeCore = true, WeaponWireframeGlow = true, WeaponWireframeBloom = true,
+	GunChamNeonGlow = true,
+	ChamMeshProxy = true,
+}
+local ARM_PART_SKIP = { "hitbox", "collision", "trigger", "proxy", "handguard", "handle", "foregrip", "charm", "armor" }
+local ARM_PART_WORDS = {
+	"leftarm", "rightarm", "left arm", "right arm", "forearm", "upperarm", "lowerarm",
+	"glove", "sleeve", "finger", "wrist", "palm", "thumb", "hand",
+}
+
+local function isHelperPart(part)
+	local name = part.Name:lower()
+	return name:find("hitbox", 1, true) or name:find("collision", 1, true)
+		or name:find("trigger", 1, true) or name:find("proxy", 1, true)
+end
+
+local function isArmViewModel(model)
+	local segments = {}
+	for segment in model.Name:gmatch("[^-]+") do
+		table.insert(segments, segment:match("^%s*(.-)%s*$"):lower())
+	end
+	if #segments >= 2 then
+		local tag = segments[2]
+		if tag:find("glove", 1, true) then
+			return true
+		end
+		return tag:find("arm", 1, true) ~= nil and not tag:find("charm", 1, true) and not tag:find("armor", 1, true)
+	end
+	local name = model.Name:lower()
+	return name:find("arms", 1, true) ~= nil or name:find("glove", 1, true) ~= nil
+end
+
+local function isArmNamedPart(partName)
+	local name = partName:lower()
+	for _, skip in ARM_PART_SKIP do
+		if name:find(skip, 1, true) then
+			return false
+		end
+	end
+	if name == "larm" or name == "rarm" then
+		return true
+	end
+	for _, word in ARM_PART_WORDS do
+		if name:find(word, 1, true) then
+			return true
+		end
+	end
+	return false
+end
+
+local function hasArmAncestor(part, model)
+	local node = part.Parent
+	while node and node ~= model do
+		local name = node.Name:lower()
+		if name == "hands" or name:find("glove", 1, true) or name:find("sleeve", 1, true) then
+			return true
+		end
+		if name:find("arm", 1, true) and not name:find("armor", 1, true) and not name:find("charm", 1, true)
+			and not name:find("handguard", 1, true) and not name:find("foregrip", 1, true) then
+			return true
+		end
+		node = node.Parent
+	end
+	return false
+end
+
+-- "Arm", "Gun", or false for parts that are never chammed.
+local function chamKind(part, model)
+	local kind = chamKinds[part]
+	if kind ~= nil then
+		return kind
+	end
+	if CHAM_EXCLUDED_PARTS[part.Name] or part.Transparency >= 0.99 or isHelperPart(part) then
+		kind = false
+	elseif isArmViewModel(model) or hasArmAncestor(part, model) or isArmNamedPart(part.Name) then
+		kind = "Arm"
+	else
+		kind = "Gun"
+	end
+	-- A hidden part may be shown later, so don't remember that answer.
+	if part.Transparency < 0.99 then
+		chamKinds[part] = kind
+	end
+	return kind
+end
+
+local function viewmodels()
+	local list = {}
+	for _, folder in viewmodelFolders() do
+		for _, child in folder:GetChildren() do
+			if child:IsA("Model") and not owned[child] then
+				table.insert(list, child)
+			end
+		end
+	end
+	return list
+end
+
+-- Proxies: a MeshPart welded over a viewmodel part that shows the cham while
+-- the original is hidden.
+--  * Materials don't render on a Part shaped by a SpecialMesh (the arms), so
+--    those get a MeshPart copy of their mesh; otherwise only the color showed.
+--  * Wireframe: every edge of the mesh is rebuilt as a thin two-sided strip
+--    (an EditableMesh), so the part's material and color land on the lines.
+local chamMesh = {
+	Proxies = setmetatable({}, { __mode = "k" }), -- part -> proxy MeshPart
+	Keys = setmetatable({}, { __mode = "k" }), -- part -> template key of its proxy
+	Templates = {}, -- key -> MeshPart, or false while loading / if it failed
+	WireGeneration = 0, -- bumped when a line width changes; stale builds are dropped
+}
+
+-- MeshId, scale from mesh units to studs, and offset of what a part draws.
+local function meshSource(part)
+	if part:IsA("MeshPart") then
+		local ok, size = pcall(function()
+			return part.MeshSize
+		end)
+		if part.MeshId == "" or not ok or size.X <= 0 or size.Y <= 0 or size.Z <= 0 then
+			return nil
+		end
+		return part.MeshId, part.Size / size, CFrame.new()
+	end
+	local mesh = part:FindFirstChildOfClass("SpecialMesh")
+	if mesh and mesh.MeshType == Enum.MeshType.FileMesh and mesh.MeshId ~= "" then
+		return mesh.MeshId, mesh.Scale, CFrame.new(mesh.Offset)
+	end
+	return nil
+end
+
+-- Reading a mesh's triangles needs the Roblox-only UGCValidationService calls.
+local function asRobloxScript(fn)
+	local get, set = getthreadidentity, setthreadidentity
+	if type(get) ~= "function" or type(set) ~= "function" then
+		return fn()
+	end
+	local previous = get()
+	set(8)
+	local ok, result = pcall(fn)
+	set(previous)
+	if not ok then
+		error(result, 0)
+	end
+	return result
+end
+
+local function buildWireMesh(meshId, width, minAngle)
+	local ugc = cloneref(game:GetService("UGCValidationService"))
+	local mesh = ugc:CreateEditableMeshFromBinaryStringRobloxOnly(ugc:GetMeshDataBinaryString(meshId))
+	local faces, original = {}, mesh:GetFaces()
+	for _, face in original do
+		local verts = mesh:GetFaceVertices(face)
+		if #verts >= 3 then
+			local points = {}
+			for index, vertex in verts do
+				points[index] = mesh:GetPosition(vertex)
+			end
+			local normal = (points[2] - points[1]):Cross(points[3] - points[1])
+			if normal.Magnitude > 1e-6 then
+				table.insert(faces, { Verts = verts, Points = points, Normal = normal.Unit })
+			end
+		end
+	end
+	for _, face in original do
+		mesh:RemoveFace(face)
+	end
+	mesh:RemoveUnused()
+
+	-- A mesh may not be wider than 2048 in any direction (some models are modelled huge and
+	-- shown tiny, e.g. Blast X): shrink the lines to fit; the caller scales the part back up.
+	local low, high = Vector3.one * math.huge, Vector3.one * -math.huge
+	for _, face in faces do
+		for _, point in face.Points do
+			low, high = low:Min(point), high:Max(point)
+		end
+	end
+	local span = math.max((high - low).X, (high - low).Y, (high - low).Z)
+	local factor = if span > 1800 then 1800 / span else 1
+	if factor ~= 1 then
+		for _, face in faces do
+			for index, point in face.Points do
+				face.Points[index] = point * factor
+			end
+		end
+		width *= factor
+	end
+
+	-- Edges keyed by position: meshes split vertices along UV / normal seams,
+	-- which would draw a seam edge twice and hide its neighbouring face.
+	local function pointKey(point)
+		return string.format("%.4f,%.4f,%.4f", point.X, point.Y, point.Z)
+	end
+	local edges, order = {}, {}
+	for _, face in faces do
+		local count = #face.Points
+		for i = 1, count do
+			local p, q = face.Points[i], face.Points[i % count + 1]
+			local kp, kq = pointKey(p), pointKey(q)
+			local key = if kp < kq then kp .. "|" .. kq else kq .. "|" .. kp
+			local edge = edges[key]
+			if edge then
+				table.insert(edge.Normals, face.Normal)
+			elseif (q - p).Magnitude > 1e-6 then
+				edge = { P = p, Q = q, Normals = { face.Normal } }
+				edges[key] = edge
+				table.insert(order, edge)
+			end
+		end
+	end
+
+	-- minAngle > 0 keeps only edges whose faces meet at least that sharply
+	-- (open edges always stay), so flat surfaces lose their triangle lines.
+	-- A mesh can't hold more than 20000 triangles and every line costs four, so a model with more
+	-- edges than that keeps its sharpest ones (this is why the detailed guns had no wireframe).
+	local MAX_LINES = 4900
+	local kept = {}
+	for _, edge in order do
+		local sharp = 180 -- an open edge counts as the sharpest
+		if #edge.Normals > 1 then
+			sharp = 0
+			for a = 1, #edge.Normals - 1 do
+				for b = a + 1, #edge.Normals do
+					sharp = math.max(sharp, math.deg(math.acos(math.clamp(edge.Normals[a]:Dot(edge.Normals[b]), -1, 1))))
+				end
+			end
+		end
+		edge.Sharp = sharp
+		if minAngle <= 0 or sharp >= minAngle then
+			table.insert(kept, edge)
+		end
+	end
+	if #kept > MAX_LINES then
+		table.sort(kept, function(left, right)
+			return left.Sharp > right.Sharp
+		end)
+		kept = table.move(kept, 1, MAX_LINES, 1, {})
+	end
+
+	local white = mesh:AddColor(Color3.new(1, 1, 1), 1)
+	local half = width / 2
+	for _, edge in kept do
+		local normal = edge.Normals[1]
+		local side = normal:Cross(edge.Q - edge.P)
+		if side.Magnitude > 1e-6 then
+			local p, q = edge.P, edge.Q
+			local lift = normal * 0.001 -- just off the surface
+			side = side.Unit * half
+			local v1 = mesh:AddVertex(p - side + lift)
+			local v2 = mesh:AddVertex(p + side + lift)
+			local v3 = mesh:AddVertex(q + side + lift)
+			local v4 = mesh:AddVertex(q - side + lift)
+			local up, down = mesh:AddNormal(normal), mesh:AddNormal(-normal)
+			-- Both windings, so the lines show from either side.
+			for _, tri in { { v1, v2, v3, up }, { v1, v3, v4, up }, { v3, v2, v1, down }, { v4, v3, v1, down } } do
+				local triangle = mesh:AddTriangle(tri[1], tri[2], tri[3])
+				mesh:SetFaceNormals(triangle, { tri[4], tri[4], tri[4] })
+				mesh:SetFaceColors(triangle, { white, white, white })
+			end
+		end
+	end
+	return mesh, factor
+end
+
+-- Template MeshPart for a key, built in the background (it yields); nil until ready.
+local function templateFor(key, create, generation)
+	local template = chamMesh.Templates[key]
+	if template ~= nil then
+		return template or nil
+	end
+	chamMesh.Templates[key] = false
+	task.spawn(function()
+		local ok, created = pcall(create)
+		if generation and generation ~= chamMesh.WireGeneration then
+			if ok and created then
+				created:Destroy()
+			end
+			chamMesh.Templates[key] = nil
+			return
+		end
+		chamMesh.Templates[key] = ok and created or false
+	end)
+	return nil
+end
+
+local function dropProxy(part)
+	local proxy = chamMesh.Proxies[part]
+	if proxy then
+		proxy:Destroy()
+	end
+	chamMesh.Proxies[part] = nil
+	chamMesh.Keys[part] = nil
+end
+
+-- The part's proxy for `key`; keeps showing the previous one until it's built.
+local function proxyFor(part, key, create, scale, offset, generation)
+	local current = chamMesh.Proxies[part]
+	if current and not current.Parent then
+		current = nil
+	end
+	if current and chamMesh.Keys[part] == key then
+		return current
+	end
+	local template = templateFor(key, create, generation)
+	if not template then
+		return current
+	end
+	local proxy = template:Clone()
+	proxy.Name = "ChamMeshProxy"
+	proxy.Anchored = false
+	proxy.Massless = true
+	proxy.CanCollide = false
+	proxy.CanQuery = false
+	proxy.CanTouch = false
+	proxy.CastShadow = false
+	proxy.Size = template.MeshSize * scale / (template:GetAttribute("WireFactor") or 1)
+	local weld = Instance.new("Weld")
+	weld.Part0 = part
+	weld.Part1 = proxy
+	weld.C0 = offset
+	weld.Parent = proxy
+	proxy.CFrame = part.CFrame * offset
+	proxy.Parent = part
+	dropProxy(part)
+	chamMesh.Proxies[part] = proxy
+	chamMesh.Keys[part] = key
+	return proxy
+end
+
+local function applyCham(part, settings)
+	if not chamRestores[part] then
+		-- Viewmodel arms wear a ShirtTexture decal over the whole mesh, which
+		-- hid most materials and the color; the decals are hidden while chammed.
+		-- (The game resets a decal's Transparency every frame, not its
+		-- LocalTransparencyModifier.)
+		local restores = { snapshot(part, { "Material", "Color", "Transparency", "LocalTransparencyModifier" }) }
+		for _, child in part:GetChildren() do
+			if child:IsA("Decal") then -- Texture is a Decal too
+				table.insert(restores, snapshot(child, { "LocalTransparencyModifier" }))
+			end
+		end
+		chamRestores[part] = function()
+			for _, restore in restores do
+				restore()
+			end
+		end
+	end
+	for _, child in part:GetChildren() do
+		if child:IsA("Decal") then
+			child.LocalTransparencyModifier = 1
+		end
+	end
+
+	local wire = settings.Wireframe
+	local meshId, scale, offset = meshSource(part)
+	local proxy = nil
+	if wire and meshId then
+		local width = settings.WireWidth / ((scale.X + scale.Y + scale.Z) / 3) -- studs -> mesh units
+		local generation = chamMesh.WireGeneration
+		local angle = settings.WireAngle
+		proxy = proxyFor(part, string.format("wire|%s|%.5f|%d", meshId, width, angle), function()
+			return asRobloxScript(function()
+				local mesh, factor = buildWireMesh(meshId, width, angle)
+				local template = game:GetService("AssetService"):CreateMeshPartAsync(Content.fromObject(mesh))
+				template:SetAttribute("WireFactor", factor)
+				return template
+			end)
+		end, scale, offset, generation)
+	elseif not wire and meshId and not part:IsA("MeshPart") then
+		proxy = proxyFor(part, "cham|" .. meshId, function()
+			return game:GetService("AssetService"):CreateMeshPartAsync(meshId)
+		end, scale, offset)
+	else
+		dropProxy(part)
+	end
+
+	local material = Enum.Material[if wire then settings.WireMaterial else settings.Material]
+	local color = settings.Color -- the lines use the arm / gun color too
+	local transparency = if wire then 0 else settings.Transparency
+	if proxy then
+		part.LocalTransparencyModifier = 1
+		proxy.Material = material
+		proxy.Color = color
+		proxy.Transparency = transparency
+	elseif not wire then
+		part.LocalTransparencyModifier = 0
+		part.Material = material
+		part.Color = color
+		part.Transparency = transparency
+	end
+end
+
+local function restoreCham(part)
+	dropProxy(part)
+	local restore = chamRestores[part]
+	if restore then
+		restore()
+		chamRestores[part] = nil
+	end
+end
+
+local function clearChams()
+	for part in chamRestores do
+		restoreCham(part)
+	end
+end
+
+local function chamsActive()
+	return viewmodel.Arm.Enabled or viewmodel.Gun.Enabled or viewmodel.Arm.Wireframe or viewmodel.Gun.Wireframe
+end
+
+local function refreshChams()
+	if not chamsActive() then
+		clearChams()
+		return
+	end
+	for _, model in viewmodels() do
+		for _, descendant in model:GetDescendants() do
+			if descendant:IsA("BasePart") then
+				local kind = chamKind(descendant, model)
+				local settings = kind and viewmodel[kind]
+				if settings and (settings.Enabled or settings.Wireframe) then
+					applyCham(descendant, settings)
+				else
+					restoreCham(descendant)
+				end
+			end
+		end
+	end
+end
+
+ViewmodelSection:AddToggle({
+	Title = "Viewmodel offset",
+	Description = "Move your first-person arms and gun",
+	Default = false,
+	Flag = "ViewmodelOffset",
+	Callback = function(on)
+		viewmodel.Offset = on
+	end,
+})
+for _, axis in { "X", "Y", "Z" } do
+	ViewmodelSection:AddSlider({
+		Title = axis .. " offset",
+		Min = -3, Max = 3, Step = 0.05, Default = 0,
+		Flag = "Viewmodel" .. axis,
+		Callback = function(value)
+			viewmodel[axis] = value
+		end,
+	})
+end
+-- Lines are baked into the mesh: drop the old builds, they get rebuilt.
+local function rebuildWires()
+	chamMesh.WireGeneration += 1
+	for key, template in chamMesh.Templates do
+		if key:sub(1, 5) == "wire|" then
+			if template then
+				template:Destroy()
+			end
+			chamMesh.Templates[key] = nil
+		end
+	end
+	refreshChams()
+end
+
+for _, kind in { "Arm", "Gun" } do
+	local settings = viewmodel[kind]
+	ViewmodelSection:AddToggle({
+		Title = kind .. " chams",
+		Description = kind == "Arm" and "Change the look of your first-person arms / hands"
+			or "Change the look of your first-person gun",
+		Default = false,
+		Flag = "Viewmodel" .. kind .. "Chams",
+		Callback = function(on)
+			settings.Enabled = on
+			refreshChams()
+		end,
+	})
+	ViewmodelSection:AddDropdown({
+		Title = kind .. " material",
+		Options = MATERIAL_NAMES,
+		Default = settings.Material,
+		Flag = "Viewmodel" .. kind .. "Material",
+		Callback = function(name)
+			settings.Material = name
+			refreshChams()
+		end,
+	})
+	ViewmodelSection:AddColorPicker({
+		Title = kind .. " color",
+		Default = settings.Color,
+		Flag = "Viewmodel" .. kind .. "Color",
+		Callback = function(color)
+			settings.Color = color
+			refreshChams()
+		end,
+	})
+	ViewmodelSection:AddSlider({
+		Title = kind .. " transparency",
+		Min = 0, Max = 0.95, Step = 0.05, Default = 0,
+		Flag = "Viewmodel" .. kind .. "Transparency",
+		Callback = function(value)
+			settings.Transparency = value
+			refreshChams()
+		end,
+	})
+	ViewmodelSection:AddToggle({
+		Title = kind .. " wireframe",
+		Description = kind == "Arm" and "Draw your first-person arms as lines along their mesh edges"
+			or "Draw your first-person gun as lines along its mesh edges",
+		Default = false,
+		Flag = "Viewmodel" .. kind .. "Wireframe",
+		Callback = function(on)
+			settings.Wireframe = on
+			refreshChams()
+		end,
+	})
+	ViewmodelSection:AddSlider({
+		Title = kind .. " line thickness",
+		Min = 0.005, Max = 0.15, Step = 0.005, Default = settings.WireWidth, Suffix = " studs",
+		Flag = "Viewmodel" .. kind .. "WireWidth",
+		Callback = function(value)
+			settings.WireWidth = value
+			rebuildWires()
+		end,
+	})
+	ViewmodelSection:AddSlider({
+		Title = kind .. " line reduction",
+		Min = 0, Max = 90, Step = 1, Default = settings.WireAngle, Suffix = "°",
+		Flag = "Viewmodel" .. kind .. "WireAngle",
+		Callback = function(value)
+			-- 0 draws every edge; higher keeps only edges this sharp, so fewer lines.
+			settings.WireAngle = value
+			rebuildWires()
+		end,
+	})
+	ViewmodelSection:AddDropdown({
+		Title = kind .. " line material",
+		Options = MATERIAL_NAMES,
+		Default = settings.WireMaterial,
+		Flag = "Viewmodel" .. kind .. "WireMaterial",
+		Callback = function(name)
+			settings.WireMaterial = name
+			refreshChams()
+		end,
+	})
+end
+
+-- No muzzle flash: hides flash effects on your own viewmodel. Emitters are made
+-- invisible (Emit() ignores Enabled), lights / beams are switched off.
+muzzle = { Enabled = false, AllEffects = false }
+local muzzleRestores = setmetatable({}, { __mode = "k" }) -- effect -> restore function
+local INVISIBLE = NumberSequence.new(1)
+local EFFECT_CLASSES = { "ParticleEmitter", "PointLight", "SpotLight", "SurfaceLight", "Beam", "Trail", "Fire", "Smoke", "Sparkles" }
+
+local function isEffect(instance)
+	for _, className in EFFECT_CLASSES do
+		if instance:IsA(className) then
+			return true
+		end
+	end
+	return false
+end
+
+local function inViewmodel(instance)
+	local folders = viewmodelFolders()
+	local node = instance
+	while node and not table.find(folders, node.Parent) do
+		node = node.Parent
+	end
+	return node ~= nil and node:IsA("Model") and not owned[node]
+end
+
+local function looksLikeMuzzle(instance)
+	local node = instance
+	for _ = 1, 4 do
+		if not node then
+			break
+		end
+		local name = node.Name:lower()
+		if name:find("muzzle") or name:find("flash") then
+			return true
+		end
+		node = node.Parent
+	end
+	return false
+end
+
+local function hideEffect(effect)
+	if muzzleRestores[effect] or not (muzzle.AllEffects or looksLikeMuzzle(effect)) then
+		return
+	end
+	if effect:IsA("ParticleEmitter") then
+		muzzleRestores[effect] = snapshot(effect, { "Transparency" })
+		effect.Transparency = INVISIBLE
+	else
+		muzzleRestores[effect] = snapshot(effect, { "Enabled" })
+		effect.Enabled = false
+	end
+end
+
+local function restoreEffects()
+	for effect, restore in muzzleRestores do
+		restore()
+		muzzleRestores[effect] = nil
+	end
+end
+
+local function hideAllEffects()
+	for _, model in viewmodels() do
+		for _, descendant in model:GetDescendants() do
+			if isEffect(descendant) then
+				hideEffect(descendant)
+			end
+		end
+	end
+end
+
+local function setNoMuzzleFlash(on)
+	muzzle.Enabled = on
+	restoreEffects()
+	if on then
+		hideAllEffects()
+	end
+end
+
+-- Flashes are often cloned in per shot, so catch them the moment they appear.
+local muzzleConnections = {}
+local function watchViewmodelEffects()
+	for _, connection in muzzleConnections do
+		connection:Disconnect()
+	end
+	table.clear(muzzleConnections)
+	for _, folder in viewmodelFolders() do
+		table.insert(muzzleConnections, folder.DescendantAdded:Connect(function(descendant)
+			if muzzle.Enabled and isEffect(descendant) and inViewmodel(descendant) then
+				hideEffect(descendant)
+			end
+		end))
+	end
+end
+watchViewmodelEffects()
+track(workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(watchViewmodelEffects))
+track(function()
+	for _, connection in muzzleConnections do
+		connection:Disconnect()
+	end
+	restoreEffects()
+end)
+
+ViewmodelSection:AddToggle({
+	Title = "No muzzle flash",
+	Description = "Hide the flash on your own gun",
+	Default = false,
+	Flag = "NoMuzzleFlash",
+	Callback = setNoMuzzleFlash,
+})
+ViewmodelSection:AddToggle({
+	Title = "Hide all viewmodel effects",
+	Description = "Also hide effects that aren't named muzzle / flash",
+	Default = false,
+	Flag = "HideViewmodelEffects",
+	Callback = function(on)
+		muzzle.AllEffects = on
+		if muzzle.Enabled then
+			setNoMuzzleFlash(true)
+		end
+	end,
+})
+
+local VIEWMODEL_STEP = PREFIX .. "Viewmodel"
+local lastChamScan = 0
+local offsetPivots = setmetatable({}, { __mode = "k" }) -- model -> pivot we last set
+RunService:BindToRenderStep(VIEWMODEL_STEP, Enum.RenderPriority.Last.Value, function()
+	if viewmodel.Offset then
+		local offset = CFrame.new(viewmodel.X, viewmodel.Y, viewmodel.Z)
+		for _, model in viewmodels() do
+			local pivot = model:GetPivot()
+			-- Only offset once per game update, so a frame the game skips can't drift it.
+			if offsetPivots[model] ~= pivot then
+				local moved = pivot * offset
+				model:PivotTo(moved)
+				offsetPivots[model] = moved
+			end
+		end
+	end
+	-- Weapon swaps bring in new parts; pick them up a few times a second.
+	local now = os.clock()
+	if chamsActive() and now - lastChamScan > 0.25 then
+		lastChamScan = now
+		refreshChams()
+	end
+end)
+track(function()
+	RunService:UnbindFromRenderStep(VIEWMODEL_STEP)
+	clearChams()
+end)
+end
+
+    ---------------------------------------------------------------------------------------------- the link
+    local connections = {}
+    local function read(path)
+        local v = data
+        for _, key in ipairs(path) do
+            if type(v) ~= "table" then return nil end
+            v = v[key]
+        end
+        return v
+    end
+    local function link(flag, path, convert)
+        local el = virtual[flag]
+        if el == nil then return end
+        local function push()
+            local v = read(path)
+            if convert ~= nil then v = convert(v) end
+            if v ~= nil then el:Set(v) end
+        end
+        connections[#connections + 1] = cfg:GetPropertyChangedSignal(path):Connect(push)
+        push()
+    end
+    -- the script's material names are LY's materials
+    local MATERIAL = { Ghost = "ForceField", Flat = "Neon", Foil = "Foil", Custom = "SmoothPlastic", Reflective = "Glass", Original = "Plastic" }
+    local function material(name) return MATERIAL[name] or "ForceField" end
+    local function clampTransparency(v) return type(v) == "number" and math.clamp(v, 0, 0.95) or nil end
+
+    for _, flag in ipairs({ "NoMotion" }) do
+        link(flag, { "ItemModifiers", flag })
+    end
+    link("NoMuzzleFlash", { "Removables", "NoMuzzleFlash" })
+    for _, pair in ipairs({ { "Arm", "Arms" }, { "Gun", "Item" } }) do
+        local ly, kh = pair[1], pair[2]
+        link("Viewmodel" .. ly .. "Chams", { "Chams", kh, "Enabled" })
+        link("Viewmodel" .. ly .. "Material", { "Chams", kh, "Material" }, material)
+        link("Viewmodel" .. ly .. "Color", { "Chams", kh, "Color" })
+        link("Viewmodel" .. ly .. "Transparency", { "Chams", kh, "Transparency" }, clampTransparency)
+        link("Viewmodel" .. ly .. "Wireframe", { "ViewModelWireframe", kh, "Enabled" })
+        link("Viewmodel" .. ly .. "WireWidth", { "ViewModelWireframe", kh, "Width" })
+        -- the lines of LY wear the cham colour: with only the wireframe on, they take the wireframe colour
+        local colorEl = virtual["Viewmodel" .. ly .. "Color"]
+        local function pushColor()
+            local wireOn = read({ "ViewModelWireframe", kh, "Enabled" }) == true
+            local chamOn = read({ "Chams", kh, "Enabled" }) == true
+            local c = (wireOn and not chamOn) and read({ "ViewModelWireframe", kh, "Color" }) or read({ "Chams", kh, "Color" })
+            if colorEl ~= nil and typeof(c) == "Color3" then colorEl:Set(c) end
+        end
+        for _, path in ipairs({ { "ViewModelWireframe", kh, "Enabled" }, { "ViewModelWireframe", kh, "Color" }, { "Chams", kh, "Enabled" }, { "Chams", kh, "Color" } }) do
+            connections[#connections + 1] = cfg:GetPropertyChangedSignal(path):Connect(pushColor)
+        end
+        pushColor()
+    end
+
+    K.onUnload(function()
+        for _, c in ipairs(connections) do pcall(function() c:Disconnect() end) end
+        for index = #unloaders, 1, -1 do
+            local item = unloaders[index]
+            if typeof(item) == "RBXScriptConnection" then
+                pcall(item.Disconnect, item)
+            elseif type(item) == "function" then
+                pcall(item)
+            elseif typeof(item) == "Instance" then
+                pcall(item.Destroy, item)
+            end
+        end
+    end)
+end
+task.defer(function()
+    local ok, err = pcall(setup)
+    if not ok then warn("[LxYHook] weapon visuals of LY failed: " .. tostring(err)) end
+end)
+end)()
 
 --==========================================================================
 --  LY custom skins (ported from LYHub): extra Contraband-style skins built on stock
