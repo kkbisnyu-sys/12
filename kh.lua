@@ -9,143 +9,6 @@ if not game:IsLoaded() then game.Loaded:Wait() end
 
 local K = { connections = {}, cleanups = {}, destroyed = false }
 getgenv().KiciaRebuild = K
-;(function()
--- already done in this session (by LY.lua or an earlier load of this script)
-local existing = getgenv().LY_GameModules
-if type(existing) == "table" and existing.Patched then return end
--- Game module discovery. After the game has loaded, every function in getgc() is walked
--- and its upvalue tables are recognised by a hash of their instruction data, not by
--- name, so renamed / obfuscated modules are still found. The hash is made from the
--- original instructions (venom.getOriginalInstructions where the executor has it, else the
--- raw number array): h = 2654435761; for each instruction a: h = h ~ (a + (h << 6) + (h >> 2)),
--- then the result is xored with the instruction count and printed as 8 hex digits.
--- Five module families are matched (Root, ReplicatedController, ClientFighter, ClientItem,
--- MiscController); two more hashes (914dfeab, 4c7c940e) mark an upvalue table that is cleared
--- and set to [1] = 57. The result is kept in getgenv().LY_GameModules.
-do
-	local KNOWN = {
-		Root            = { ["000f3c64"] = true, ["001d9356"] = true, ["01376267"] = true },
-		ReplicatedController = { ["26300cc2"] = true, ["3b713ab8"] = true, ["61a78249"] = true },
-		ClientFighter   = { ["0083fae0"] = true, ["04f15c38"] = true, ["138adef0"] = true },
-		ClientItem      = { ["033a8ef6"] = true, ["0362417b"] = true, ["0318b3a4"] = true, ["0571209b"] = true, ["0601d153"] = true },
-		MiscController  = { ["15d1968b"] = true, ["2e5052de"] = true, ["3798264a"] = true },
-	}
-	local PATCHED = { ["914dfeab"] = true, ["4c7c940e"] = true }
-
-	local env = type(getgenv) == "function" and getgenv() or _G
-	local state = { Found = {}, Patched = false, Done = false }
-	env.LY_GameModules = state
-
-	local function instructionsOf(value)
-		local venom = env.venom
-		if venom and venom.getOriginalInstructions then
-			local ok, instructions = pcall(venom.getOriginalInstructions, value)
-			if ok and instructions then
-				return instructions
-			end
-		end
-		if getmetatable(value) ~= nil or type(rawget(value, 1)) ~= "number" then
-			return nil
-		end
-		return value
-	end
-
-	local function hashOf(value)
-		local instructions = instructionsOf(value)
-		if instructions == nil then
-			return nil
-		end
-		local h, count = 2654435761, 0
-		for i = 1, 512 do
-			local a = instructions[i]
-			if type(a) ~= "number" then
-				break
-			end
-			h = bit32.bxor(h, a + bit32.lshift(h, 6) + bit32.rshift(h, 2))
-			count += 1
-		end
-		return string.format("%08x", bit32.bxor(h, count))
-	end
-	state.Hash = hashOf
-
-	-- Functions already examined: later passes skip them, so only new ones cost anything.
-	local seen = setmetatable({}, { __mode = "k" })
-
-	local function scan()
-		local worked, skipped = 0, 0
-		for _, func in next, setmetatable(getgc(), { __mode = "kv" }) do
-			if type(func) == "function" then
-				if seen[func] then
-					skipped += 1
-					if skipped % 20000 == 0 then
-						task.wait()
-					end
-				else
-					seen[func] = true
-					-- yield now and then so a big gc list never freezes a frame
-					worked += 1
-					if worked % 2000 == 0 then
-						task.wait()
-					end
-					local ok, upvalues = pcall(debug.getupvalues, func)
-					if ok then
-						for _, upvalue in next, upvalues do
-							if type(upvalue) == "table" then
-								local hash = hashOf(upvalue)
-								if hash then
-									if PATCHED[hash] then
-										table.clear(upvalue)
-										upvalue[1] = 57
-										state.Patched = true
-										break
-									end
-									for family, hashes in next, KNOWN do
-										if hashes[hash] then
-											state.Found[family] = true
-											break
-										end
-									end
-								end
-							end
-						end
-					end
-				end
-			end
-		end
-	end
-
-	local function complete()
-		if not state.Patched then
-			return false
-		end
-		for family in next, KNOWN do
-			if not state.Found[family] then
-				return false
-			end
-		end
-		return true
-	end
-
-	-- Runs in the background: the hub UI no longer waits (up to 30 s) for the scan.
-	if type(getgc) == "function" and debug and debug.getupvalues then
-		task.spawn(function()
-			local deadline = tick() + 30
-			local passes = 0
-			while tick() < deadline do
-				if not pcall(scan) then
-					break
-				end
-				if complete() then
-					break
-				end
-				passes += 1
-				task.wait(passes < 3 and 1.5 or 4)
-			end
-			state.Done = complete()
-		end)
-	end
-end
-end)()
 --==========================================================================
 --  Starlight Interface Suite by Nebula Softworks (github.com/Nebula-Softworks/Starlight-Interface-Suite),
 --  embedded so the menu needs no download or loadstring of the library. Licensed CC BY-NC 4.0: credit stays with
@@ -11980,8 +11843,6 @@ return Starlight
 end
 -- The Ragebot Style as the code should see it.
 function K.RagebotStyle(picked)
-    -- the Hide key is down: FW UE whatever style is picked
-    if K.HideActive then return "FWUE" end
     -- Solix and Sleepy were removed: configs that still pick them play as KH
     if picked == "SOLIX" or picked == "SLEEPY" then
         return "Original"
@@ -12004,22 +11865,7 @@ local player = Players.LocalPlayer
 -- Per-account storage: the configs and the general state (autoload, menu keybind, silent load, ...) are kept
 -- in one folder per UserId, so each account has its own set. Cosmetics, fonts, caches etc. stay shared.
 K.AccountId = tostring(player.UserId)
--- the switch lives in a file of its own (outside the account folders): "shared" = one set of configs for every account
-K.PerAccount = true
-pcall(function()
-    local env = getgenv()
-    local file = "LxYHook/account_mode.txt"
-    if env.isfile and env.readfile and env.isfile(file) and tostring(env.readfile(file)):gsub("%s+", "") == "shared" then
-        K.PerAccount = false
-    end
-end)
-K.AccountDir = K.PerAccount and ("LxYHook/rivals/accounts/" .. K.AccountId) or "LxYHook/rivals"
-function K.SetPerAccount(on)
-    K.PerAccountNext = on == true
-    local make, write, isFolder = K.fn("makefolder"), K.fn("writefile"), K.fn("isfolder")
-    if make and isFolder and not isFolder("LxYHook") then pcall(make, "LxYHook") end
-    if write then pcall(write, "LxYHook/account_mode.txt", on and "account" or "shared") end
-end
+K.AccountDir = "kiciarebuild/rivals/accounts/" .. K.AccountId
 
 local rawget, rawset = rawget, rawset
 
@@ -12121,20 +11967,20 @@ end
 
 --==========================================================================
 --  Diagnostics log (survives crashes)
---  Every session writes LxYHook/logs/session_<UserId>_<time>.log as it goes (appended line by line, so the
+--  Every session writes kiciarebuild/logs/session_<UserId>_<time>.log as it goes (appended line by line, so the
 --  last lines are on disk even when the client dies). A heartbeat line every 15 s records fps, Roblox memory,
 --  Lua heap, instance count, ping and which match of the current chain this is. A small state file tells the next
 --  start how the previous session ended: if it did not end cleanly (not unloaded, not a normal leave, or a
---  teleport that never arrived) a report with its last lines is added to LxYHook/logs/crash_reports.log.
+--  teleport that never arrived) a report with its last lines is added to kiciarebuild/logs/crash_reports.log.
 --  K.Log(level, message) is available to the rest of the script.
 --==========================================================================
 do
     local wrf, apf, rdf = K.fn("writefile"), K.fn("appendfile"), K.fn("readfile")
     local isf, isd, mkf = K.fn("isfile"), K.fn("isfolder"), K.fn("makefolder")
     local lsf, dlf = K.fn("listfiles"), K.fn("delfile")
-    local dir = "LxYHook/logs"
+    local dir = "kiciarebuild/logs"
     if mkf then
-        for _, p in ipairs({ "LxYHook", dir }) do
+        for _, p in ipairs({ "kiciarebuild", dir }) do
             pcall(function() if not (isd and isd(p)) then mkf(p) end end)
         end
     end
@@ -12944,7 +12790,7 @@ do
         local debounce = opts ~= nil and opts.Debounce == true
         local writeBack = opts ~= nil and opts.WriteBack or nil
         control:Set(config:Get(path), true)
-        trove:Connect(config:Changed(path, opts ~= nil and opts.Persistent == true), function(v) control:Set(v, true) end)
+        trove:Connect(config:Changed(path), function(v) control:Set(v, true) end)
         local pending, scheduled = nil, false
         local function write(v)
             if writeBack then writeBack(v) else config:Set(path, v) end
@@ -29338,7 +29184,7 @@ end
 
 local function fn37(arg, arg2)
 return v116.new(function(arg3)
-local str7 = string.format("%s/%s", "LxYHook/fonts", tostring(arg2.FileName))
+local str7 = string.format("%s/%s", "kiciarebuild/fonts", tostring(arg2.FileName))
 
 if not isfile(str7) then
 local v120, v121 = v107(function()
@@ -29379,7 +29225,7 @@ name = arg,
 faces = { { name = "Regular", weight = arg2.Weight.Value, style = fn36(arg2.Style), assetId = v121 } },
 }
 
-local str8 = string.format("%s/%s.json", "LxYHook/fonts", tostring(arg))
+local str8 = string.format("%s/%s.json", "kiciarebuild/fonts", tostring(arg))
 local v122, v123 = v107(writefile, str8, v119:JSONEncode(tbl20))
 
 if not v122 then
@@ -29414,7 +29260,7 @@ for k, v120 in tbl18, nil, nil do
 arg._fontByName[k] = Font.fromEnum(v120)
 end
 
-v118("LxYHook/fonts")
+v118("kiciarebuild/fonts")
 local tbl20 = {}
 local flag19 = true
 
@@ -30313,21 +30159,11 @@ end
 local function fn40(arg, arg2, arg3)
 arg:AddDropdown({
 Label = "UI Style",
-Options = { "Lite", "Setsuna", "Setsuna Drop", "LY", "Classic" },
+Options = { "Starlight", "Lite", "Setsuna", "Setsuna Drop", "Classic" },
 Default = K.UIMode(),
-Tooltip = "Classic (default) is the script's own menu. Lite, Setsuna, Setsuna Drop and LY are built into the script; if one fails, the classic menu is shown for that session.",
+Tooltip = "Starlight (default) is built into the script; if it fails, the classic menu is shown for that session. Classic is the script's own menu.",
 OnChanged = function(mode)
 if mode ~= nil and mode ~= K.UIMode() then K.SwitchUI(mode) end
-end,
-})
-arg:AddToggle({
-Label = "Separate Configs Per Account",
-Tooltip = "On: every Roblox account has its own configs, autoload and menu settings. Off: all accounts share one set. Takes effect the next time the script is loaded.",
-Default = K.PerAccount,
-OnChanged = function(on)
-if on == K.PerAccount and K.PerAccountNext == nil then return end
-K.SetPerAccount(on)
-pcall(function() tbl17.aB().get():Notify("Configs are " .. (on and "separate per account" or "shared by all accounts") .. " from the next load.") end)
 end,
 })
 arg:AddToggle({ Label = "Re-run After Teleport", Config = arg3 })
@@ -31408,7 +31244,7 @@ ReactionTime = v86[186],
 Mode = { Type = "Linear", Speed = 0.1 },
 }
 
-local fov = { Radius = 150, FollowMuzzle = false }
+local fov = { Radius = 150 }
 
 local circle = {
 Visible = false,
@@ -31816,7 +31652,7 @@ ReactionTime = 0,
 SwitchDelay = v86[186],
 }
 
-local fov = { Radius = 150, FollowMuzzle = false }
+local fov = { Radius = 150 }
 
 local circle = {
 Visible = false,
@@ -32260,7 +32096,7 @@ return bd.c
 end
 end
 do -- be
-local function fn35()local I= tbl17 .i().atomic; tbl17 .aZ();local W,N,P= tbl17 .aU(), tbl17 .aW(), tbl17 .aY();return{Aimbot=W.buildConfig(),SilentAim=N.buildConfig(),Triggerbot=P.buildConfig(),Ragebot={Enabled=false,Keybind={State=false,Kind="Always",Bind=nil,ShowInList=true,Invisible=false},Stability=0.15,ShootFrames=1,CustomAttackHeight=false,AttackHeight=-0.7,ManualFire=false,ManualButton=false,Hide={Enabled=false,Keybind={State=false,Kind="Toggle",Bind=nil,ShowInList=true,Invisible=false}},Careful={EvadeBetweenShots=true,RetaliateOnly=true,RetaliateWindow=1.5},PrioritizeHackers=false,EvadeWhenHacking=false,StartDelay=false,FWWeaponCheck=false,DetectKnife=true,KnifeMode="Original",TargetHud={Enabled=false,AlwaysShow=true,Scale=100,ItemScale=100,PosX=50,PosY=15},UE={VoidSpam=true,NoVoid=false,KnifeCooldown08=false,AttackTime=0.1,HideTime=0.25,ShootAttempts=1,VoidDistance=2147483647,KnifeAttack="Heavy",KnifeLead=0,KnifeStand="Sphere"},Weapons={Priority=I({"Primary","Secondary","Melee"}),Enabled={Primary=true,Secondary=true,Melee=true},OnEmpty="SwapOrReload"},Evasion={Mode="Random",Random={AnchorFromCharacter=false,BaseRadius=100,RadiusRandomFactor=0.5},ProjectileBreaker={DepthForward={Min=0,Max=4},DepthForwardFrequency=5,DepthUp={Min=0,Max=5.5},DepthUpFrequency=5,RepositionInterval=0.3,FallbackAnchorFromCharacter=false,FallbackBaseRadius=100,FallbackRadiusRandomFactor=0.5},Translocate={Offset=-5}},UtilizeHealthLead=false},Flickbot={Enabled=false,Keybind={State=false,Kind="Hold",Bind=nil,ShowInList=true,Invisible=false},Shoot=false,ShotDelay=0,Cooldown=250,FlickDuration=110,Curvature=12,Humanness=30}};end
+local function fn35()local I= tbl17 .i().atomic; tbl17 .aZ();local W,N,P= tbl17 .aU(), tbl17 .aW(), tbl17 .aY();return{Aimbot=W.buildConfig(),SilentAim=N.buildConfig(),Triggerbot=P.buildConfig(),Ragebot={Enabled=false,Keybind={State=false,Kind="Always",Bind=nil,ShowInList=true,Invisible=false},Stability=0.15,ShootFrames=1,Careful={EvadeBetweenShots=true,RetaliateOnly=true,RetaliateWindow=1.5},PrioritizeHackers=false,EvadeWhenHacking=false,StartDelay=false,FWWeaponCheck=false,DetectKnife=true,KnifeMode="Original",TargetHud={Enabled=false,Scale=100,ItemScale=100,PosX=50,PosY=15},UE={VoidSpam=true,NoVoid=false,KnifeCooldown08=false,AttackTime=0.1,HideTime=0.25,ShootAttempts=1,VoidDistance=2147483647,KnifeAttack="Heavy",KnifeLead=0,KnifeStand="Sphere"},Weapons={Priority=I({"Primary","Secondary","Melee"}),Enabled={Primary=true,Secondary=true,Melee=true},OnEmpty="SwapOrReload"},Evasion={Mode="Random",Random={AnchorFromCharacter=false,BaseRadius=100,RadiusRandomFactor=0.5},ProjectileBreaker={DepthForward={Min=0,Max=4},DepthForwardFrequency=5,DepthUp={Min=0,Max=5.5},DepthUpFrequency=5,RepositionInterval=0.3,FallbackAnchorFromCharacter=false,FallbackBaseRadius=100,FallbackRadiusRandomFactor=0.5},Translocate={Offset=-5}},UtilizeHealthLead=false},Flickbot={Enabled=false,Keybind={State=false,Kind="Hold",Bind=nil,ShowInList=true,Invisible=false},Shoot=false,ShotDelay=0,Cooldown=250,FlickDuration=110,Curvature=12,Humanness=30}};end
 
 tbl17.be = function()
 local be = tbl17.cache.be
@@ -42246,7 +42082,7 @@ local v134 = v128.new()
 local aimbot = data.Aimbot
 local fov = aimbot.Fov
 local v135 = v126.new(arg2, arg, aimbot.TargetConditions, aimbot.TargetHitboxes[v129.DefaultProfile.Class], function(origin, part) return not data.Aimbot.TargetConditions.Visible or arg3:Check(origin, part, part.Parent) end)
-local v136 = v127.new(v135, K.FovMeasure("Aimbot", v116.buildMeasure(fov.Radius, aimbot.TargetConditions.WithinFov)), v132)
+local v136 = v127.new(v135, v116.buildMeasure(fov.Radius, aimbot.TargetConditions.WithinFov), v132)
 local followTarget = fov.Circle.FollowTarget
 local speed = followTarget.Speed
 local damper = followTarget.Damper
@@ -42278,7 +42114,7 @@ _playerContext = arg2,
 _targetLock = v138,
 _targetAcquisition = v139,
 _computeTargetPoint = v116.buildTargetPoint(aimbot.HitboxPoint),
-_aimApplier = v115.new(function() return K.FovCenter("Aimbot", fn37()) end, fn36),
+_aimApplier = v115.new(fn37, fn36),
 _fovRender = v140,
 _fovFollower = v137,
 _active = v86[153],
@@ -42296,7 +42132,7 @@ local v141 = v131(arg2, v134, "features.Aimbot", v135, function() return data.Ai
 local function fn39(selection) v136:SetHitboxSelectionMode(v116.buildHitboxSelectionMode(selection)) end
 v134:Connect(v120:GetPropertyChangedSignal({ "Aimbot", "HitboxPoint" }), function(point) tbl18._computeTargetPoint = v116.buildTargetPoint(point) end)
 v134:Connect(v120:GetPropertyChangedSignal({ "Aimbot", "Fov" }), function(f)
-v136:SetMeasure(K.FovMeasure("Aimbot", v116.buildMeasure(f.Radius, data.Aimbot.TargetConditions.WithinFov)))
+v136:SetMeasure(v116.buildMeasure(f.Radius, data.Aimbot.TargetConditions.WithinFov))
 v140:SetRadius(f.Radius)
 v140:SetProperties(f.Circle)
 local ft = f.Circle.FollowTarget
@@ -42304,7 +42140,7 @@ v137:SetProperties(ft.Speed, ft.Damper, ft.SnapDistance)
 end)
 v134:Connect(v120:GetPropertyChangedSignal({ "Aimbot", "TargetConditions" }), function(c)
 v135:SetConditions(c)
-v136:SetMeasure(K.FovMeasure("Aimbot", v116.buildMeasure(data.Aimbot.Fov.Radius, c.WithinFov)))
+v136:SetMeasure(v116.buildMeasure(data.Aimbot.Fov.Radius, c.WithinFov))
 end)
 v134:Connect(v120:GetPropertyChangedSignal({ "Aimbot", "TargetHitboxes" }), v141)
 v134:Connect(v120:GetPropertyChangedSignal({ "Aimbot", "HitboxSelection" }), fn39)
@@ -42331,7 +42167,7 @@ local flag19 = arg4.Enabled and circle.Visible and arg3 ~= nil
 local fovRender = arg._fovRender
 local fovFollower = arg._fovFollower
 fovRender:SetVisible(flag19)
-local v134 = K.FovCenter("Aimbot", v133())
+local v134 = v133()
 fovFollower:SetInitial(v134)
 local followTarget = circle.FollowTarget
 fovFollower:SetTarget(flag19 and followTarget.Enabled and arg._targetScreenPosition or nil)
@@ -43597,57 +43433,30 @@ local weaponPool = v102(data, "WeaponPool")
 return v102(data, "WeaponPoolFilterType") == "Blacklist" and table.find(weaponPool, arg2) ~= nil
 end
 
--- Picks the loadout the way LY.lua does: through the pick screen's own remote (the one ahead of time in a
--- staggered-spawn duel), once the server allows picking (CanPickWeapons, up to 12 tries 0.25 s apart), then the pick
--- page is closed like the game's Finish does.
-local lastLYPickAt = 0
+-- Picks the loadout, at most AUTO_LOADOUT_ATTEMPTS times: the pick is refused when the page has only just opened
+-- (CanPickWeapons not set yet), and a refusal used to be swallowed, so that duel kept the default loadout. A try that
+-- failed because the loadout is already there (4 items) ends quietly; the last failure is printed to the F9 console.
+local AUTO_LOADOUT_ATTEMPTS = 3
 local function fn37(arg, loadout)
-local list = { loadout[1], loadout[2], loadout[3], loadout[4] }
-if list[1] == nil then list = { loadout["1"], loadout["2"], loadout["3"], loadout["4"] } end
-if list[1] == nil or list[2] == nil or list[3] == nil or list[4] == nil then
-K.Log("autoload", "the loadout has an empty slot, nothing picked")
-return
-end
-local localPlayer = cloneref(game:GetService("Players")).LocalPlayer
-local replicatedStorage = cloneref(game:GetService("ReplicatedStorage"))
 local function attempt(n)
-local fighterController
-pcall(function() fighterController = require(localPlayer.PlayerScripts.Controllers.FighterController) end)
-local canPick = true
-pcall(function() canPick = fighterController.LocalFighter:Get("CanPickWeapons") ~= false end)
-if not canPick then
-if n < 12 then task.delay(0.25, attempt, n + 1) else K.Log("autoload", "picking is still not allowed after 12 tries") end
+arg.LoadoutPicker:PickLoadoutAsync(loadout):andThen(function()
+K.Log("autoload", "try " .. n .. " ok: the server added the items")
+end):catch(function(err)
+local okItems, items = pcall(function() return arg.FighterState:GetItems() end)
+-- what the picker saw, written to the session log: item count + names, CanPickWeapons, alive, skin changer on
+local names = {}
+if okItems and type(items) == "table" then
+for _, item in items do table.insert(names, tostring(item.Name)) end
+end
+local okCan, canPick = pcall(v102, arg.FighterState.Inner, "CanPickWeapons")
+K.Log("autoload", string.format("try %d failed: %s | items=%d [%s] canPick=%s alive=%s skins=%s", n, tostring(err), #names, table.concat(names, ","), tostring(okCan and canPick), tostring(arg.FighterState.Character.State.Alive), tostring(K.Skins ~= nil)))
+if okItems and type(items) == "table" and #items >= 4 then
 return
 end
-if os.clock() - lastLYPickAt < 1 then return end
-lastLYPickAt = os.clock()
-local remotes = replicatedStorage:FindFirstChild("Remotes")
-local replication = remotes and remotes:FindFirstChild("Replication")
-local fighterFolder = replication and replication:FindFirstChild("Fighter")
-local remote = fighterFolder and fighterFolder:FindFirstChild("PickWeapons")
-if remote == nil then
-K.Log("autoload", "the PickWeapons remote was not found")
-return
-end
-pcall(function()
-local duelController = require(localPlayer.PlayerScripts.Controllers.DuelController)
-local duel = duelController:GetDuel(localPlayer)
-local dueler = duel and duel.LocalDueler
-if dueler and dueler:GetStaggeredSpawnsTurn() then
-local ahead = remotes.Duels:FindFirstChild("PickWeaponsAheadOfTime")
-if ahead then remote = ahead end
-end
-end)
-pcall(remote.FireServer, remote, list)
-K.Log("autoload", "pick sent: " .. table.concat(list, " / "))
-pcall(function()
-local pagesModule = localPlayer.PlayerScripts.Modules.UserInterface.Pages
-local pages = require(pagesModule)
-if pages and pages.PageSystem and pages.PageSystem.CurrentPage then
-local name = pages.PageSystem.CurrentPage.Name
-if name == "PickWeapons" or name == "PickWeaponsList" then
-pages.PageSystem:CloseCurrentPage()
-end
+if n < AUTO_LOADOUT_ATTEMPTS then
+task.delay(0.4, attempt, n + 1)
+else
+warn("[Kicia Rebuild] auto loadout failed after " .. n .. " tries: " .. tostring(err))
 end
 end)
 end
@@ -54891,7 +54700,7 @@ tbl17.g()
 tbl17.eE()
 local v117 = tbl17.e2()
 local v118 = tbl17.k()
-local str7 = string.format("%s/states", "LxYHook/rivals/cosmetics")
+local str7 = string.format("%s/states", "kiciarebuild/rivals/cosmetics")
 
 local tbl18 = {
 Version = v86[56],
@@ -54974,7 +54783,7 @@ _configManager = v115.new({
 DefaultConfig = v120,
 CurrentVersion = v86[56],
 Migrations = { fn36 },
-SavePath = "LxYHook/rivals/cosmetics",
+SavePath = "kiciarebuild/rivals/cosmetics",
 Deserialize = fn38,
 }),
 _stateConfig = v119,
@@ -55450,7 +55259,7 @@ local function fn38(arg)
 return v116.new(function(arg2, arg3)
 local v119 = str7(arg)
 local str8 = fn36(arg) or "ogg"
-local str9 = string.format("%s/%s.%s", "LxYHook/cache", tostring(v119), tostring(str8))
+local str9 = string.format("%s/%s.%s", "kiciarebuild/cache", tostring(v119), tostring(str8))
 
 if not isfile(str9) then
 local v120, v121 = v107(function()
@@ -55463,7 +55272,7 @@ arg3(string.format("failed requesting '%s': %s", tostring(arg), v122(v121)))
 return
 end
 
-local cache = v118("LxYHook/cache")
+local cache = v118("kiciarebuild/cache")
 if not cache.Ok then
 arg3(string.format("failed ensuring folder path: %s", tostring(cache.Error.Detail)))
 return
@@ -55583,7 +55392,7 @@ local v120 = tbl17.ay()
 local v121 = tbl17.a()
 local v122 = tbl17.g()
 local v123 = cloneref(game:GetService("ContentProvider"))
-local str7 = string.format("%s/%s", "LxYHook", "image_storage.json")
+local str7 = string.format("%s/%s", "kiciarebuild", "image_storage.json")
 
 local function fn36(arg)
 return arg:match("^%s*(.-)%s*$") or ""
@@ -55631,7 +55440,7 @@ local v124 = v119.new()
 
 local tbl18 = {
 _errorReporter = v124,
-_configManager = v116.new({ DefaultConfig = v118, CurrentVersion = v86[63], SavePath = "LxYHook", Deserialize = fn37 }),
+_configManager = v116.new({ DefaultConfig = v118, CurrentVersion = v86[63], SavePath = "kiciarebuild", Deserialize = fn37 }),
 _customAssets = v117.new(),
 _data = table.clone(v118),
 _names = {},
@@ -56457,13 +56266,13 @@ local flag19 = false
 
 local function fn41(arg, arg2)
 if not flag19 then
-if not v115("LxYHook/rivals/crosshair_textures").Ok then
+if not v115("kiciarebuild/rivals/crosshair_textures").Ok then
 return false
 end
 flag19 = true
 end
 
-local str7 = string.format("%s/%s.png", "LxYHook/rivals/crosshair_textures", tostring(arg))
+local str7 = string.format("%s/%s.png", "kiciarebuild/rivals/crosshair_textures", tostring(arg))
 
 if v107(writefile, str7, arg2) then
 local v117, v118 = v107(getcustomasset, str7)
@@ -62889,7 +62698,7 @@ end
 
 index2._SetupMotionDisabler = function(arg, arg2)
 local function fn36()
-arg._motionDisabler:SetMotionDisabled(false)
+arg._motionDisabler:SetMotionDisabled(v118.Data.ItemModifiers.NoMotion)
 end
 
 arg2:Connect(v118:GetPropertyChangedSignal({ "ItemModifiers", "NoMotion" }), fn36)
@@ -63269,7 +63078,7 @@ local v121 = tbl17.a()
 tbl17.gt()
 local v122 = tbl17.g()
 local v123 = cloneref(game:GetService("ContentProvider"))
-local str7 = string.format("%s/%s", "LxYHook", "sfx_sounds.json")
+local str7 = string.format("%s/%s", "kiciarebuild", "sfx_sounds.json")
 
 local function fn36(arg)
 return arg:match("^%s*(.-)%s*$") or ""
@@ -63316,7 +63125,7 @@ local v124 = v119.new()
 
 local tbl18 = {
 _errorReporter = v124,
-_configManager = v116.new({ DefaultConfig = v118, CurrentVersion = 1, SavePath = "LxYHook", Deserialize = fn37 }),
+_configManager = v116.new({ DefaultConfig = v118, CurrentVersion = 1, SavePath = "kiciarebuild", Deserialize = fn37 }),
 _customAssets = v117.new(),
 _data = table.clone(v118),
 _names = {},
@@ -63488,7 +63297,7 @@ local v115 = tbl17.a()
 tbl17.gv()
 local v116 = tbl17.bG()
 local v117 = cloneref(game:GetService("HttpService"))
-local str7 = string.format("%s/cache.json", "LxYHook/rivals/esp_images")
+local str7 = string.format("%s/cache.json", "kiciarebuild/rivals/esp_images")
 local tbl18 = { ".png", ".jpg", ".jpeg", ".webp", ".bmp" }
 
 local function fn36(arg, arg2)
@@ -63606,8 +63415,8 @@ end
 end
 end
 
-if type(listfiles) == "function" and isfolder("LxYHook/rivals/esp_images") then
-local v118, v119 = v107(listfiles, "LxYHook/rivals/esp_images")
+if type(listfiles) == "function" and isfolder("kiciarebuild/rivals/esp_images") then
+local v118, v119 = v107(listfiles, "kiciarebuild/rivals/esp_images")
 
 if v118 and type(v119) == "table" then
 for _, v120 in v119, nil, nil do
@@ -63638,7 +63447,7 @@ end
 
 return {
 MigrateSounds = function(arg)
-local json = fn36("LxYHook/rivals/custom_sounds.json", "MigrateSounds")
+local json = fn36("kiciarebuild/rivals/custom_sounds.json", "MigrateSounds")
 if not json.Ok then
 return json
 end
@@ -66123,7 +65932,7 @@ _trove = silentAim,
 _playerContext = arg2,
 _inputBinding = arg4,
 _textIndicatorList = arg5,
-_targetSelection = v125.new(v137, K.FovMeasure("SilentAim", v115.buildMeasure(silentAim2.Fov.Radius, silentAim2.TargetConditions.WithinFov)), v130),
+_targetSelection = v125.new(v137, v115.buildMeasure(silentAim2.Fov.Radius, silentAim2.TargetConditions.WithinFov), v130),
 _targetAcquisition = v123.new(),
 _computeTargetPoint = v115.buildTargetPoint(silentAim2.HitboxPoint),
 _fovRender = v135,
@@ -66154,7 +65963,7 @@ v137:UseBestFirstConditionCheck(m.Enabled and m.Mode == "OnBestTarget")
 end
 silentAim:Connect(v118:GetPropertyChangedSignal({ "SilentAim", "HitboxPoint" }), function(point) tbl18._computeTargetPoint = v115.buildTargetPoint(point) end)
 silentAim:Connect(v118:GetPropertyChangedSignal({ "SilentAim", "Fov" }), function(f)
-tbl18._targetSelection:SetMeasure(K.FovMeasure("SilentAim", v115.buildMeasure(f.Radius, targetConditions.WithinFov)))
+tbl18._targetSelection:SetMeasure(v115.buildMeasure(f.Radius, targetConditions.WithinFov))
 v135:SetRadius(f.Radius)
 v135:SetProperties(f.Circle)
 local ft = f.Circle.FollowTarget
@@ -66163,7 +65972,7 @@ end)
 silentAim:Connect(v118:GetPropertyChangedSignal({ "SilentAim", "TargetConditions" }), function(c)
 targetConditions = c
 v137:SetConditions(c)
-tbl18._targetSelection:SetMeasure(K.FovMeasure("SilentAim", v115.buildMeasure(data.SilentAim.Fov.Radius, c.WithinFov)))
+tbl18._targetSelection:SetMeasure(v115.buildMeasure(data.SilentAim.Fov.Radius, c.WithinFov))
 end)
 silentAim:Connect(v118:GetPropertyChangedSignal({ "SilentAim", "TargetHitboxes" }), v138)
 silentAim:Connect(v118:GetPropertyChangedSignal({ "SilentAim", "HitboxSelection" }), fn37)
@@ -66197,7 +66006,7 @@ local flag19 = arg4.Enabled and circle.Visible and arg3 ~= nil
 local fovRender = arg._fovRender
 local fovFollower = arg._fovFollower
 fovRender:SetVisible(flag19)
-local v134 = K.FovCenter("SilentAim", v133())
+local v134 = v133()
 fovFollower:SetInitial(v134)
 local followTarget = circle.FollowTarget
 fovFollower:SetTarget(flag19 and followTarget.Enabled and arg._targetScreenPosition or nil)
@@ -66350,7 +66159,7 @@ local v117 = tbl17.ad()
 local v118 = tbl17.a()
 local v119 = tbl17.g()
 tbl17.gW()
-local str7 = string.format("%s/%s", "LxYHook/rivals", "skyboxes.json")
+local str7 = string.format("%s/%s", "kiciarebuild/rivals", "skyboxes.json")
 
 local tbl18 = {
 SkyboxBk = "string",
@@ -66410,12 +66219,12 @@ local info = REPO_SKIES[name]
 if not (info and writefile and getcustomasset and isfile) then
 return nil
 end
-pcall(makefolder, "LxYHook")
-pcall(makefolder, "LxYHook/rivals")
-pcall(makefolder, "LxYHook/rivals/skybox")
+pcall(makefolder, "kiciarebuild")
+pcall(makefolder, "kiciarebuild/rivals")
+pcall(makefolder, "kiciarebuild/rivals/skybox")
 local faces = { StarCount = 3000 }
 for key, prop in REPO_FACES, nil, nil do
-local path = string.format("LxYHook/rivals/skybox/%s_%s.%s", info[1], key:lower(), info[2])
+local path = string.format("kiciarebuild/rivals/skybox/%s_%s.%s", info[1], key:lower(), info[2])
 if not isfile(path) then
 local body = repoHttp(string.format("https://raw.githubusercontent.com/engnyg/123f1/main/skybox/%s/sky512_%s.%s", info[1], key:lower(), info[2]))
 if not body then
@@ -66496,7 +66305,7 @@ _errorReporter = v117.new(),
 _configManager = v115.new({
 DefaultConfig = v116,
 CurrentVersion = v86[63],
-SavePath = "LxYHook/rivals",
+SavePath = "kiciarebuild/rivals",
 Deserialize = fn39,
 }),
 _data = table.clone(v116),
@@ -67806,7 +67615,7 @@ for _, v122 in groups, nil, nil do
 local v123 = configGroupMap[v122]
 
 v121:Connect(v116:GetPropertyChangedSignal({ "Chams", v123, "Enabled" }), function(arg2)
-tbl18:_SetEnabled(v122, false)
+tbl18:_SetEnabled(v122, arg2)
 end)
 
 local function fn37()
@@ -67819,7 +67628,7 @@ end
 
 v121:Connect(v116:GetPropertyChangedSignal({ "Chams", v123, "Color" }), function(I) tbl18 :_ApplyColor( v122 ,I);end)
 v121:Connect(v116:GetPropertyChangedSignal({ "Chams", v123, "Transparency" }), function(I) tbl18 :_ApplyTransparency( v122 ,I);end)
-tbl18:_SetEnabled(v122, false)
+tbl18:_SetEnabled(v122, data.Chams[v123].Enabled)
 end
 
 return tbl18
@@ -68482,7 +68291,7 @@ for _, v121 in groups, nil, nil do
 local v122 = configGroupMap[v121]
 
 v120:Connect(v117:GetPropertyChangedSignal({ "ViewModelWireframe", v122, v86[44] }), function(arg2)
-tbl18:_SetEnabled(v121, false)
+tbl18:_SetEnabled(v121, arg2)
 end)
 
 v120:Connect(v117:GetPropertyChangedSignal({ "ViewModelWireframe", v122, "Width" }), function(arg2)
@@ -68490,7 +68299,7 @@ tbl18:_ApplyWidth(v121, arg2)
 end)
 
 v120:Connect(v117:GetPropertyChangedSignal({ "ViewModelWireframe", v122, "Color" }), function(I) tbl18 :_ApplyColor( v121 ,I);end)
-tbl18:_SetEnabled(v121, false)
+tbl18:_SetEnabled(v121, fn36(v121).Enabled)
 end
 
 return tbl18
@@ -71802,7 +71611,7 @@ return h0.c
 end
 end
 do -- h1
-local function fn35() tbl17 .aE();return function(l,I)local function W(...)return{I,"Fov",...};end;l:AddColor({Row=l:AddToggle({Label="Show Targeting Circle",Config=W("Circle","Visible")}).Row,Gradient="editable",Alpha=true,Config=W("Circle","Stroke","Gradient"),Transparency=W("Circle","Stroke","Transparency")});l:AddSlider({Label="Radius (px)",Min=1,Max=600,Config=W("Radius")});l:AddToggle({Label="Follow Muzzle",Tooltip="The circle, the target check inside it and the aimbot movement use the muzzle of your gun instead of the screen centre.",Config=W("FollowMuzzle")});l:AddSlider({Label="Thickness",Min=0,Max=25,Config=W("Circle","Stroke","Thickness")});l:AddColor({Row=l:AddToggle({Label="Filled",Config=W("Circle","Fill","Enabled")}).Row,Gradient="editable",Alpha=true,Config=W("Circle","Fill","Gradient"),Transparency=W("Circle","Fill","Transparency")});l:AddGroup({Source=l:AddToggle({Label="Animated",Config=W("Circle","Animated","Enabled")})}):AddSlider({Label="Animation Speed (deg/s)",Min=0,Max=360,Config=W("Circle","Animated","Speed")});local I=l:AddGroup({Source=l:AddToggle({Label="Follow Target",Config=W("Circle","FollowTarget","Enabled")})});I:AddSlider({Label="Follow Speed",Default=20,Min=1,Max=50,Config=W("Circle","FollowTarget","Speed")});I:AddSlider({Label="Follow Damper",Default=1,Min=0,Max=30,Config=W("Circle","FollowTarget","Damper")});I:AddSlider({Label="Snap Distance",Default=5,Min=0,Max=10,Config=W("Circle","FollowTarget","SnapDistance")});end;end
+local function fn35() tbl17 .aE();return function(l,I)local function W(...)return{I,"Fov",...};end;l:AddColor({Row=l:AddToggle({Label="Show Targeting Circle",Config=W("Circle","Visible")}).Row,Gradient="editable",Alpha=true,Config=W("Circle","Stroke","Gradient"),Transparency=W("Circle","Stroke","Transparency")});l:AddSlider({Label="Radius (px)",Min=1,Max=600,Config=W("Radius")});l:AddSlider({Label="Thickness",Min=0,Max=25,Config=W("Circle","Stroke","Thickness")});l:AddColor({Row=l:AddToggle({Label="Filled",Config=W("Circle","Fill","Enabled")}).Row,Gradient="editable",Alpha=true,Config=W("Circle","Fill","Gradient"),Transparency=W("Circle","Fill","Transparency")});l:AddGroup({Source=l:AddToggle({Label="Animated",Config=W("Circle","Animated","Enabled")})}):AddSlider({Label="Animation Speed (deg/s)",Min=0,Max=360,Config=W("Circle","Animated","Speed")});local I=l:AddGroup({Source=l:AddToggle({Label="Follow Target",Config=W("Circle","FollowTarget","Enabled")})});I:AddSlider({Label="Follow Speed",Default=20,Min=1,Max=50,Config=W("Circle","FollowTarget","Speed")});I:AddSlider({Label="Follow Damper",Default=1,Min=0,Max=30,Config=W("Circle","FollowTarget","Damper")});I:AddSlider({Label="Snap Distance",Default=5,Min=0,Max=10,Config=W("Circle","FollowTarget","SnapDistance")});end;end
 
 tbl17.h1 = function()
 local h1 = tbl17.cache.h1
@@ -72017,7 +71826,7 @@ return ie.c
 end
 end
 do -- ih
-local function fn35() tbl17 .aE();local cfgd= tbl17 .bG();local I= tbl17 .h6();local function l(W)I(W,"Enable Ragebot",{"Always","Toggle","Hold"},{"Ragebot"},true);I(W,"Hide (FW UE)",{"Toggle","Hold"},{"Ragebot","Hide"},true,"Hide");local style=W:AddDropdown({Label="Ragebot Style",Tooltip="KH: Kicia's own ragebot. UE: the Unnamed Enhancements ragebot (void spam, backstab, gun and light attack). Picking UE hides the KH settings. Auto: plays as KH until the Hacker Detector flags an enemy, then switches this dropdown to FW UE and stays there. Careful: the LY hub's own ragebot in its Careful mode (its own targeting, teleport attack, evasion and reloads). Careful Settings, Weapon Strategy and Target HUD apply to it.",Options={"Original","UE","Careful","FWUE"},Labels={Original="KH",UE="UE",Careful="Careful",FWUE="FW UE trash kh"},Config={"Ragebot","KnifeMode"}});W:AddToggle({Label="Round Start Delay",Tooltip="At the start of a round, hide in the void for a random 1-6 s first, then start attacking. Applies to every Ragebot Style.",Config={"Ragebot","StartDelay"}});W:AddToggle({Label="Prioritize Hackers",Config={"Ragebot","PrioritizeHackers"}});W:AddToggle({Label="Evade When Target Hacking",Config={"Ragebot","EvadeWhenHacking"}});W:AddButton({Label="Clear Hacker Tags",OnClick=function()local d=K.HackerDetector;local ok,n=pcall(function()return d and d:ClearTags() or nil;end);local text=(not ok or n==nil) and "Hacker detector is not ready" or string.format("Cleared %d hacker tag(s)",n);pcall(function()tbl17.aB().get():Notify(text);end);end});return style;end;local function kf(W)W:AddToggle({Label="Detect Knife",Config={"Ragebot","DetectKnife"}});W:AddSlider({Label="Stability",Min=0,Max=1.5,Step=0.001,Config={"Ragebot","Stability"}});W:AddSlider({Label="Shoot Frames",Min=1,Max=5,Config={"Ragebot","ShootFrames"}});W:AddToggle({Label="Custom Attack Height",Tooltip="Off: the fixed stand height (0.7 below the head hitbox of the target). On: the Attack Height below is used.",Config={"Ragebot","CustomAttackHeight"}});W:AddSlider({Label="Attack Height",Tooltip="How far above (+) or below (-) the head hitbox of the target you stand. A shield pointing down is 3.15 lower.",Min=-15,Max=15,Step=0.05,Config={"Ragebot","AttackHeight"}});end;local function cf(W)W:AddToggle({Label="Evade Between Shots",Tooltip="Slow weapons (shotgun, sniper, knife): evade in the gaps instead of standing on the target",Config={"Ragebot","Careful","EvadeBetweenShots"}});W:AddToggle({Label="Attack After Enemy",Tooltip="Only shoot an enemy in the gap right after it fired or swung, or while its weapon cools down or reloads",Config={"Ragebot","Careful","RetaliateOnly"}});W:AddSlider({Label="Gap Window",Tooltip="How long after its shot or swing an enemy can still be shot (its weapon cooldown or reload also counts)",Min=0.5,Max=5,Step=0.1,Suffix="s",Config={"Ragebot","Careful","RetaliateWindow"}});W:AddToggle({Label="Custom Attack Height",Tooltip="Off: the fixed stand height (0.7 below the head hitbox of the target). On: the Attack Height below is used.",Config={"Ragebot","CustomAttackHeight"}});W:AddSlider({Label="Attack Height",Tooltip="How far above (+) or below (-) the head hitbox of the target you stand. A shield pointing down is 3.15 lower.",Min=-15,Max=15,Step=0.05,Config={"Ragebot","AttackHeight"}});W:AddToggle({Label="Manual Fire",Tooltip="Attacks (teleport + shoot) only while you hold the fire input (the FIRE button, or the game's own fire input); evades the rest of the time.",Config={"Ragebot","ManualFire"}});W:AddToggle({Label="Manual Fire Button",Tooltip="Shows an on-screen FIRE button while Manual Fire is on (phones and tablets). Hold it to attack. In the LY menu it can be moved in the HUD editor.",Config={"Ragebot","ManualButton"}});end;local function uf(W)W:AddToggle({Label="Never Void",Tooltip="Never hide in the void (UE style): no hide phase, and none while reloading, swapping, without a target or between knife stabs. You stay where you are.",Config={"Ragebot","UE","NoVoid"}});W:AddToggle({Label="Backstab Cooldown 0.8",Tooltip="On: the time between two backstabs is HeavyAttackCooldown x 0.8. Off: UE's own x 0.75.",Config={"Ragebot","UE","KnifeCooldown08"}});W:AddToggle({Label="Void Spam",Tooltip="Hide in the void between attack bursts (UE void spam). Used by the gun and the light attack, not by the backstab.",Config={"Ragebot","UE","VoidSpam"}});W:AddSlider({Label="Void Spam Attack",Tooltip="the amount of time attacking before hiding again (UE adds 0.1 s on top)",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","AttackTime"}});W:AddSlider({Label="Void Spam Hide",Tooltip="how long it stays in void for",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","HideTime"}});W:AddSlider({Label="Shoot Attempts",Tooltip="how many times it will try to fire your weapon (UE: ragebot_shoot_attempts)",Min=1,Max=2,Step=1,Config={"Ragebot","UE","ShootAttempts"}});W:AddDropdown({Label="Knife Attack",Tooltip="Heavy Backstab = UE attack mode knife. Light Attack = UE attack mode melee (fast light attacks with the knife).",Options={"Heavy","Light"},Labels={Heavy="Heavy Backstab",Light="Light Attack"},Config={"Ragebot","UE","KnifeAttack"}});end;local function I(W)local N={"Primary","Secondary","Melee"};for P,P in N,nil,nil do W:AddToggle({Label=string.format("%s Enabled",tostring(P)),Config={"Ragebot","Weapons","Enabled",P}});end;W:AddOrderedList({Label="Weapon Priority",Items=N,Default=N,Config={"Ragebot","Weapons","Priority"}});W:AddDropdown({Label="On Empty",Options={"Reload","Swap","SwapOrReload"},Labels={SwapOrReload="Swap or Reload"},Config={"Ragebot","Weapons","OnEmpty"}});end;local function W(N,P)local a=N:AddGroup({Source=P,Option="ProjectileBreaker"});a:AddRangeSlider({Label="Forward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForward"}});a:AddSlider({Label="Forward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForwardFrequency"}});a:AddRangeSlider({Label="Upward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUp"}});a:AddSlider({Label="Upward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUpFrequency"}});a:AddSlider({Label="Reposition Interval (s)",Min=0.05,Max=2,Step=0.01,Config={"Ragebot","Evasion","ProjectileBreaker","RepositionInterval"}});a:AddToggle({Label="Fallback Character Origin",Config={"Ragebot","Evasion","ProjectileBreaker","FallbackAnchorFromCharacter"}});a:AddSlider({Label="Fallback Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackBaseRadius"}});a:AddSlider({Label="Fallback Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackRadiusRandomFactor"}});end;local function N(P)local a=P:AddDropdown({Label="Evasion Mode",Options={"Off","Random","Translocate","ProjectileBreaker"},Labels={ProjectileBreaker="Projectile Breaker"},Config={"Ragebot","Evasion","Mode"}});local e=P:AddGroup({Source=a,Option="Random"});e:AddToggle({Label="Character Origin",Config={"Ragebot","Evasion","Random","AnchorFromCharacter"}});e:AddSlider({Label="Base Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","Random","BaseRadius"}});e:AddSlider({Label="Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","Random","RadiusRandomFactor"}});P:AddGroup({Source=a,Option="Translocate"}):AddSlider({Label="Offset",Min=-5,Max=5,Step=0.1,Config={"Ragebot","Evasion","Translocate","Offset"}});W(P,a);end;local function H(P)P:AddToggle({Label="Target HUD",Config={"Ragebot","TargetHud","Enabled"}});P:AddToggle({Label="Always Show",Tooltip="Keep the card up: without a ragebot target it shows the nearest enemy.",Config={"Ragebot","TargetHud","AlwaysShow"}});P:AddSlider({Label="Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","Scale"}});P:AddSlider({Label="Item Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","ItemScale"}});P:AddSlider({Label="Offset X (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosX"}});P:AddSlider({Label="Offset Y (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosY"}});end;return function(W)local style=l(W:AddSection({Title="Activation",Side="left"}));local khSection=W:AddSection({Title="KH Settings",Side="left"});kf(khSection);local carefulSection=W:AddSection({Title="Careful Settings",Side="left"});cf(carefulSection);local ueSection=W:AddSection({Title="UE Settings",Side="left"});uf(ueSection);local weaponSection=W:AddSection({Title="Weapon Strategy",Side="left"});I(weaponSection);local evasionSection=W:AddSection({Title="Evasion",Side="right"});N(evasionSection);local hudSection=W:AddSection({Title="Target HUD",Side="right"});H(hudSection);local fwSection=W:AddSection({Title="FW UE Settings",Side="left"});fwSection:AddToggle({Label="FW Weapon Check",Tooltip="Hide only while the weapon window is open. Slow weapons: the shot / swing cooldown must have at least 0.6 s left. Fast weapons (cooldown up to 0.3 s): the magazine must be nearly empty. Nobody may be reloading, and an enemy starting to reload sends you back to the void. No time limit on the wait.",Config={"Ragebot","FWWeaponCheck"}});local function applyStyle()local picked=style.Value;local isUE=picked=="UE";local isCareful=picked=="Careful";local isEmpty=picked=="FWUE";khSection:SetVisible(not isUE and not isCareful and not isEmpty);evasionSection:SetVisible(not isUE and not isCareful and not isEmpty);ueSection:SetVisible(isUE);carefulSection:SetVisible(isCareful);weaponSection:SetVisible(not isEmpty);hudSection:SetVisible(true);fwSection:SetVisible(picked=="FWUE");end;applyStyle();pcall(function()style.ValueChanged:Connect(applyStyle);end);end;end
+local function fn35() tbl17 .aE();local cfgd= tbl17 .bG();local I= tbl17 .h6();local function l(W)I(W,"Enable Ragebot",{"Always","Toggle","Hold"},{"Ragebot"},true);local style=W:AddDropdown({Label="Ragebot Style",Tooltip="KH: Kicia's own ragebot. UE: the Unnamed Enhancements ragebot (void spam, backstab, gun and light attack). Picking UE hides the KH settings. Auto: plays as KH until the Hacker Detector flags an enemy, then switches this dropdown to FW UE and stays there. Careful: the LY hub's own ragebot in its Careful mode (its own targeting, teleport attack, evasion and reloads). Careful Settings, Weapon Strategy and Target HUD apply to it.",Options={"Original","UE","Careful","FWUE"},Labels={Original="KH",UE="UE",Careful="Careful",FWUE="FW UE trash kh"},Config={"Ragebot","KnifeMode"}});W:AddToggle({Label="Round Start Delay",Tooltip="At the start of a round, hide in the void for a random 1-6 s first, then start attacking. Applies to every Ragebot Style.",Config={"Ragebot","StartDelay"}});W:AddToggle({Label="Prioritize Hackers",Config={"Ragebot","PrioritizeHackers"}});W:AddToggle({Label="Evade When Target Hacking",Config={"Ragebot","EvadeWhenHacking"}});W:AddButton({Label="Clear Hacker Tags",OnClick=function()local d=K.HackerDetector;local ok,n=pcall(function()return d and d:ClearTags() or nil;end);local text=(not ok or n==nil) and "Hacker detector is not ready" or string.format("Cleared %d hacker tag(s)",n);pcall(function()tbl17.aB().get():Notify(text);end);end});return style;end;local function kf(W)W:AddToggle({Label="Detect Knife",Config={"Ragebot","DetectKnife"}});W:AddSlider({Label="Stability",Min=0,Max=1.5,Step=0.001,Config={"Ragebot","Stability"}});W:AddSlider({Label="Shoot Frames",Min=1,Max=5,Config={"Ragebot","ShootFrames"}});end;local function cf(W)W:AddToggle({Label="Evade Between Shots",Tooltip="Slow weapons (shotgun, sniper, knife): evade in the gaps instead of standing on the target",Config={"Ragebot","Careful","EvadeBetweenShots"}});W:AddToggle({Label="Attack After Enemy",Tooltip="Only shoot an enemy in the gap right after it fired or swung, or while its weapon cools down or reloads",Config={"Ragebot","Careful","RetaliateOnly"}});W:AddSlider({Label="Gap Window",Tooltip="How long after its shot or swing an enemy can still be shot (its weapon cooldown or reload also counts)",Min=0.5,Max=5,Step=0.1,Suffix="s",Config={"Ragebot","Careful","RetaliateWindow"}});end;local function uf(W)W:AddToggle({Label="Never Void",Tooltip="Never hide in the void (UE style): no hide phase, and none while reloading, swapping, without a target or between knife stabs. You stay where you are.",Config={"Ragebot","UE","NoVoid"}});W:AddToggle({Label="Backstab Cooldown 0.8",Tooltip="On: the time between two backstabs is HeavyAttackCooldown x 0.8. Off: UE's own x 0.75.",Config={"Ragebot","UE","KnifeCooldown08"}});W:AddToggle({Label="Void Spam",Tooltip="Hide in the void between attack bursts (UE void spam). Used by the gun and the light attack, not by the backstab.",Config={"Ragebot","UE","VoidSpam"}});W:AddSlider({Label="Void Spam Attack",Tooltip="the amount of time attacking before hiding again (UE adds 0.1 s on top)",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","AttackTime"}});W:AddSlider({Label="Void Spam Hide",Tooltip="how long it stays in void for",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","HideTime"}});W:AddSlider({Label="Shoot Attempts",Tooltip="how many times it will try to fire your weapon (UE: ragebot_shoot_attempts)",Min=1,Max=2,Step=1,Config={"Ragebot","UE","ShootAttempts"}});W:AddDropdown({Label="Knife Attack",Tooltip="Heavy Backstab = UE attack mode knife. Light Attack = UE attack mode melee (fast light attacks with the knife).",Options={"Heavy","Light"},Labels={Heavy="Heavy Backstab",Light="Light Attack"},Config={"Ragebot","UE","KnifeAttack"}});end;local function I(W)local N={"Primary","Secondary","Melee"};for P,P in N,nil,nil do W:AddToggle({Label=string.format("%s Enabled",tostring(P)),Config={"Ragebot","Weapons","Enabled",P}});end;W:AddOrderedList({Label="Weapon Priority",Items=N,Default=N,Config={"Ragebot","Weapons","Priority"}});W:AddDropdown({Label="On Empty",Options={"Reload","Swap","SwapOrReload"},Labels={SwapOrReload="Swap or Reload"},Config={"Ragebot","Weapons","OnEmpty"}});end;local function W(N,P)local a=N:AddGroup({Source=P,Option="ProjectileBreaker"});a:AddRangeSlider({Label="Forward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForward"}});a:AddSlider({Label="Forward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForwardFrequency"}});a:AddRangeSlider({Label="Upward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUp"}});a:AddSlider({Label="Upward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUpFrequency"}});a:AddSlider({Label="Reposition Interval (s)",Min=0.05,Max=2,Step=0.01,Config={"Ragebot","Evasion","ProjectileBreaker","RepositionInterval"}});a:AddToggle({Label="Fallback Character Origin",Config={"Ragebot","Evasion","ProjectileBreaker","FallbackAnchorFromCharacter"}});a:AddSlider({Label="Fallback Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackBaseRadius"}});a:AddSlider({Label="Fallback Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackRadiusRandomFactor"}});end;local function N(P)local a=P:AddDropdown({Label="Evasion Mode",Options={"Off","Random","Translocate","ProjectileBreaker"},Labels={ProjectileBreaker="Projectile Breaker"},Config={"Ragebot","Evasion","Mode"}});local e=P:AddGroup({Source=a,Option="Random"});e:AddToggle({Label="Character Origin",Config={"Ragebot","Evasion","Random","AnchorFromCharacter"}});e:AddSlider({Label="Base Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","Random","BaseRadius"}});e:AddSlider({Label="Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","Random","RadiusRandomFactor"}});P:AddGroup({Source=a,Option="Translocate"}):AddSlider({Label="Offset",Min=-5,Max=5,Step=0.1,Config={"Ragebot","Evasion","Translocate","Offset"}});W(P,a);end;local function H(P)P:AddToggle({Label="Target HUD",Config={"Ragebot","TargetHud","Enabled"}});P:AddSlider({Label="Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","Scale"}});P:AddSlider({Label="Item Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","ItemScale"}});P:AddSlider({Label="Offset X (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosX"}});P:AddSlider({Label="Offset Y (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosY"}});end;return function(W)local style=l(W:AddSection({Title="Activation",Side="left"}));local khSection=W:AddSection({Title="KH Settings",Side="left"});kf(khSection);local carefulSection=W:AddSection({Title="Careful Settings",Side="left"});cf(carefulSection);local ueSection=W:AddSection({Title="UE Settings",Side="left"});uf(ueSection);local weaponSection=W:AddSection({Title="Weapon Strategy",Side="left"});I(weaponSection);local evasionSection=W:AddSection({Title="Evasion",Side="right"});N(evasionSection);local hudSection=W:AddSection({Title="Target HUD",Side="right"});H(hudSection);local fwSection=W:AddSection({Title="FW UE Settings",Side="left"});fwSection:AddToggle({Label="FW Weapon Check",Tooltip="Hide only while the weapon window is open. Slow weapons: the shot / swing cooldown must have at least 0.6 s left. Fast weapons (cooldown up to 0.3 s): the magazine must be nearly empty. Nobody may be reloading, and an enemy starting to reload sends you back to the void. No time limit on the wait.",Config={"Ragebot","FWWeaponCheck"}});local function applyStyle()local picked=style.Value;local isUE=picked=="UE";local isCareful=picked=="Careful";local isEmpty=picked=="FWUE";khSection:SetVisible(not isUE and not isCareful and not isEmpty);evasionSection:SetVisible(not isUE and not isCareful and not isEmpty);ueSection:SetVisible(isUE);carefulSection:SetVisible(isCareful);weaponSection:SetVisible(not isEmpty);hudSection:SetVisible(not isEmpty);fwSection:SetVisible(picked=="FWUE");end;applyStyle();pcall(function()style.ValueChanged:Connect(applyStyle);end);end;end
 
 tbl17.ih = function()
 local ih = tbl17.cache.ih
@@ -73505,7 +73314,6 @@ if mode=="Starlight" and K.StarUI~=nil then MenuClass=K.StarUI.Menu end
 if mode=="Lite" and K.SetsunaUI~=nil then MenuClass=K.SetsunaUI.Lite end
 if mode=="Setsuna" and K.SetsunaUI~=nil then MenuClass=K.SetsunaUI.Menu end
 if mode=="Setsuna Drop" and K.SetsunaUI~=nil then MenuClass=K.SetsunaUI.Drop end
-if mode=="LY" and K.LYUI~=nil then MenuClass=K.LYUI.Menu end
 local t=MenuClass.new({Icon=K.LithiumLogo,Title=string.format("LxYHook | Rivals | %s",tostring("Premium Build")),Directory=K.AccountDir,Config=l.ReactiveStoreAdapter,ColorAnimation=l.ColorAnimation,Persistence=I,State=l.GeneralState,StateData=l.GeneralStateData,OnUnload=function()e:Destroy();end})
 current=t
 e:Add(t)
@@ -76015,10 +75823,6 @@ local hitboxHead = arg3.AliveState.HitboxHead
 local flag19 = v117(arg3.FighterState) ~= "Below"
 local ragebot = v115.Data.Ragebot
 local v119 = flag19 and vector or vector2
-if ragebot.CustomAttackHeight == true then
-local height = tonumber(ragebot.AttackHeight) or -0.7
-v119 = flag19 and Vector3.new(0, height, 0.05) or Vector3.new(0, height - 3.15, 0.05)
-end
 local v120 = arg._partGlue:Acquire(arg5, hitboxHead)
 local n
 
@@ -76365,10 +76169,6 @@ local hitboxHead = aliveState.HitboxHead
 local flag19 = v117(arg3.FighterState) ~= "Below"
 local ragebot = v115.Data.Ragebot
 local v119 = flag19 and vector or vector2
-if ragebot.CustomAttackHeight == true then
-local height = tonumber(ragebot.AttackHeight) or -0.7
-v119 = flag19 and Vector3.new(0, height, 0.05) or Vector3.new(0, height - 3.15, 0.05)
-end
 local v120 = arg._partGlue:Acquire(gluedOurPart, hitboxHead)
 arg._gluedOurPart = gluedOurPart
 local n
@@ -77769,8 +77569,6 @@ return built
 end)
 if ok then
 hud = result
-K.TargetHudRoot = result.root
-if K.TargetHudRegister ~= nil then pcall(K.TargetHudRegister, result.root) end
 else
 hud = false
 warn("[Kicia TargetHud] could not build the card: " .. tostring(result))
@@ -77788,8 +77586,6 @@ return value ~= nil and tostring(value) or "-"
 end
 
 local function hide()
-local editor = getgenv().LYHud
-if editor ~= nil and editor.Editing then return end
 if hud and hud.root.Visible then
 hud.root.Visible = false
 end
@@ -77812,44 +77608,10 @@ end
 end
 local gradientFrom, gradientAccent
 
-local updateCard
--- Always Show: with no ragebot target the card shows the nearest living enemy (looked up 10 times a second)
-local lastFallbackAt, lastFallback = 0, nil
-local function fallbackTarget()
-local now = os.clock()
-if now - lastFallbackAt < 0.1 then return lastFallback end
-lastFallbackAt = now
-lastFallback = nil
-pcall(function()
-local fighters = K.TargetHudFighters
-local cam = workspace.CurrentCamera
-if fighters == nil or cam == nil then return end
-local best, bestDistance
-for _, state in pairs(fighters.EnemyByPlayer) do
-local alive = state.Character and state.Character.State
-if alive ~= nil and alive.Alive and alive.RootPart ~= nil then
-local distance = (alive.RootPart.Position - cam.CFrame.Position).Magnitude
-if bestDistance == nil or distance < bestDistance then
-bestDistance, best = distance, { FighterState = state, AliveState = alive }
-end
-end
-end
-lastFallback = best
-end)
-return lastFallback
-end
-local function alwaysShow()
+return {
+Hide = hide,
+Update = function(target)
 local settings = config.Data.Ragebot.TargetHud
-return settings.Enabled == true and settings.AlwaysShow ~= false
-end
-updateCard = function(target, isFallback)
-local settings = config.Data.Ragebot.TargetHud
-local lyCard = K.TargetHudLY
-if lyCard ~= nil then
-if not isFallback then lyCard.target, lyCard.at = target, os.clock() end
-hide()
-return
-end
 if target == nil or not settings.Enabled then
 hide()
 return
@@ -77863,7 +77625,7 @@ local fighterState = target.FighterState
 local aliveState = target.AliveState
 local player = fighterState.Player
 
-if not K.TargetHudLayout then put(card.root, "Position", UDim2.new(settings.PosX / 100, 0, settings.PosY / 100, 0)) end
+put(card.root, "Position", UDim2.new(settings.PosX / 100, 0, settings.PosY / 100, 0))
 put(card.scale, "Scale", settings.Scale / 100)
 put(card.root, "BackgroundColor3", theme.ElementBackground)
 put(card.rootStroke, "Color", theme.Outline)
@@ -77924,37 +77686,6 @@ put(card.barFill, "Size", UDim2.new(maxHealth > 0 and math.clamp(health / maxHea
 if not card.root.Visible then
 card.root.Visible = true
 end
-end
-
--- the ragebot calls Hide / Update every frame while its controller runs; with nobody calling (no controller yet,
--- ragebot switched off further up) this keeps the card going on its own
-local lastCall = 0
-local standalone = game:GetService("RunService").Heartbeat:Connect(function()
-if os.clock() - lastCall < 0.25 then return end
-if alwaysShow() then
-pcall(updateCard, fallbackTarget(), true)
-else
-hide()
-end
-end)
-K.onUnload(function() standalone:Disconnect() end)
-
-return {
-Hide = function()
-lastCall = os.clock()
-if alwaysShow() then
-local target = fallbackTarget()
-if target ~= nil then
-updateCard(target)
-return
-end
-end
-hide()
-end,
-Update = function(target)
-lastCall = os.clock()
-if target == nil and alwaysShow() then target = fallbackTarget() end
-updateCard(target)
 end,
 }
 end
@@ -78071,7 +77802,6 @@ local rage = {
 	Provoked = setmetatable({}, { __mode = "k" }),
 	AntiTranslocate = true,   -- always on with the ragebot (no toggle): tracks enemies hiding below OutOfBoundsParts
 	PrioritizeHackers = false,
-	EvadeWhenHacking = false, -- kh: a hacker (Hacker Detector tag) is only evaded while our health is above his
 	Evasion = "Random",
 	EvadeRadius = 100,
 	AttackPrep = 0,           -- the other hub has no hold before the first shot
@@ -78294,23 +78024,8 @@ end
 
 -- Is this player flagged by the hacker detector (movement anomaly)?
 local function rageIsHacker(player)
-	-- kh: the Hacker Detector's tag
-	local tags = K.HackerTags
-	if tags ~= nil then
-		local ok, has = pcall(tags.Has, tags, player, "Hacker")
-		if ok and has then return true end
-	end
 	local flagged = getgenv().InstanceHackerFlagged
 	return type(flagged) == "table" and flagged[player] == true
-end
-
--- Evade When Target Hacking: a hacker is not a target while our health is above his (only evasion runs against
--- him, as in KH style); once he has the same or more health he is attacked again
-local function rageSkipHacker(player, character)
-	if not rage.EvadeWhenHacking or not rageIsHacker(player) then return false end
-	local mine = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-	local theirs = character and character:FindFirstChildOfClass("Humanoid")
-	return mine ~= nil and theirs ~= nil and mine.Health > theirs.Health
 end
 
 local function rageSlotConfig(slot)
@@ -78494,7 +78209,6 @@ local function ragePickTarget()
 		if rageSameArena(player) and isEnemy(player) and character and isAlive(character)
 			and not rageIsInvincible(player)
 			and not character:FindFirstChildOfClass("ForceField")
-			and not rageSkipHacker(player, character)
 			and rage.retaliateOk(player, retNow)
 		then
 			if not (rage.AntiDeflect and rageIsDeflecting(player)) then
@@ -78535,7 +78249,6 @@ local function ragePickTarget()
 			and not rageIsInvincible(player)
 				and not character:FindFirstChildOfClass("ForceField")
 				and not (rage.AntiDeflect and rageIsDeflecting(player))
-				and not rageSkipHacker(player, character)
 				and rage.retaliateOk(player, now2)
 			then
 				local root2 = character:FindFirstChild("HumanoidRootPart")
@@ -80939,14 +80652,6 @@ if type(saved.EvadeBetweenShots) == "boolean" then
 rage.EvadeBetweenShots = saved.EvadeBetweenShots
 end
 -- Attack Prep (0.2 s) and the gun fire rates (20/s) stay at LY Careful's values: no menu for them
-local ragebotData = config.Data.Ragebot
-rage.AttackHeight = (ragebotData.CustomAttackHeight == true and type(ragebotData.AttackHeight) == "number") and ragebotData.AttackHeight or -0.7
--- the two hacker options of the Activation section
-rage.PrioritizeHackers = ragebotData.PrioritizeHackers == true
-rage.EvadeWhenHacking = ragebotData.EvadeWhenHacking == true
-rage.ManualFire = ragebotData.ManualFire == true
-rage.ManualButtonOn = ragebotData.ManualButton == true
-if rage.refreshFireButton ~= nil then rage.refreshFireButton() end
 -- Attack After Enemy / Gap Window: LY's own RetaliateOnly / RetaliateWindow
 if type(saved.RetaliateOnly) == "boolean" then
 rage.RetaliateOnly = saved.RetaliateOnly
@@ -80977,80 +80682,6 @@ end
 end
 end
 
--- On-screen FIRE button (Manual Fire): hold it to attack. Shown while the Careful ragebot is on, Manual Fire and
--- Manual Fire Button are on. Taken from LY.lua; the LY menu's HUD editor moves it.
-do
-local fireGui
-local fireButton
-local function setDown(down)
-rage.ManualButtonDown = down
-if fireButton ~= nil then
-fireButton.BackgroundColor3 = down and Color3.fromHex("#A21FF2") or Color3.fromRGB(30, 30, 36)
-end
-end
-local function build()
-if fireButton ~= nil then return end
-fireGui = Instance.new("ScreenGui")
-fireGui.Name = game:GetService("HttpService"):GenerateGUID(false)
-fireGui.ResetOnSpawn = false
-fireGui.Enabled = false
-fireGui.DisplayOrder = 50
-fireGui.Parent = K.hudParent()
-K.onUnload(function() fireGui:Destroy() end)
-fireButton = Instance.new("TextButton")
-fireButton.Name = "ManualFire"
-fireButton.AnchorPoint = Vector2.new(0.5, 0.5)
-fireButton.Position = UDim2.new(0.82, 0, 0.5, 0)
-fireButton.Size = UDim2.fromOffset(88, 88)
-fireButton.AutoButtonColor = false
-fireButton.Text = "FIRE"
-fireButton.Font = Enum.Font.GothamBold
-fireButton.TextSize = 20
-fireButton.TextColor3 = Color3.new(1, 1, 1)
-fireButton.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
-fireButton.BackgroundTransparency = 0.3
-fireButton.Parent = fireGui
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(1, 0)
-corner.Parent = fireButton
-local stroke = Instance.new("UIStroke")
-stroke.Color = Color3.fromHex("#A21FF2")
-stroke.Thickness = 2
-stroke.Parent = fireButton
-fireButton.InputBegan:Connect(function(input)
-local hud = getgenv().LYHud
-if hud ~= nil and hud.Editing then return end
-if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-setDown(true)
-end
-end)
-fireButton.InputEnded:Connect(function(input)
-if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-setDown(false)
-end
-end)
-K.hudRegister("Manual fire button", {
-Frame = fireButton,
-Title = "FIRE button",
-MinScale = 0.5,
-MaxScale = 3,
-Show = function()
-fireGui.Enabled = true
-return function() rage.refreshFireButton() end
-end,
-})
-end
-function rage.refreshFireButton()
-local show = rage.Enabled == true and rage.ManualFire == true and rage.ManualButtonOn == true
-if show then build() end
-if fireGui ~= nil then
-local hud = getgenv().LYHud
-fireGui.Enabled = show or (hud ~= nil and hud.Editing == true)
-end
-if not show then setDown(false) end
-end
-end
-
 local active = false
 local syncAt = 0
 local carefulHeartbeat = RunService.Heartbeat:Connect(function(dt)
@@ -81058,7 +80689,6 @@ local want = tbl17.ragebotKeyOn == true and K.RagebotStyle(config.Data.Ragebot.K
 if want ~= active then
 active = want
 rage.Enabled = want
-if rage.refreshFireButton ~= nil then rage.refreshFireButton() end
 if want then
 syncSettings()
 rageSetPhysics(true)
@@ -81208,8 +80838,6 @@ index2.__index = index2
 
 index2.new = function(arg, arg2, arg3, arg4, arg5)
 local ragebot = v126.new("ragebot")
--- the Target HUD looks the nearest enemy up here when it has no ragebot target
-K.TargetHudFighters = arg
 local v130 = ragebot:Add(v123.new(arg))
 
 local tbl18 = {
@@ -81254,13 +80882,6 @@ end)
 arg._trove:Add(v118:ObserveEnabledKeybind({ "Ragebot" }, function(arg2)
 arg:SetEnabled(arg2)
 arg:_Reset()
-end))
-arg._trove:Add(v118:ObserveEnabledKeybind({ "Ragebot", "Hide" }, function(on)
-local hide = on == true
-if K.HideActive == hide then return end
-K.HideActive = hide
--- the style the code sees changed: the flags of the KH style follow it
-pcall(arg._ApplyHistoryFlags, arg, arg._enabled == true)
 end))
 end
 
@@ -81431,12 +81052,12 @@ rageDbg.last = now
 end
 end
 
--- Round Start Delay debug log: LxYHook/logs/round_delay.log, one line per change of the round status, per
+-- Round Start Delay debug log: kiciarebuild/logs/round_delay.log, one line per change of the round status, per
 -- arming and per change of the gate, so a round that does not delay can be read back afterwards
 local function roundDelayLog(message)
 pcall(function()
 if appendfile ~= nil then
-appendfile("LxYHook/logs/round_delay.log", string.format("%s %.1f %s\n", os.date("%H:%M:%S"), os.clock(), message))
+appendfile("kiciarebuild/logs/round_delay.log", string.format("%s %.1f %s\n", os.date("%H:%M:%S"), os.clock(), message))
 end
 end)
 end
@@ -82522,7 +82143,7 @@ local v120 = v119.new()
 local tbl18 = {
 _trove = v120,
 _store = v115.new({
-SavePath = "LxYHook/rivals/movement_recorder",
+SavePath = "kiciarebuild/rivals/movement_recorder",
 CurrentVersion = 1,
 Serialize = v116.encode,
 Deserialize = v116.decode,
@@ -84681,7 +84302,6 @@ v147:Add(tbl17.jt().new(v193))
 local v197 = v147:Add(v124.new(v190, decoratorFactory))
 local v198 = v147:Add(v148.new(v190, playerTags))
 K.HackerDetector = v198
-K.HackerTags = playerTags
 
 local v199 = v147:Add(v164.new(v190))
 v185(storeProfiles, v147, v199)
@@ -84939,17 +84559,17 @@ local LITHIUM_LOGO_B64 = "iVBORw0KGgoAAAANSUhEUgAAAQAAAAEACAYAAABccqhmAAD0+klEQV
 --  anti-cheat bypass (b7). Kicia's online user service (eZ) is offline.
 --==========================================================================
 local GlobalTrove = tbl17.n()
-tbl17.w().ensureStorageDirectories("LxYHook/rivals")
+tbl17.w().ensureStorageDirectories("kiciarebuild/rivals")
 tbl17.w().ensureStorageDirectories(K.AccountDir)
 -- One-time carry-over: the first account to run after this change inherits the old shared configs and
 -- general.json; every other account starts empty (the marker file records that it already happened).
 do
     local isfile_, isfolder_, listfiles_, readfile_, writefile_ =
         K.fn("isfile"), K.fn("isfolder"), K.fn("listfiles"), K.fn("readfile"), K.fn("writefile")
-    local marker = "LxYHook/rivals/.account_migrated"
-    if K.PerAccount and isfile_ and isfolder_ and listfiles_ and readfile_ and writefile_ and not isfile_(marker) then
+    local marker = "kiciarebuild/rivals/.account_migrated"
+    if isfile_ and isfolder_ and listfiles_ and readfile_ and writefile_ and not isfile_(marker) then
         pcall(function()
-            local legacy = "LxYHook/rivals/configs"
+            local legacy = "kiciarebuild/rivals/configs"
             if isfolder_(legacy) then
                 for _, path in ipairs(listfiles_(legacy)) do
                     local name = tostring(path):match("[^/\\]+$")
@@ -84958,17 +84578,17 @@ do
                     end
                 end
             end
-            if isfile_("LxYHook/rivals/general.json") then
-                writefile_(K.AccountDir .. "/general.json", readfile_("LxYHook/rivals/general.json"))
+            if isfile_("kiciarebuild/rivals/general.json") then
+                writefile_(K.AccountDir .. "/general.json", readfile_("kiciarebuild/rivals/general.json"))
             end
             writefile_(marker, K.AccountId)
         end)
     end
 end
-tbl17.w().ensureStorageDirectories("LxYHook/fonts")
-tbl17.w().ensureStorageDirectories("LxYHook/cache")
+tbl17.w().ensureStorageDirectories("kiciarebuild/fonts")
+tbl17.w().ensureStorageDirectories("kiciarebuild/cache")
 for _, sub in ipairs({ "cosmetics/states", "crosshair_textures", "esp_images", "movement_recorder" }) do
-    tbl17.w().ensureStorageDirectories("LxYHook/rivals/" .. sub)
+    tbl17.w().ensureStorageDirectories("kiciarebuild/rivals/" .. sub)
 end
 
 --  Lithium logo: written to disk once per load and turned into an asset id
@@ -84993,7 +84613,7 @@ do
     end
     local wrf, gca = K.fn("writefile"), K.fn("getcustomasset") or K.fn("getsynasset")
     if wrf and gca then
-        local path = "LxYHook/lithium_logo.png"
+        local path = "kiciarebuild/lithium_logo.png"
         local ok = pcall(wrf, path, decode(LITHIUM_LOGO_B64))
         local ok2, id = pcall(gca, path)
         if ok and ok2 and type(id) == "string" and id ~= "" then K.LithiumLogo = id end
@@ -85002,13 +84622,13 @@ end
 
 --==========================================================================
 --  UI form: "Starlight" (default) or "Classic" (the script's own menu). Chosen at startup from getgenv().LxYUI or
---  the file LxYHook/ui_style.txt, switched live from Settings > General > UI Style.
+--  the file kiciarebuild/ui_style.txt, switched live from Settings > General > UI Style.
 --  (ui_style.txt replaces the old ui_mode.txt, so a Classic choice saved before Starlight became the default is ignored.)
 --==========================================================================
 do
     -- one file per account (like the rest of its settings, in K.AccountDir), so each account keeps its own menu form
     local MODE_FILE = K.AccountDir .. "/ui_style.txt"
-    local function valid(m) return m == "Classic" or m == "Lite" or m == "Setsuna" or m == "Setsuna Drop" or m == "LY" end
+    local function valid(m) return m == "Classic" or m == "Starlight" or m == "Lite" or m == "Setsuna" or m == "Setsuna Drop" end
     function K.UIMode()
         local m = getgenv().LxYUI
         if valid(m) then return m end
@@ -85020,7 +84640,7 @@ do
                 if valid(text) then return text end
             end
         end
-        return "Classic"
+        return "Starlight"
     end
     function K.SetUIMode(m)
         if not valid(m) then return end
@@ -86087,8 +85707,6 @@ end
     end
 
     function ColorC:_instance()
-        local n = self._nested
-        if n ~= nil and n.LYRow ~= nil then return n.LYRow end
         return self._host and self._host._el and self._host._el.Instance
     end
 
@@ -86145,32 +85763,6 @@ end
         return nil
     end
 
-    -- a keybind list entry per keybind control, lit while its feature is active: the LY form draws it with MD3
-    -- (menu:_listAdd), the other forms with K.KeyHud
-    function Control:_attachListEntry(sec, o, host)
-        self.ShowInList = o.InKeybindList == true
-        self.FeatureEnabled = false
-        self.FeatureChanged = Signal.new()
-        self.ListLabel = tostring(o.ListLabel or o.Label or host._label or "Keybind"):gsub("^Enable%s+", "")
-        local menu = sec._menu
-        local entry
-        if menu._listAdd ~= nil then
-            entry = menu:_listAdd(self.ListLabel)
-        elseif K.KeyHud ~= nil then
-            entry = K.KeyHud.add(self.ListLabel)
-        end
-        if entry == nil then return end
-        local function sync()
-            -- Always keys are not listed; Hold and Toggle look the same (the key, lit while active)
-            entry.update(self.ShowInList and self.FeatureEnabled and self.Value.Mode ~= "Always", self.Value.Key, self.Active == true, false)
-        end
-        self._lySync = sync
-        self.ActiveChanged:Connect(sync)
-        self.ShowInListChanged:Connect(sync)
-        self.FeatureChanged:Connect(sync)
-        self.ValueChanged:Connect(sync)
-    end
-
     function KeybindC.new(sec, o)
         local self = newControl(sec, "Keybind", KeybindC)
         local host, own = hostFor(sec, o)
@@ -86181,12 +85773,11 @@ end
         for _, m in ipairs(o.Modes or {}) do modes[#modes + 1] = tostring(m) end
         self.Modes = modes
         self.Value = { Key = nil, Mode = modes[1] or "Toggle" }
-        self.ShowInList = o.InKeybindList == true
+        self.ShowInList = true
         self.Invisible = false
         self.ShowInListChanged = Signal.new()
         self.InvisibleChanged = Signal.new()
         self.ActiveChanged = Signal.new()
-        self:_attachListEntry(sec, o, host)
         self:_defer(function()
             if not host._realized then host:_realizeNow() end
             self._nested = host._el:AddBind({
@@ -86222,8 +85813,6 @@ end
     end
 
     function KeybindC:_instance()
-        local n = self._nested
-        if n ~= nil and n.LYRow ~= nil then return n.LYRow end
         return self._host and self._host._el and self._host._el.Instance
     end
 
@@ -86264,13 +85853,6 @@ end
         self.InvisibleChanged:Fire(self.Invisible)
     end
 
-    function KeybindC:SetFeatureEnabled(v)
-        v = v == true
-        if self.FeatureEnabled == v then return end
-        self.FeatureEnabled = v
-        self.FeatureChanged:Fire(v)
-    end
-
     function KeybindC:SetActive(v)
         self.Active = v == true
         self.ActiveChanged:Fire(self.Active)
@@ -86287,10 +85869,10 @@ end
         pull()
         local writing = false
         if map.Key ~= nil then
-            self:Connect(config:Changed(map.Key, true), function() if not writing then pull() end end)
+            self:Connect(config:Changed(map.Key), function() if not writing then pull() end end)
         end
         if map.Mode ~= nil then
-            self:Connect(config:Changed(map.Mode, true), function() if not writing then pull() end end)
+            self:Connect(config:Changed(map.Mode), function() if not writing then pull() end end)
         end
         self:Connect(self.Changed, function(v)
             writing = true
@@ -86305,41 +85887,6 @@ end
         if map.Invisible ~= nil then
             local iv = config:Get(map.Invisible)
             if type(iv) == "boolean" then self.Invisible = iv end
-        end
-        -- the state of the feature, written by the keybind controller (what a keybind list shows), and the
-        -- list switches, which can change later
-        if map.Active ~= nil then
-            local av = config:Get(map.Active)
-            if type(av) == "boolean" then self:SetActive(av) end
-            self:Connect(config:Changed(map.Active, true), function(v) self:SetActive(v == true) end)
-        end
-        if map.ShowInList ~= nil then
-            self:Connect(config:Changed(map.ShowInList, true), function(v)
-                if type(v) == "boolean" then self:SetShowInList(v) end
-            end)
-        end
-        if map.Invisible ~= nil then
-            self:Connect(config:Changed(map.Invisible, true), function(v)
-                if type(v) == "boolean" then self:SetInvisible(v) end
-            end)
-        end
-        if self._lySync ~= nil then self._lySync() end
-        -- on-screen key button (phones): only for the keys of the keybind list
-        if map.Active ~= nil and self.ShowInList and K.MobileKeys ~= nil and not self._mobile then
-            self._mobile = true
-            K.MobileKeys.register(self.ListLabel or "Key", {
-                Mode = function() return self.Value.Mode end,
-                Visible = function() return self.ShowInList and self.FeatureEnabled == true end,
-                Active = function() return self.Active == true end,
-                Down = function(down)
-                    local mode = self.Value.Mode
-                    if mode == "Hold" then
-                        config:Set(map.Active, down)
-                    elseif down then
-                        config:Set(map.Active, not (config:Get(map.Active) == true))
-                    end
-                end,
-            })
         end
     end
 
@@ -86430,7 +85977,8 @@ end
     Makers.SkinChanger = function(sec)
         if not sec._menu._skinNotice then
             sec._menu._skinNotice = true
-            sec:_make("Label", { Label = "The skin, wrap, charm and finisher picker is in the LY and Classic menus." })
+            sec:_make("Label", { Label = "The skin, wrap, charm and finisher picker is part of the classic menu." })
+            sec:_make("Button", { Label = "Switch to the classic menu", OnClick = function() K.SwitchUI("Classic") end })
         end
         return stub
     end
@@ -86570,10 +86118,6 @@ end
         local bind = o.Bind
         if DEBOUNCED[kind] and (bind == nil or bind.Debounce == nil) then
             bind = { WriteBack = bind and bind.WriteBack, Debounce = true }
-        end
-        -- a feature switch also drives the keybind list: its changes must arrive while the menu is closed
-        if kind == "Toggle" then
-            bind = { WriteBack = bind and bind.WriteBack, Debounce = bind and bind.Debounce, Persistent = true }
         end
         -- the control is its own trove: Control:Connect keeps the connections and Destroy drops them
         tbl17.P().bind(c, config, c, o.Config, bind)
@@ -86910,8 +86454,8 @@ end
         self.Keybind = Enum.KeyCode.RightShift
         self.VisibilityChanged = Signal.new()
         self.AccentChanged = Signal.new()
-        self._watermark = not (self._stateData ~= nil and self._stateData.ShowWatermark == false)
-        self._keybindList = not (self._stateData ~= nil and self._stateData.ShowKeybinds == false)
+        self._watermark = true
+        self._keybindList = true
         self._tabs = {}
 
         local saved
@@ -87110,9 +86654,9 @@ end
         local ok, err = pcall(function()
             result = tbl17.aC()(self:View(), tab, self._trove, {
                 SetAccent = function(c) menu.AccentChanged:Fire(c) end,
-                SetWatermarkEnabled = function(v) menu:SetWatermarkEnabled(v) end,
+                SetWatermarkEnabled = function(v) menu._watermark = v end,
                 IsWatermarkEnabled = function() return menu._watermark end,
-                SetKeybindListEnabled = function(v) menu:SetKeybindListEnabled(v) end,
+                SetKeybindListEnabled = function(v) menu._keybindList = v end,
                 IsKeybindListEnabled = function() return menu._keybindList end,
                 SetMenuPillHidden = function() end,
                 EnterMobileButtonDragMode = function() end,
@@ -87127,19 +86671,10 @@ end
         return buildDialog(self, o or {}, builder)
     end
 
-    function Menu:SetWatermarkUsername(name)
-        if K.KeyHud then K.KeyHud.ensure(name, self._watermark, self._keybindList) end
-    end
-    function Menu:_persistFlag(key, v)
-        local data = self._stateData
-        if data ~= nil and data[key] ~= (v ~= false) then
-            data[key] = v ~= false
-            self:SaveState()
-        end
-    end
-    function Menu:SetWatermarkEnabled(v) self._watermark = v self:_persistFlag("ShowWatermark", v) if K.KeyHud then K.KeyHud.setWatermark(v) end end
+    function Menu:SetWatermarkUsername() end
+    function Menu:SetWatermarkEnabled(v) self._watermark = v end
     function Menu:IsWatermarkEnabled() return self._watermark end
-    function Menu:SetKeybindListEnabled(v) self._keybindList = v self:_persistFlag("ShowKeybinds", v) if K.KeyHud then K.KeyHud.setList(v) end end
+    function Menu:SetKeybindListEnabled(v) self._keybindList = v end
     function Menu:IsKeybindListEnabled() return self._keybindList end
     function Menu:SetAccent(c) self.AccentChanged:Fire(c) end
 
@@ -87186,7 +86721,6 @@ end
 
     function Menu:Destroy()
         if self._destroyed then return end
-        if K.KeyHud then K.KeyHud.destroy() end
         self._destroyed = true
         self:SaveState()
         if self._cursor ~= nil then pcall(self._cursor.Set, self._cursor, false) end
@@ -88078,7 +87612,7 @@ end
 
     ----------------------------------------------------------------------------------------------- keybind
     local SKeybind = subclass()
-    for _, name in ipairs({ "SetKey", "SetMode", "SetShowInList", "SetInvisible", "SetActive", "SetFeatureEnabled", "_BindConfigMap" }) do
+    for _, name in ipairs({ "SetKey", "SetMode", "SetShowInList", "SetInvisible", "SetActive", "_BindConfigMap" }) do
         SKeybind[name] = KeybindC[name]
     end
 
@@ -88097,7 +87631,6 @@ end
         self.ShowInListChanged = Signal.new()
         self.InvisibleChanged = Signal.new()
         self.ActiveChanged = Signal.new()
-        self:_attachListEntry(sec, o, host)
         self:_defer(function()
             if not host._realized then host:_realizeNow() end
             if host._row == nil then return end
@@ -88202,223 +87735,13 @@ end
     SMakers.Color = function(sec, o) return SColor.new(sec, o) end
     SMakers.Keybind = function(sec, o) return SKeybind.new(sec, o) end
     SMakers.OrderedList = function(sec, o) return OrderedC.new(sec, o) end
-    -- The picker of skins, wraps, charms and finishers for the Setsuna, Setsuna Drop and Lite forms: a card grid with
-    -- the item pictures (and the 3D previews of wraps and charms), the same surface as the classic menu's widget
-    -- (SetItems / SetState / SetFilter / SetClearFilterAction / Set / Value / OnChanged).
-    do
-        local SSkin = subclass()
-        local STATE_TEXT = {
-            Loading = { "Loading catalog", "The previews are being prepared." },
-            Unavailable = { "Unavailable", "The catalog could not be loaded." },
-            Empty = { "No items available", "This catalog does not have any items yet." },
-            NoMatches = { "No matches", "Nothing matches the search." },
-        }
-        local function indexOf(items, name)
-            for i, it in ipairs(items) do
-                if it.Name == name then return i end
-            end
-            return nil
+    SMakers.SkinChanger = function(sec)
+        if not sec._menu._skinNotice then
+            sec._menu._skinNotice = true
+            sec:_make("Label", { Label = "The skin, wrap, charm and finisher picker is part of the classic menu." })
+            sec:_make("Button", { Label = "Switch to the classic menu", OnClick = function() K.SwitchUI("Classic") end })
         end
-
-        function SSkin.new(sec, o)
-            local self = newControl(sec, "SkinChanger", SSkin)
-            self.Items = o.Items or {}
-            self._published = o.Items ~= nil
-            self.State = o.State or "Ready"
-            self._stateMsg = o.StateMessage
-            self._onClear = o.OnClearFilter
-            self._entries = {}
-            self._token = 0
-            self._label = "SkinChanger"
-            if o.OnChanged ~= nil then self:OnChanged(o.OnChanged) end
-            self:_defer(function() self:_build() end)
-            return self
-        end
-        SSkin._instance = rowInstance
-        SSkin._isReady = rowReady
-
-        function SSkin:_paint(entry, selected)
-            if entry == nil then return end
-            entry.Selected = selected
-            local pal = self._menu._pal
-            entry.Button.BackgroundColor3 = selected and pal.hover or pal.panel
-            entry.Title.TextColor3 = selected and pal.text or pal.dim
-            entry.Stroke.Color = pal.sel
-            entry.Stroke.Enabled = selected
-        end
-
-        function SSkin:_recolor()
-            for _, e in ipairs(self._entries) do self:_paint(e, e.Selected == true) end
-        end
-
-        function SSkin:_applyFilter()
-            local filter = self._filter
-            for _, e in ipairs(self._entries) do
-                local show = filter == nil or filter(e.Item, e.Key)
-                if e.Button.Visible ~= show then e.Button.Visible = show end
-            end
-        end
-
-        function SSkin:_applyState()
-            if self._row == nil then return end
-            local ready = self.State == "Ready"
-            self._holder.Visible = ready
-            self._overlay.Visible = not ready
-            local info = STATE_TEXT[self.State] or { "", "" }
-            self._stTitle.Text = info[1]
-            self._stMsg.Text = self._stateMsg or info[2]
-            self._clear.Visible = self.State == "NoMatches" and self._onClear ~= nil
-        end
-
-        function SSkin:_cards()
-            self._token = self._token + 1
-            local token = self._token
-            for _, e in ipairs(self._entries) do pcall(function() e.Button:Destroy() end) end
-            self._entries = {}
-            self._sel = nil
-            local items = self.Items
-            task.spawn(function()
-                for i, item in ipairs(items) do
-                    if self._token ~= token or self._dead then return end
-                    local button = mk("TextButton", {
-                        Name = tostring(item.Name), Text = "", AutoButtonColor = false, BorderSizePixel = 0,
-                        LayoutOrder = i, ClipsDescendants = true,
-                    })
-                    corner(button, 8)
-                    local stroke = mk("UIStroke", { Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Enabled = false }, button)
-                    local preview = mk("Frame", {
-                        BackgroundTransparency = 1, Size = UDim2.new(1, -10, 1, -32), Position = UDim2.fromOffset(5, 5),
-                    }, button)
-                    local image = mk("ImageLabel", {
-                        BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ScaleType = Enum.ScaleType.Fit,
-                        Image = item.Image or "rbxassetid://89204837120267",
-                    }, preview)
-                    local title = mk("TextLabel", {
-                        BackgroundTransparency = 1, Size = UDim2.new(1, -8, 0, 24), Position = UDim2.new(0, 4, 1, -27),
-                        Font = Enum.Font.GothamMedium, TextSize = 12, Text = tostring(item.Name),
-                        TextTruncate = Enum.TextTruncate.AtEnd, TextWrapped = true,
-                    }, button)
-                    local entry = { Item = item, Button = button, Title = title, Stroke = stroke, Key = tostring(item.Name):lower() }
-                    self._entries[#self._entries + 1] = entry
-                    self:_paint(entry, item.Name == self.Value)
-                    if item.Name == self.Value then self._sel = entry end
-                    if item.Render ~= nil then
-                        local content = mk("Frame", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1) }, preview)
-                        local ok, err = pcall(item.Render, item, {
-                            Content = content,
-                            HideImage = function() image.Visible = false end,
-                        })
-                        if not ok then log("skin preview failed: " .. tostring(err)) end
-                    end
-                    button.Activated:Connect(function() self:Set(item.Name) end)
-                    local filter = self._filter
-                    if filter ~= nil and not filter(item, entry.Key) then button.Visible = false end
-                    button.Parent = self._holder
-                    if i % 8 == 0 then task.wait() end
-                end
-                -- Lite sets the font of a page when it opens: the cards came later
-                local m = self._menu
-                if m._fontPass ~= nil and self._row ~= nil then pcall(m._fontPass, m, self._row) end
-            end)
-        end
-
-        function SSkin:_build()
-            local sec = self._sec
-            local m = sec._menu
-            local row = newRow(sec, 340, true)
-            self._row, self._el = row, row
-            local holder = mk("ScrollingFrame", {
-                Name = "Cards", BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.new(1, -10, 1, -10),
-                Position = UDim2.fromOffset(5, 5), ScrollBarThickness = 3, CanvasSize = UDim2.new(),
-                AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y,
-            }, row)
-            mk("UIGridLayout", {
-                CellSize = UDim2.fromOffset(100, 118), CellPadding = UDim2.fromOffset(6, 6),
-                SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Center,
-            }, holder)
-            local overlay = mk("Frame", { Name = "State", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Visible = false }, row)
-            mk("UIListLayout", {
-                HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Center,
-                Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder,
-            }, overlay)
-            local stTitle = text(m, overlay, "", 16, "text", true)
-            stTitle.Size, stTitle.LayoutOrder, stTitle.TextXAlignment = UDim2.new(1, -20, 0, 22), 1, Enum.TextXAlignment.Center
-            local stMsg = text(m, overlay, "", 13, "dim", false)
-            stMsg.Size, stMsg.LayoutOrder, stMsg.TextXAlignment, stMsg.TextWrapped = UDim2.new(1, -20, 0, 36), 2, Enum.TextXAlignment.Center, true
-            local clear = mk("TextButton", {
-                Size = UDim2.fromOffset(120, 30), Text = "Clear search", Font = Enum.Font.GothamMedium, TextSize = 13,
-                BorderSizePixel = 0, AutoButtonColor = true, Visible = false, LayoutOrder = 3,
-            }, overlay)
-            corner(clear, 8)
-            m:_paint(clear, "BackgroundColor3", "hover")
-            m:_paint(clear, "TextColor3", "text")
-            clear.Activated:Connect(function()
-                local fn = self._onClear
-                if fn ~= nil then fn() end
-            end)
-            self._holder, self._overlay, self._stTitle, self._stMsg, self._clear = holder, overlay, stTitle, stMsg, clear
-            if m._fontPass ~= nil then pcall(m._fontPass, m, row) end
-            m:_onTheme(self, function() self:_recolor() end)
-            self:_cards()
-            self:_applyState()
-        end
-
-        function SSkin:Set(name, silent)
-            local v = name
-            if v ~= nil and self._published and indexOf(self.Items, v) == nil then v = nil end
-            local entry
-            for _, e in ipairs(self._entries) do
-                if e.Item.Name == v then entry = e break end
-            end
-            if self.Value == v and (entry == nil or self._sel == entry) and not (name ~= nil and v == nil) then return end
-            self.Value = v
-            if self._sel ~= nil and self._sel ~= entry then self:_paint(self._sel, false) end
-            self._sel = entry
-            if entry ~= nil then self:_paint(entry, true) end
-            self.ValueChanged:Fire(v)
-            if not silent then self.Changed:Fire(v) end
-        end
-
-        function SSkin:SetItems(items, silent)
-            self.Items = table.clone(items)
-            self._published = true
-            local value, emit = self.Value, false
-            if value == nil or indexOf(self.Items, value) == nil then
-                value = self.Items[1] and self.Items[1].Name or nil
-                emit = self.Value ~= nil
-            end
-            self.Value = value
-            if self._row ~= nil then self:_cards() end
-            self.ValueChanged:Fire(value)
-            if emit and not silent then self.Changed:Fire(value) end
-        end
-
-        function SSkin:SetFilter(filter)
-            self._filter = filter
-            if self._row ~= nil then self:_applyFilter() end
-            return self
-        end
-
-        function SSkin:SetState(state, message)
-            self.State = state
-            self._stateMsg = message
-            self:_applyState()
-            return self
-        end
-
-        function SSkin:SetClearFilterAction(fn)
-            self._onClear = fn
-            self:_applyState()
-            return self
-        end
-
-        function SSkin:Destroy()
-            self._token = self._token + 1
-            self._dead = true
-            pcall(function() self._row:Destroy() end)
-        end
-
-        SMakers.SkinChanger = function(sec, o) return SSkin.new(sec, o or {}) end
+        return stub
     end
     SMakers.Stub = function() return stub end
 
@@ -88730,8 +88053,8 @@ end
         self.Keybind = Enum.KeyCode.RightShift
         self.VisibilityChanged = Signal.new()
         self.AccentChanged = Signal.new()
-        self._watermark = not (self._stateData ~= nil and self._stateData.ShowWatermark == false)
-        self._keybindList = not (self._stateData ~= nil and self._stateData.ShowKeybinds == false)
+        self._watermark = true
+        self._keybindList = true
         self._tabs = {}
         self._acc, self._ov = DEFAULT_ACCENT, {}
         self._lite = class.__lite == true
@@ -89151,7 +88474,7 @@ end
 
     for _, name in ipairs({ "_setVisibleState", "View", "GetConfig", "GetColorAnimation", "GetPersistence", "GetStateData", "GetOverlayLayer",
         "SaveState", "Connect", "Add", "Notify", "AddSettingsTab", "SetWatermarkUsername", "SetWatermarkEnabled", "IsWatermarkEnabled",
-        "SetKeybindListEnabled", "IsKeybindListEnabled", "SetAccent", "Unload", "_persistFlag" }) do
+        "SetKeybindListEnabled", "IsKeybindListEnabled", "SetAccent", "Unload" }) do
         SMenu[name] = Menu[name]
     end
 
@@ -89190,7 +88513,6 @@ end
     function SMenu:Destroy()
         pcall(function() self._dim.Modal = false end)
         if self._destroyed then return end
-        if K.KeyHud then K.KeyHud.destroy() end
         self._destroyed = true
         self:SaveState()
         if self._cursor ~= nil then pcall(self._cursor.Set, self._cursor, false) end
@@ -90246,4962 +89568,7 @@ end
         self:_setVisibleState(visible)
         return true
     end
-;(function()
---==========================================================================
---  Shared HUD for the Starlight / Lite / Setsuna forms: the watermark and the keybind list. Those forms only keep
---  the two on / off flags; this draws the HUD the same way for all of them (the LY form draws its own with MD3, the
---  classic menu has its own). Entries are made by the keybind controls (see attachListEntry).
---==========================================================================
-do
-    local Players = game:GetService("Players")
-    local RunService = game:GetService("RunService")
-    local UserInputService = game:GetService("UserInputService")
-    local HttpService = game:GetService("HttpService")
-    local KeyHud = { entries = {} }
-    K.KeyHud = KeyHud
-
-    local gui, wm, wmText, list, rows, wmStroke, listStroke, listTitle
-    local wmOn, listOn = true, true
-    local playerName = Players.LocalPlayer and Players.LocalPlayer.Name or "Player"
-    local dirty, tickConn = true, nil
-    local fps, fpsAt, frames = 60, os.clock(), 0
-
-    local function mk(class, props, parent)
-        local inst = Instance.new(class)
-        for k, v in pairs(props) do inst[k] = v end
-        if parent ~= nil then inst.Parent = parent end
-        return inst
-    end
-
-    local function tokens()
-        local ok, t = pcall(tbl17.z)
-        return ok and type(t) == "table" and t or {}
-    end
-
-    local function color(t, name, fallback)
-        local c = t[name]
-        if typeof(c) == "Color3" then return c end
-        return fallback
-    end
-
-    -- the pieces can be dragged; where they were left is kept in LxYHook/hud_positions.json (fractions of the screen)
-    local POSITIONS = "LxYHook/hud_positions.json"
-    local placed = {}
-    pcall(function()
-        local readFile, isFile = K.fn("readfile"), K.fn("isfile")
-        if readFile and isFile and isFile(POSITIONS) then
-            local decoded = HttpService:JSONDecode(readFile(POSITIONS))
-            if type(decoded) == "table" then placed = decoded end
-        end
-    end)
-    local function savePositions()
-        pcall(function()
-            local writeFile = K.fn("writefile")
-            if writeFile then
-                local makeFolder, isFolder = K.fn("makefolder"), K.fn("isfolder")
-                if makeFolder and isFolder and not isFolder("LxYHook") then makeFolder("LxYHook") end
-                writeFile(POSITIONS, HttpService:JSONEncode(placed))
-            end
-        end)
-    end
-    local function viewport()
-        local cam = workspace.CurrentCamera
-        local size = cam and cam.ViewportSize
-        if typeof(size) == "Vector2" and type(size.X) == "number" and size.X > 0 then return size end
-        return Vector2.new(1920, 1080)
-    end
-    local function place(frame, key, default)
-        local saved = placed[key]
-        if type(saved) == "table" and type(saved.x) == "number" and type(saved.y) == "number" then
-            local v = viewport()
-            frame.Position = UDim2.fromOffset(saved.x * v.X, saved.y * v.Y)
-        else
-            frame.Position = default
-        end
-    end
-    local function draggable(frame, key)
-        frame.Active = true
-        frame.InputBegan:Connect(function(input)
-            if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
-            local start = input.Position
-            local origin = Vector2.new(frame.Position.X.Offset, frame.Position.Y.Offset)
-            local moveConn, endConn
-            local function stop()
-                if moveConn then moveConn:Disconnect() end
-                if endConn then endConn:Disconnect() end
-                savePositions()
-            end
-            moveConn = UserInputService.InputChanged:Connect(function(i)
-                if i.UserInputType ~= Enum.UserInputType.MouseMovement and i ~= input then return end
-                local v, own = viewport(), frame.AbsoluteSize
-                local x = math.clamp(origin.X + (i.Position.X - start.X), 0, math.max(0, v.X - own.X))
-                local y = math.clamp(origin.Y + (i.Position.Y - start.Y), 0, math.max(0, v.Y - own.Y))
-                frame.Position = UDim2.fromOffset(x, y)
-                placed[key] = { x = x / v.X, y = y / v.Y }
-            end)
-            endConn = UserInputService.InputEnded:Connect(function(i)
-                if i == input or (i.UserInputType == Enum.UserInputType.MouseButton1 and input.UserInputType == Enum.UserInputType.MouseButton1) then
-                    stop()
-                end
-            end)
-        end)
-    end
-
-    local function build()
-        if gui ~= nil then return end
-        gui = mk("ScreenGui", { Name = "LxYHud", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 99990,
-            ZIndexBehavior = Enum.ZIndexBehavior.Sibling })
-        local placed = pcall(function() gui.Parent = gethui() end)
-        if not placed or gui.Parent == nil then gui.Parent = game:GetService("CoreGui") end
-
-        wm = mk("Frame", { Name = "Watermark", Position = UDim2.fromOffset(14, 14), AutomaticSize = Enum.AutomaticSize.XY,
-            BorderSizePixel = 0, Size = UDim2.fromOffset(0, 28) }, gui)
-        mk("UICorner", { CornerRadius = UDim.new(0, 8) }, wm)
-        wmStroke = mk("UIStroke", { Thickness = 1 }, wm)
-        mk("UIPadding", { PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12) }, wm)
-        wmText = mk("TextLabel", { BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 28),
-            Font = Enum.Font.GothamMedium, TextSize = 13, Text = "", TextXAlignment = Enum.TextXAlignment.Left }, wm)
-
-        place(wm, "watermark", UDim2.fromOffset(14, 14))
-        draggable(wm, "watermark")
-
-        list = mk("Frame", { Name = "Keybinds", Position = UDim2.fromOffset(14, 56), Size = UDim2.fromOffset(200, 0),
-            AutomaticSize = Enum.AutomaticSize.Y, BorderSizePixel = 0 }, gui)
-        mk("UICorner", { CornerRadius = UDim.new(0, 8) }, list)
-        listStroke = mk("UIStroke", { Thickness = 1 }, list)
-        mk("UIPadding", { PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12), PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 10) }, list)
-        mk("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6) }, list)
-        listTitle = mk("TextLabel", { Name = "Title", LayoutOrder = 0, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 18),
-            Font = Enum.Font.GothamBold, TextSize = 13, Text = "Keybinds", TextXAlignment = Enum.TextXAlignment.Left }, list)
-        rows = list
-        place(list, "keybinds", UDim2.fromOffset(14, 56))
-        draggable(list, "keybinds")
-    end
-
-    local function repaint()
-        if gui == nil then return end
-        local t = tokens()
-        local bg = color(t, "ElementBackground", Color3.fromRGB(20, 20, 24))
-        local outline = color(t, "Outline", Color3.fromRGB(60, 60, 70))
-        local accent = color(t, "Accent", Color3.fromRGB(154, 213, 222))
-        local text = color(t, "TextColor", Color3.fromRGB(220, 220, 220))
-        local dim = color(t, "Unselected", Color3.fromRGB(130, 130, 130))
-
-        wm.BackgroundColor3 = bg
-        wmStroke.Color = outline
-        wmText.TextColor3 = text
-        local ping = 0
-        pcall(function() ping = math.floor(Players.LocalPlayer:GetNetworkPing() * 1000 + 0.5) end)
-        wmText.Text = string.format("LxYHook  |  %s  |  %d fps  |  %d ms", playerName, math.floor(fps + 0.5), ping)
-        wm.Visible = wmOn
-
-        list.BackgroundColor3 = bg
-        listStroke.Color = outline
-        listTitle.TextColor3 = accent
-        for _, child in ipairs(rows:GetChildren()) do
-            if child.Name == "Row" then child:Destroy() end
-        end
-        local shown = {}
-        for _, entry in ipairs(KeyHud.entries) do
-            if entry.show then shown[#shown + 1] = entry end
-        end
-        table.sort(shown, function(a, b) return a.label < b.label end)
-        for index, entry in ipairs(shown) do
-            local active = entry.active or entry.always
-            local row = mk("Frame", { Name = "Row", LayoutOrder = index, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 20) }, rows)
-            mk("TextLabel", { BackgroundTransparency = 1, Size = UDim2.new(1, -70, 1, 0), Font = Enum.Font.GothamMedium, TextSize = 13,
-                Text = entry.label, TextColor3 = active and text or dim, TextXAlignment = Enum.TextXAlignment.Left,
-                TextTruncate = Enum.TextTruncate.AtEnd }, row)
-            local chip = mk("TextLabel", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.fromScale(1, 0.5), Size = UDim2.fromOffset(0, 18),
-                AutomaticSize = Enum.AutomaticSize.X, BorderSizePixel = 0, Font = Enum.Font.GothamBold, TextSize = 11,
-                Text = entry.key and entry.key.Name or (entry.always and "Always" or "None"),
-                BackgroundColor3 = active and accent or outline, TextColor3 = active and bg or text }, row)
-            mk("UICorner", { CornerRadius = UDim.new(0, 5) }, chip)
-            mk("UIPadding", { PaddingLeft = UDim.new(0, 7), PaddingRight = UDim.new(0, 7) }, chip)
-        end
-        -- a phone has the on-screen key buttons instead
-        list.Visible = listOn and not (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled) and #shown > 0
-    end
-
-    local function startTick()
-        if tickConn ~= nil then return end
-        local last = 0
-        tickConn = RunService.Heartbeat:Connect(function(dt)
-            frames += 1
-            local now = os.clock()
-            if now - fpsAt >= 0.5 then
-                fps, fpsAt, frames = frames / (now - fpsAt), now, 0
-            end
-            -- redraw on a change, and twice a second for the numbers and the theme
-            if dirty or now - last >= 0.5 then
-                dirty, last = false, now
-                pcall(repaint)
-            end
-        end)
-    end
-
-    function KeyHud.ensure(name, watermark, keybinds)
-        if type(name) == "string" and name ~= "" then playerName = name end
-        wmOn, listOn = watermark ~= false, keybinds ~= false
-        pcall(build)
-        pcall(startTick)
-        dirty = true
-    end
-
-    function KeyHud.setWatermark(v) wmOn = v ~= false dirty = true end
-    function KeyHud.setList(v) listOn = v ~= false dirty = true end
-
-    -- one entry per keybind control: update(show, key, active, always)
-    function KeyHud.add(label)
-        local entry = { label = tostring(label), show = false, key = nil, active = false, always = false }
-        function entry.update(show, key, active, always)
-            entry.show, entry.key, entry.active, entry.always = show == true, key, active == true, always == true
-            dirty = true
-        end
-        table.insert(KeyHud.entries, entry)
-        return entry
-    end
-
-    function KeyHud.destroy()
-        if tickConn ~= nil then tickConn:Disconnect() tickConn = nil end
-        if gui ~= nil then pcall(function() gui:Destroy() end) end
-        gui, wm, wmText, list, rows, wmStroke, listStroke, listTitle = nil, nil, nil, nil, nil, nil, nil, nil
-        table.clear(KeyHud.entries)
-    end
-
-    K.onUnload(KeyHud.destroy)
 end
---==========================================================================
---  On-screen key buttons (a phone has no keyboard): every key feature that is not "Always" gets a button, hold it
---  for a Hold key, tap it for a Toggle key. Taken from LY.lua. The buttons start in a grid; in the LY form they can
---  be moved and resized in the HUD editor (K.hudRegister hands every piece to the editor once it is there).
---==========================================================================
-do
-    local UserInputService = game:GetService("UserInputService")
-    local HttpService = game:GetService("HttpService")
-    local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
-    local FILE = "LxYHook/mobile_keys.json"
-    local Keys = { Entries = {}, Enabled = touchOnly, Hidden = {} }
-    K.MobileKeys = Keys
-
-    -- every HUD piece the script draws itself (the editor of the LY form moves them)
-    K.HudPieces = {}
-    function K.hudRegister(name, spec)
-        K.HudPieces[name] = spec
-        local fn = K.HudRegisterFn
-        if fn ~= nil then pcall(fn, name, spec) end
-    end
-
-    pcall(function()
-        local readFile, isFile = K.fn("readfile"), K.fn("isfile")
-        if readFile and isFile and isFile(FILE) then
-            local decoded = HttpService:JSONDecode(readFile(FILE))
-            if type(decoded) == "table" then
-                if type(decoded.enabled) == "boolean" then Keys.Enabled = decoded.enabled end
-                if type(decoded.hidden) == "table" then
-                    for label, hidden in pairs(decoded.hidden) do
-                        if hidden == true then Keys.Hidden[label] = true end
-                    end
-                end
-            end
-        end
-    end)
-    local function save()
-        pcall(function()
-            local writeFile = K.fn("writefile")
-            if writeFile == nil then return end
-            local makeFolder, isFolder = K.fn("makefolder"), K.fn("isfolder")
-            if makeFolder and isFolder and not isFolder("LxYHook") then makeFolder("LxYHook") end
-            writeFile(FILE, HttpService:JSONEncode({ enabled = Keys.Enabled, hidden = Keys.Hidden }))
-        end)
-    end
-
-    local gui
-    local function ensureGui()
-        if gui ~= nil and gui.Parent ~= nil then return gui end
-        gui = Instance.new("ScreenGui")
-        gui.Name = HttpService:GenerateGUID(false)
-        gui.ResetOnSpawn = false
-        gui.DisplayOrder = 49
-        gui.Parent = K.hudParent()
-        return gui
-    end
-
-    local function accent()
-        local ok, t = pcall(tbl17.z)
-        local c = ok and type(t) == "table" and t.Accent or nil
-        return typeof(c) == "Color3" and c or Color3.fromHex("#A21FF2")
-    end
-    local IDLE = Color3.fromRGB(30, 30, 36)
-
-    local function slotPosition(slot)
-        local camera = workspace.CurrentCamera
-        local height = 600
-        local size = camera and camera.ViewportSize
-        if typeof(size) == "Vector2" and type(size.Y) == "number" then height = size.Y end
-        local top = math.min(300, math.floor(height * 0.45))
-        local rows = math.max(1, math.floor((height - top - 60) / 44))
-        return UDim2.fromOffset(20 + math.floor(slot / rows) * 130, top + (slot % rows) * 44)
-    end
-
-    local function editing()
-        local hud = getgenv().LYHud
-        return hud ~= nil and hud.Editing == true
-    end
-
-    local function refresh(entry)
-        local spec = entry.Spec
-        local mode = spec.Mode()
-        local show = Keys.Enabled and not Keys.Hidden[entry.Label] and mode ~= "Always" and spec.Visible()
-        entry.Button.Visible = show or entry.Forced == true
-        local active = spec.Active() == true or entry.Down == true
-        entry.Button.BackgroundColor3 = active and accent() or IDLE
-    end
-
-    function Keys.Sync()
-        for _, entry in ipairs(Keys.Entries) do pcall(refresh, entry) end
-    end
-
-    function Keys.setEnabled(v)
-        Keys.Enabled = v == true
-        save()
-        Keys.Sync()
-    end
-
-    -- spec: Mode() -> "Always" / "Hold" / "Toggle", Visible() -> the feature is on, Active() -> bool, Down(down)
-    function Keys.register(label, spec)
-        local slot = #Keys.Entries
-        local button = Instance.new("TextButton")
-        button.Name = "KeyButton"
-        button.Position = slotPosition(slot)
-        button.Size = UDim2.fromOffset(0, 36)
-        button.AutomaticSize = Enum.AutomaticSize.X
-        button.AutoButtonColor = false
-        button.Active = true
-        button.Visible = false
-        button.Text = label
-        button.Font = Enum.Font.GothamMedium
-        button.TextSize = 14
-        button.TextColor3 = Color3.new(1, 1, 1)
-        button.BackgroundColor3 = IDLE
-        button.BackgroundTransparency = 0.25
-        button.BorderSizePixel = 0
-        button.Parent = ensureGui()
-        local padding = Instance.new("UIPadding")
-        padding.PaddingLeft = UDim.new(0, 14)
-        padding.PaddingRight = UDim.new(0, 14)
-        padding.Parent = button
-        local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0, 8)
-        corner.Parent = button
-        local stroke = Instance.new("UIStroke")
-        stroke.Color = accent()
-        stroke.Thickness = 1.5
-        stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-        stroke.Parent = button
-        local entry = { Spec = spec, Button = button, Label = label }
-        table.insert(Keys.Entries, entry)
-        button.InputBegan:Connect(function(input)
-            local kind = input.UserInputType
-            if (kind ~= Enum.UserInputType.Touch and kind ~= Enum.UserInputType.MouseButton1) or editing() then return end
-            entry.Down = true
-            pcall(spec.Down, true)
-            refresh(entry)
-        end)
-        button.InputEnded:Connect(function(input)
-            local kind = input.UserInputType
-            if (kind ~= Enum.UserInputType.Touch and kind ~= Enum.UserInputType.MouseButton1) or not entry.Down then return end
-            entry.Down = false
-            pcall(spec.Down, false)
-            refresh(entry)
-        end)
-        K.hudRegister("Key button: " .. label, {
-            Frame = button,
-            Title = label .. " key button",
-            Hideable = {
-                Get = function() return Keys.Hidden[label] == true end,
-                Set = function(hidden)
-                    Keys.Hidden[label] = hidden or nil
-                    save()
-                    Keys.Sync()
-                end,
-            },
-            MinScale = 0.5,
-            MaxScale = 3,
-            Show = function()
-                entry.Forced = true
-                button.Visible = true
-                return function()
-                    entry.Forced = false
-                    refresh(entry)
-                end
-            end,
-        })
-        refresh(entry)
-        return entry
-    end
-
-    task.spawn(function()
-        while not K.destroyed do
-            if #Keys.Entries > 0 then Keys.Sync() end
-            task.wait(0.15)
-        end
-    end)
-
-    K.onUnload(function()
-        if gui ~= nil then pcall(function() gui:Destroy() end) end
-        gui = nil
-        table.clear(Keys.Entries)
-    end)
-end
-end)()
-;(function(S)
---==========================================================================
---  LY UI form: the menu of LY Hub (Material Design 3, engnyg/Material-Design-3-Roblox-lua-ui)
---  The page builders talk to the Menu surface (AddTab / Grid / AddSection / AddToggle ...). This form gives
---  the Starlight form's controls a small Starlight-shaped facade (window, tab section, tab, groupbox, elements)
---  that is made of MD3 elements, so every page builds unchanged and the controls, groups and settings store
---  binding are the ones of the Starlight form. It also draws LY's HUD (watermark and keybind list).
---  Chosen in Settings > General > UI Style > "LY". If the library cannot be loaded or built, the classic menu is shown.
---==========================================================================
-do
-    local Menu, StarUI, uid, log, isMethodName = S.Menu, S.StarUI, S.uid, S.log, S.isMethodName
-    local Players = game:GetService("Players")
-    local RunService = game:GetService("RunService")
-    local UserInputService = game:GetService("UserInputService")
-
-    local LYUI = {}
-    K.LYUI = LYUI
-
-    ---------------------------------------------------------------------------------------------- library
-    function LYUI.LoadMD3()
-local MD3_PICKER_PATCHES = {
-	{
-[==[	local function normalize(value)
-]==],
-[==[	-- LY: gradient / animation state ------------------------------------------
-	local ext = { mode = "Solid", stops = nil, sel = nil, anim = "None", speed = 1, restoring = false }
-	local function toColor(v)
-		if typeof(v) == "Color3" then
-			return v
-		elseif type(v) == "string" then
-			local ok, color = pcall(Color3.fromHex, v)
-			if ok then
-				return color
-			end
-		end
-		return nil
-	end
-	function ext.parse(value)
-		if type(value.Mode) ~= "string" then
-			return
-		end
-		ext.restoring = true
-		ext.mode = if value.Mode == "Gradient" then "Gradient" else "Solid"
-		ext.anim = if value.Anim == "Breathing" or value.Anim == "Rainbow" or value.Anim == "Cycle" then value.Anim else "None"
-		if type(value.Speed) == "number" then
-			ext.speed = math.clamp(value.Speed, 0.1, 5)
-		end
-		local solid = toColor(value.Color)
-		if solid then
-			ext.solid = solid
-		end
-		if type(value.Stops) == "table" then
-			local list = {}
-			for _, stop in value.Stops do
-				local col = type(stop) == "table" and toColor(stop.Color) or nil
-				if col and type(stop.Pos) == "number" then
-					table.insert(list, { pos = math.clamp(stop.Pos, 0, 1), color = col })
-				end
-			end
-			if #list >= 2 then
-				table.sort(list, function(a, b)
-					return a.pos < b.pos
-				end)
-				ext.stops = list
-				ext.sel = list[1]
-			end
-		end
-	end
-
-	local function normalize(value)
-]==],
-	},
-	{
-[==[			value = value.Color
-]==],
-[==[			ext.parse(value)
-			value = value.Color
-]==],
-	},
-	{
-[==[	element.Value = normalize(props.Default or props.Value or props.Color)
-	local hue, sat, val = element.Value:ToHSV()
-]==],
-[==[	element.Value = normalize(props.Default or props.Value or props.Color)
-	ext.solid = ext.solid or element.Value
-	if not ext.stops then
-		local h0, s0, v0 = ext.solid:ToHSV()
-		ext.stops = {
-			{ pos = 0, color = ext.solid },
-			{ pos = 1, color = Color3.fromHSV((h0 + 0.12) % 1, s0, v0) },
-		}
-		ext.sel = ext.stops[1]
-	end
-	local hue, sat, val = element.Value:ToHSV()
-]==],
-	},
-	{
-[==[	local panelHeight = infoY + 30
-]==],
-[==[	local panelHeight = infoY + 176
-]==],
-	},
-	{
-[==[	local function paint()
-		local color = element.Value
-		swatch.BackgroundColor3 = color
-]==],
-[==[	-- LY: solid / gradient stops / animation controls --------------------------
-	local paint, paintBase
-	local getEdit, setEdit, refresh, paintExtras, syncAnim
-	local EXTRA_Y = infoY + 40
-	local MAX_STOPS = 8
-
-	local function sortStops()
-		table.sort(ext.stops, function(a, b)
-			return a.pos < b.pos
-		end)
-	end
-
-	function getEdit()
-		if ext.mode == "Gradient" and ext.sel then
-			return ext.sel.color
-		end
-		return ext.solid
-	end
-
-	function setEdit(color)
-		if ext.mode == "Gradient" and ext.sel then
-			ext.sel.color = color
-		else
-			ext.solid = color
-		end
-	end
-
-	local function loadEditIntoHSV()
-		local h, s, v = getEdit():ToHSV()
-		if s > 0 then
-			hue = h
-		end
-		sat, val = s, v
-	end
-
-	local function sampleList(list, p)
-		if p <= list[1].pos then
-			return list[1].color
-		end
-		for i = 2, #list do
-			if p <= list[i].pos then
-				local a, b = list[i - 1], list[i]
-				return a.color:Lerp(b.color, (p - a.pos) / math.max(b.pos - a.pos, 1e-4))
-			end
-		end
-		return list[#list].color
-	end
-
-	local function sampleLoop(p)
-		local list = table.clone(ext.stops)
-		table.insert(list, { pos = ext.stops[1].pos + 1, color = ext.stops[1].color })
-		return sampleList(list, ext.stops[1].pos + p)
-	end
-
-	local function evaluate(t)
-		local anim, speed = ext.anim, ext.speed
-		if anim == "Rainbow" then
-			return Color3.fromHSV((t * speed * 0.15) % 1, 1, 1)
-		end
-		if ext.mode == "Gradient" then
-			if anim == "Breathing" then
-				return sampleList(ext.stops, 0.5 - 0.5 * math.cos(t * speed * 1.2))
-			elseif anim == "Cycle" then
-				return sampleLoop((t * speed * 0.2) % 1)
-			end
-			return ext.stops[1].color
-		end
-		if anim == "Breathing" then
-			local f = 0.5 + 0.5 * math.sin(t * speed * 2)
-			return ext.solid:Lerp(Color3.new(0, 0, 0), (1 - f) * 0.8)
-		elseif anim == "Cycle" then
-			local h, s, v = ext.solid:ToHSV()
-			return Color3.fromHSV((h + t * speed * 0.15) % 1, s, v)
-		end
-		return ext.solid
-	end
-
-	-- One shared ~30 Hz driver per window ticks every picker that is animated.
-	local function tick()
-		local color = evaluate(os.clock())
-		element.Value = color
-		swatch.BackgroundColor3 = color
-		element:_emit(color)
-	end
-	function syncAnim()
-		local registry = window._lyPickerAnims
-		if not registry then
-			registry = {}
-			window._lyPickerAnims = registry
-			local acc = 0
-			window._maid:GiveTask(game:GetService("RunService").Heartbeat:Connect(function(dt)
-				acc += dt
-				if acc < 1 / 30 then
-					return
-				end
-				acc = 0
-				for _, fn in registry do
-					fn()
-				end
-			end))
-		end
-		if ext.anim ~= "None" then
-			if not registry[element] then
-				element._maid:GiveTask(function()
-					registry[element] = nil
-				end)
-			end
-			registry[element] = tick
-		else
-			registry[element] = nil
-		end
-	end
-
-	function refresh(emit)
-		element.Value = evaluate(os.clock())
-		paint()
-		syncAnim()
-		if emit then
-			element:_emit(element.Value)
-		end
-	end
-
-	local function makeButton(text, position, size)
-		local button = Create("TextButton") {
-			AutoButtonColor = false,
-			Text = text,
-			Position = position,
-			Size = size,
-			BorderSizePixel = 0,
-			Parent = panel,
-		}
-		Shape.Corner(Shape.Full, button)
-		Typography.Apply(button, "LabelMedium")
-		return button
-	end
-
-	local modeButtons = {
-		Solid = makeButton("Solid", UDim2.fromOffset(0, EXTRA_Y), UDim2.fromOffset(84, 26)),
-		Gradient = makeButton("Gradient", UDim2.fromOffset(90, EXTRA_Y), UDim2.fromOffset(84, 26)),
-	}
-
-	local gradY = EXTRA_Y + 34
-	local minusButton = makeButton("-", UDim2.fromOffset(0, gradY), UDim2.fromOffset(26, 26))
-	local plusButton = makeButton("+", UDim2.new(1, -26, 0, gradY), UDim2.fromOffset(26, 26))
-	local gradBar = Create("Frame") {
-		Name = "GradientBar",
-		BackgroundColor3 = Color3.new(1, 1, 1),
-		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(34, gradY + 2),
-		Size = UDim2.new(1, -68, 0, 22),
-		Parent = panel,
-	}
-	Shape.Corner(Shape.Small, gradBar)
-	local gradFill = Create("UIGradient") { Parent = gradBar }
-	local markerLayer = Create("Frame") {
-		Name = "Markers",
-		BackgroundTransparency = 1,
-		Size = UDim2.fromScale(1, 1),
-		ZIndex = 3,
-		Parent = gradBar,
-	}
-
-	local animNames = { "None", "Breathing", "Rainbow", "Cycle" }
-	local animButtons = {}
-	local animY = EXTRA_Y + 68
-	for i, name in animNames do
-		animButtons[name] = makeButton(name, UDim2.new((i - 1) * 0.25, if i == 1 then 0 else 2, 0, animY), UDim2.new(0.25, -2, 0, 26))
-	end
-
-	local speedY = EXTRA_Y + 104
-	local speedLabel = Create("TextLabel") {
-		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(0, speedY),
-		Size = UDim2.fromOffset(84, 26),
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Parent = panel,
-	}
-	Typography.Apply(speedLabel, "BodySmall")
-	local speedTrack = Create("TextButton") {
-		AutoButtonColor = false,
-		Text = "",
-		Position = UDim2.new(0, 90, 0, speedY + 8),
-		Size = UDim2.new(1, -90, 0, 10),
-		BorderSizePixel = 0,
-		Parent = panel,
-	}
-	Shape.Corner(Shape.Full, speedTrack)
-	local speedFill = Create("Frame") {
-		BorderSizePixel = 0,
-		Size = UDim2.fromScale(0.5, 1),
-		Parent = speedTrack,
-	}
-	Shape.Corner(Shape.Full, speedFill)
-
-	local dragStop, dragSpeed = nil, false
-	local rebuildMarkers
-
-	function paintExtras()
-		local c = window.Theme.Colors
-		local off = c.SurfaceContainerHighest or c.SurfaceContainer
-		local function style(button, active)
-			button.BackgroundColor3 = if active then c.SecondaryContainer else off
-			button.TextColor3 = if active then c.OnSecondaryContainer else c.OnSurfaceVariant
-		end
-		for name, button in modeButtons do
-			style(button, ext.mode == name)
-		end
-		for name, button in animButtons do
-			style(button, ext.anim == name)
-		end
-		local gradient = ext.mode == "Gradient"
-		style(minusButton, false)
-		style(plusButton, false)
-		minusButton.TextTransparency = if gradient and #ext.stops > 2 then 0 else 0.6
-		plusButton.TextTransparency = if gradient and #ext.stops < MAX_STOPS then 0 else 0.6
-		speedTrack.BackgroundColor3 = off
-		speedFill.BackgroundColor3 = c.Primary
-		speedFill.Size = UDim2.fromScale(math.clamp((ext.speed - 0.1) / 4.9, 0, 1), 1)
-		speedLabel.TextColor3 = c.OnSurfaceVariant
-		speedLabel.Text = string.format("Speed %.1fx", ext.speed)
-
-		if gradient then
-			local keys = {}
-			local first, last = ext.stops[1], ext.stops[#ext.stops]
-			if first.pos > 0 then
-				table.insert(keys, ColorSequenceKeypoint.new(0, first.color))
-			end
-			for _, stop in ext.stops do
-				table.insert(keys, ColorSequenceKeypoint.new(stop.pos, stop.color))
-			end
-			if last.pos < 1 then
-				table.insert(keys, ColorSequenceKeypoint.new(1, last.color))
-			end
-			gradFill.Color = ColorSequence.new(keys)
-		else
-			gradFill.Color = ColorSequence.new(ext.solid)
-		end
-		rebuildMarkers(c)
-	end
-
-	function rebuildMarkers(c)
-		markerLayer:ClearAllChildren()
-		if ext.mode ~= "Gradient" then
-			return
-		end
-		for _, stop in ext.stops do
-			local selected = stop == ext.sel
-			local marker = Create("TextButton") {
-				AutoButtonColor = false,
-				Text = "",
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.fromScale(stop.pos, 0.5),
-				Size = UDim2.fromOffset(if selected then 12 else 9, 32),
-				BackgroundColor3 = stop.color,
-				BorderSizePixel = 0,
-				ZIndex = if selected then 5 else 4,
-				Parent = markerLayer,
-				[1] = Create("UICorner") { CornerRadius = UDim.new(0, 4) },
-				[2] = Create("UIStroke") {
-					Color = if selected then c.Primary else Color3.new(1, 1, 1),
-					Thickness = if selected then 2.5 else 1.5,
-				},
-			}
-			marker.InputBegan:Connect(function(input)
-				if isPress(input) then
-					ext.sel = stop
-					dragStop = stop
-					loadEditIntoHSV()
-					refresh(true)
-				end
-			end)
-		end
-	end
-
-	for name, button in modeButtons do
-		element._maid:GiveTask(button.Activated:Connect(function()
-			if ext.mode == name then
-				return
-			end
-			ext.mode = name
-			if name == "Gradient" and not ext.sel then
-				ext.sel = ext.stops[1]
-			end
-			loadEditIntoHSV()
-			refresh(true)
-		end))
-	end
-	for name, button in animButtons do
-		element._maid:GiveTask(button.Activated:Connect(function()
-			ext.anim = name
-			refresh(true)
-		end))
-	end
-	element._maid:GiveTask(plusButton.Activated:Connect(function()
-		if ext.mode ~= "Gradient" or #ext.stops >= MAX_STOPS then
-			return
-		end
-		local bestGap, bestAt = -1, 0.5
-		local previous = 0
-		for i = 1, #ext.stops + 1 do
-			local nextPos = if ext.stops[i] then ext.stops[i].pos else 1
-			if nextPos - previous > bestGap then
-				bestGap, bestAt = nextPos - previous, (previous + nextPos) / 2
-			end
-			previous = nextPos
-		end
-		local stop = { pos = bestAt, color = sampleList(ext.stops, bestAt) }
-		table.insert(ext.stops, stop)
-		sortStops()
-		ext.sel = stop
-		loadEditIntoHSV()
-		refresh(true)
-	end))
-	element._maid:GiveTask(minusButton.Activated:Connect(function()
-		if ext.mode ~= "Gradient" or #ext.stops <= 2 then
-			return
-		end
-		table.remove(ext.stops, table.find(ext.stops, ext.sel))
-		ext.sel = ext.stops[1]
-		loadEditIntoHSV()
-		refresh(true)
-	end))
-	element._maid:GiveTask(speedTrack.InputBegan:Connect(function(input)
-		if isPress(input) then
-			dragSpeed = true
-			ext.speed = 0.1 + 4.9 * math.clamp((input.Position.X - speedTrack.AbsolutePosition.X) / math.max(speedTrack.AbsoluteSize.X, 1), 0, 1)
-			refresh(true)
-		end
-	end))
-	element._maid:GiveTask(UserInputService.InputChanged:Connect(function(input)
-		if not isMove(input) then
-			return
-		end
-		if dragStop then
-			dragStop.pos = math.clamp((input.Position.X - gradBar.AbsolutePosition.X) / math.max(gradBar.AbsoluteSize.X, 1), 0, 1)
-			sortStops()
-			refresh(true)
-		elseif dragSpeed then
-			ext.speed = 0.1 + 4.9 * math.clamp((input.Position.X - speedTrack.AbsolutePosition.X) / math.max(speedTrack.AbsoluteSize.X, 1), 0, 1)
-			refresh(true)
-		end
-	end))
-	element._maid:GiveTask(UserInputService.InputEnded:Connect(function(input)
-		if isPress(input) then
-			dragStop = nil
-			dragSpeed = false
-		end
-	end))
-	element._maid:GiveTask(window.Theme.Changed:Connect(function()
-		paintExtras()
-	end))
-
-	function paintBase()
-		local color = getEdit()
-		swatch.BackgroundColor3 = element.Value
-]==],
-	},
-	{
-[==[	end
-
-	if alphaEnabled then
-		-- Callback / Changed get (color, transparency).
-]==],
-[==[	end
-
-	function paint()
-		paintBase()
-		paintExtras()
-	end
-
-	if alphaEnabled then
-		-- Callback / Changed get (color, transparency).
-]==],
-	},
-	{
-[==[	-- Sets only the transparency (0 = solid, 1 = invisible).
-]==],
-[==[	-- LY: what configs store (Color3 still loads through the old path).
-	function element:GetSaveValue()
-		local stops = {}
-		for i, stop in ext.stops do
-			stops[i] = { Pos = stop.pos, Color = stop.color }
-		end
-		local out = { Color = ext.solid, Mode = ext.mode, Stops = stops, Anim = ext.anim, Speed = ext.speed }
-		if alphaEnabled then
-			out.Transparency = element.Transparency
-		end
-		return out
-	end
-
-	-- LY: far end of the gradient, for features that draw a two-color gradient.
-	function element:GetColor2()
-		if ext.anim ~= "None" then
-			return evaluate(os.clock() + 0.6)
-		end
-		if ext.mode == "Gradient" then
-			return ext.stops[#ext.stops].color
-		end
-		return ext.solid
-	end
-
-	-- Sets only the transparency (0 = solid, 1 = invisible).
-]==],
-	},
-	{
-[==[	local function commit()
-		element.Value = Color3.fromHSV(hue, sat, val)
-		paint()
-		element:_emit(element.Value)
-	end
-]==],
-[==[	local function commit()
-		setEdit(Color3.fromHSV(hue, sat, val))
-		refresh(true)
-	end
-]==],
-	},
-	{
-[==[	element._render = function(color)
-		-- Keep the current hue for greys, where ToHSV can't recover one.
-		local h, s, v = color:ToHSV()
-]==],
-[==[	element._render = function(color)
-		if ext.restoring then
-			ext.restoring = false
-		else
-			setEdit(color)
-		end
-		color = getEdit()
-		-- Keep the current hue for greys, where ToHSV can't recover one.
-		local h, s, v = color:ToHSV()
-]==],
-	},
-	{
-[==[		sat, val = s, v
-		paint()
-	end
-]==],
-[==[		sat, val = s, v
-		refresh(false)
-	end
-]==],
-	},
-	{
-[==[	paint()
-	return Base.Finish(element)
-]==],
-[==[	paint()
-	syncAnim()
-	return Base.Finish(element)
-]==],
-	},
-}
-
-local function patchMD3ColorPicker(source)
-	local startAt = string.find(source, 'loaders[newNode("ColorPicker", N_Window_Elements)]', 1, true)
-	local endAt = string.find(source, 'loaders[newNode("Dropdown", N_Window_Elements)]', 1, true)
-	if not (startAt and endAt and endAt > startAt) then
-		return nil
-	end
-	local segment = string.sub(source, startAt, endAt - 1)
-	for _, patch in ipairs(MD3_PICKER_PATCHES) do
-		local from, to = string.find(segment, patch[1], 1, true)
-		if not from then
-			return nil
-		end
-		segment = string.sub(segment, 1, from - 1) .. patch[2] .. string.sub(segment, to + 1)
-	end
-	return string.sub(source, 1, startAt - 1) .. segment .. string.sub(source, endAt)
-end
-
--- Icons for the section buttons (sub-tabs), read by the patched AddSubTab below.
-getgenv().LYSubTabIcons = {
-	["Silent Aim"] = "target",
-	["Silent Aim FOV"] = "radar",
-	["Aimbot"] = "my_location",
-	["Aimbot FOV"] = "radar",
-	["Aimbot Target"] = "tune",
-	["Theme Config"] = "palette",
-	["Target HUD"] = "dashboard",
-	["HUD editor"] = "dashboard",
-	["Gun"] = "build",
-	["Anti Aim"] = "shield",
-	["Triggerbot"] = "ads_click",
-	["Flickbot"] = "fast_forward",
-	["Target Lock"] = "gps_fixed",
-	["Ragebot"] = "crisis_alert",
-	["Primary"] = "star",
-	["Secondary"] = "bookmark",
-	["Knife"] = "content_cut",
-	["Melee"] = "swords",
-	["Player ESP"] = "person_search",
-	["Utility ESP"] = "widgets",
-	["Ambience"] = "wb_twilight",
-	["Bloom"] = "auto_awesome",
-	["Color Grading"] = "palette",
-	["Depth Of Field"] = "camera_alt",
-	["Sun Rays"] = "sunny",
-	["Fog & Atmosphere"] = "cloudy",
-	["Shaders"] = "blur_on",
-	["Weather"] = "thunderstorm",
-	["Skybox"] = "landscape",
-	["Performance"] = "speed",
-	["Ambient Sounds"] = "graphic_eq",
-	["World Textures"] = "texture",
-	["Tonemapper"] = "tonality",
-	["Lightning"] = "bolt",
-	["Auras"] = "auto_awesome",
-	["Camera FOV"] = "fit_screen",
-	["Stretched Resolution"] = "aspect_ratio",
-	["Camera Shake"] = "vibration",
-	["Weapon"] = "build",
-	["Viewmodel"] = "visibility",
-	["Third Person"] = "view_in_ar",
-	["Crosshair"] = "add",
-	["Text"] = "edit",
-	["Hit Feedback"] = "check_circle",
-	["Kill Feedback"] = "skull",
-	["Removables"] = "delete",
-	["Hit Effects"] = "auto_awesome",
-	["Bullet Tracers"] = "timeline",
-	["Hit Notifications"] = "notifications",
-	["Notifications"] = "notifications",
-	["Profile Spoof"] = "person",
-	["FPS Spoof"] = "speed",
-	["Ping Spoof"] = "wifi",
-	["Region Spoof"] = "language",
-	["Movement"] = "directions_run",
-	["Emotes & Animations"] = "sports_esports",
-	["Auto Strafe"] = "sync_alt",
-	["Utility"] = "build",
-	["Auto Execute"] = "code",
-	["Interface"] = "dashboard",
-	["Match"] = "flag",
-	["Movement Recorder"] = "fiber_manual_record",
-	["Server"] = "cloud",
-	["Auto Ban (Ranked)"] = "block",
-	["Auto Queue"] = "schedule",
-	["Miscellaneous"] = "more_horiz",
-	["Device Spoof"] = "keyboard",
-	["QOL"] = "verified",
-	["Rank Charm Override"] = "military_tech",
-	["Rank Charm"] = "military_tech",
-	["Detectors"] = "search",
-	["Presets"] = "bookmark_border",
-	["Overview"] = "home",
-	["Skins"] = "palette",
-	["Wraps"] = "image",
-	["Charms"] = "favorite",
-	["Finishers"] = "emoji_events",
-	["Appearance"] = "palette",
-	["Background"] = "image",
-	["Theme editor"] = "colorize",
-	["HUD"] = "dashboard",
-	["Configuration"] = "settings",
-}
-
--- Sub-tab icons: every section button (SectionsAsSubTabs) gets a Material icon
--- taken from getgenv().LYSubTabIcons (or opts.Icon). Patched in memory like the
--- color picker; skipped silently if the library layout changed.
-local function patchMD3SubTabIcons(source)
-	local a1 = "\t\tThickness = 1,\n\t\tParent = btn,\n\t}\n\tself._window._maid:GiveTask(btn.Activated:Connect(function()\n\t\tself:SelectSubTab(index)"
-	local b1 = "\n\tend\nend\n\nfunction Tab:_paintSubTabs()"
-	local from1, to1 = string.find(source, a1, 1, true)
-	local from2, to2 = string.find(source, b1, 1, true)
-	if not (from1 and from2 and from2 < from1) then
-		return nil
-	end
-	local add1 = [==[
-		Thickness = 1,
-		Parent = btn,
-	}
-	do
-		local icons = getgenv and getgenv().LYSubTabIcons
-		local iconName = opts.Icon or (icons and icons[name])
-		if iconName and Base.CanShowIcon(iconName) then
-			local glyph = Base.Glyph(self._window._themer, iconName, 16, nil, btn)
-			glyph.Name = "SubIcon"
-			glyph.AnchorPoint = Vector2.new(0, 0.5)
-			-- Children sit inside the button's padding, so the icon is placed with a
-			-- negative offset; the text is left-aligned after it and the button
-			-- sizes itself to the text.
-			glyph.Position = UDim2.new(0, 12 - 34, 0.5, 0)
-			glyph.ZIndex = btn.ZIndex + 1
-			btn.TextXAlignment = Enum.TextXAlignment.Left
-			btn.AutomaticSize = Enum.AutomaticSize.X
-			btn.Size = UDim2.new(0, 0, 0, 32)
-			Create("UIPadding") { PaddingLeft = UDim.new(0, 34), PaddingRight = UDim.new(0, 14), Parent = btn }
-		end
-	end
-	self._window._maid:GiveTask(btn.Activated:Connect(function()
-		self:SelectSubTab(index)]==]
-	local add2 = [==[
-
-	end
-	local subIcon = btn:FindFirstChild("SubIcon")
-	if subIcon then
-		Base.SetIconColor(subIcon, btn.TextColor3)
-	end
-end
-
-function Tab:_paintSubTabs()]==]
-	-- paintSubButton sits before AddSubTab in the file, so patch the later spot first
-	local out = string.sub(source, 1, from1 - 1) .. add1 .. string.sub(source, to1 + 1)
-	return string.sub(out, 1, from2 - 1) .. add2 .. string.sub(out, to2 + 1)
-end
-
--- Keybinds only take keyboard keys. Let them also take the right and middle mouse buttons (the
--- left one is how you click the chip). Patched in memory like the others; skipped silently if the
--- library layout changed.
-local function patchMD3KeybindMouse(source)
-	local startAt = string.find(source, "-- Window/Elements/Keybind.lua", 1, true)
-	local endAt = string.find(source, "-- Window/Elements/Slider.lua", 1, true)
-	if not (startAt and endAt and startAt < endAt) then
-		return nil
-	end
-	local part = string.sub(source, startAt, endAt - 1)
-	local function replaceOnce(text, old, new)
-		local from, to = string.find(text, old, 1, true)
-		if not from then
-			return nil
-		end
-		return string.sub(text, 1, from - 1) .. new .. string.sub(text, to + 1)
-	end
-	local SIDE_BUTTON_BLOCK = [==[
-	do
-		local getEnv = getgenv
-		local pressed = (getEnv and getEnv().iskeypressed) or iskeypressed
-		if type(pressed) == "function" then
-			local codes = { [Enum.KeyCode.World90] = 0x05, [Enum.KeyCode.World91] = 0x06 }
-			local last = {}
-			local function isDown(code)
-				local ok, down = pcall(pressed, code)
-				return ok and down == true
-			end
-			element._maid:GiveTask(game:GetService("RunService").Heartbeat:Connect(function()
-				local focused = true
-				if type(iswindowactive) == "function" then
-					local ok, active = pcall(iswindowactive)
-					focused = not ok or active ~= false
-				end
-				if not focused then
-					for key in codes do
-						last[key] = false
-					end
-					return
-				end
-				if listening then
-					for key, code in codes do
-						local down = isDown(code)
-						if down and not last[key] then
-							last[key] = true
-							setListening(false)
-							element:Set(key)
-							return
-						end
-						last[key] = down
-					end
-					return
-				end
-				local key = element.Value
-				local code = key and codes[key]
-				for other in codes do
-					if other ~= key then
-						last[other] = false
-					end
-				end
-				if not code then
-					return
-				end
-				local down = isDown(code)
-				if down == (last[key] == true) then
-					return
-				end
-				last[key] = down
-				if UserInputService:GetFocusedTextBox() then
-					return
-				end
-				if down then
-					if mode == "Toggle" then
-						setState(not element.State)
-						fire(element.State)
-						announce(if element.State then "Enabled" else "Disabled", if element.State then "toggle_on" else "toggle_off")
-					elseif mode == "Hold" then
-						setState(true)
-						fire(true)
-						announce("Holding", "keyboard")
-					else
-						fire()
-						announce("Activated", "keyboard")
-					end
-				elseif mode == "Hold" and element.State then
-					setState(false)
-					fire(false)
-				end
-			end))
-		end
-	end
-	paint()
-	window.KeybindsChanged:Fire()
-	return Base.Finish(element)
-end]==]
-	local steps = {
-		{
-			"\t\treturn value.EnumType == Enum.KeyCode and value ~= Enum.KeyCode.Unknown and value or nil\n\telseif type(value) == \"string\" and value ~= \"\" and value ~= \"None\" then\n\t\tlocal ok, key = pcall(function()\n\t\t\treturn (Enum.KeyCode :: any)[value]\n\t\tend)\n\t\treturn ok and key or nil",
-			"\t\tif value == Enum.UserInputType.MouseButton2 or value == Enum.UserInputType.MouseButton3 then\n\t\t\treturn value\n\t\tend\n\t\treturn value.EnumType == Enum.KeyCode and value ~= Enum.KeyCode.Unknown and value or nil\n\telseif type(value) == \"string\" and value ~= \"\" and value ~= \"None\" then\n\t\tif value == \"MouseButton2\" or value == \"MouseButton3\" then\n\t\t\treturn Enum.UserInputType[value]\n\t\tend\n\t\tlocal ok, key = pcall(function()\n\t\t\treturn (Enum.KeyCode :: any)[value]\n\t\tend)\n\t\treturn ok and key or nil",
-		},
-		{
-			"\t\t\tif input.UserInputType ~= Enum.UserInputType.Keyboard then\n\t\t\t\treturn\n\t\t\tend",
-			"\t\t\tlocal mouseKey = (input.UserInputType == Enum.UserInputType.MouseButton2 or input.UserInputType == Enum.UserInputType.MouseButton3) and input.UserInputType or nil\n\t\t\tif input.UserInputType ~= Enum.UserInputType.Keyboard and not mouseKey then\n\t\t\t\treturn\n\t\t\tend",
-		},
-		{ "element:Set(input.KeyCode)", "element:Set(mouseKey or input.KeyCode)" },
-		{
-			"if element.Value and input.KeyCode == element.Value then",
-			"if element.Value and (input.KeyCode == element.Value or input.UserInputType == element.Value) then",
-		},
-		{
-			"if element.State and element.Value and input.KeyCode == element.Value then",
-			"if element.State and element.Value and (input.KeyCode == element.Value or input.UserInputType == element.Value) then",
-		},
-		-- the chip shows the side buttons by their mouse names
-		{
-			"\t\tchip.Text = listening and \"...\" or (element.Value and element.Value.Name or \"None\")",
-			"\t\tlocal shown = element.Value and (element.Value == Enum.KeyCode.World90 and \"Mouse4\" or element.Value == Enum.KeyCode.World91 and \"Mouse5\" or element.Value.Name)\n\t\tchip.Text = listening and \"...\" or (shown or \"None\")",
-		},
-		-- Side mouse buttons: Roblox doesn't report them, so where the executor has iskeypressed
-		-- (Windows virtual keys 0x05 / 0x06) they are polled. They are stored as the unused keys
-		-- World90 / World91. Without iskeypressed nothing changes: keys and the right / middle
-		-- mouse buttons still go through Roblox's own input.
-		{
-			"\tpaint()\n\twindow.KeybindsChanged:Fire()\n\treturn Base.Finish(element)\nend",
-			SIDE_BUTTON_BLOCK,
-		},
-	}
-	for _, step in steps do
-		part = replaceOnce(part, step[1], step[2])
-		if not part then
-			return nil
-		end
-	end
-	return string.sub(source, 1, startAt - 1) .. part .. string.sub(source, endAt)
-end
-
--- Lets LY lock the library's HUD pieces (watermark, keybind list): while
--- getgenv().__LYHudLocks[target] is set, dragging that frame does nothing. They are then
--- only moved in LY's HUD editor.
-local function patchMD3HudLock(source)
-	local anchor = [==[	local connChanged = UserInputService.InputChanged:Connect(function(input)
-		if not controller.dragging or not isMove(input) then
-			return
-		end
-]==]
-	local from, to = string.find(source, anchor, 1, true)
-	if not from then
-		return nil
-	end
-	local lock = [==[		do
-			local getEnv = getgenv
-			local locks = getEnv and getEnv().__LYHudLocks
-			if locks and locks[target] then
-				return
-			end
-		end
-]==]
-	return string.sub(source, 1, to) .. lock .. string.sub(source, to + 1)
-end
-
-local MD3
-do
-	local MD3_URL = "https://raw.githubusercontent.com/engnyg/Material-Design-3-Roblox-lua-ui/main/dist/MaterialDesign3.luau"
-	-- The patched library is cached on disk and refreshed in the background (at most hourly), so
-	-- a start-up needs no download. Bump MD3_CACHE_REV whenever the patches above change or this
-	-- file starts to need a newer library build: a different revision ignores the old cache.
-	local MD3_CACHE_REV = "1"
-	local MD3_CACHE_PATH = "LYHub/md3_cache.luau"
-	local MD3_CACHE_TTL = 3600
-
-	-- Downloads the library and applies the patches. Returns the source to run and its chunk.
-	local function buildMD3()
-		local source = game:HttpGet(MD3_URL)
-		pcall(function()
-			source = patchMD3KeybindMouse(source) or source
-		end)
-		pcall(function()
-			source = patchMD3HudLock(source) or source
-		end)
-		local patched = nil
-		pcall(function()
-			patched = patchMD3ColorPicker(source)
-		end)
-		local withIcons = nil
-		pcall(function()
-			withIcons = patchMD3SubTabIcons(patched or source)
-		end)
-		local candidates = table.create(3)
-		candidates[1], candidates[2], candidates[3] = withIcons, patched, source
-		for index = 1, 3 do
-			local candidate = candidates[index]
-			local chunk = candidate and loadstring(candidate)
-			if chunk then
-				return candidate, chunk
-			end
-		end
-		return source, nil
-	end
-
-	local canCache = type(readfile) == "function" and type(writefile) == "function" and type(isfile) == "function"
-	local function saveCache(finalSource)
-		if not canCache then
-			return
-		end
-		pcall(function()
-			if type(makefolder) == "function" and type(isfolder) == "function" and not isfolder("LYHub") then
-				makefolder("LYHub")
-			end
-			writefile(MD3_CACHE_PATH, ("--LYMD3:%s:%d\n"):format(MD3_CACHE_REV, os.time()) .. finalSource)
-		end)
-	end
-
-	local cachedChunk, cacheAge = nil, nil
-	if canCache then
-		pcall(function()
-			if not isfile(MD3_CACHE_PATH) then
-				return
-			end
-			local body = readfile(MD3_CACHE_PATH)
-			local rev, stamp, rest = string.match(body, "^%-%-LYMD3:([^:\n]*):(%d+)\n()")
-			if rev ~= MD3_CACHE_REV then
-				return
-			end
-			cachedChunk = loadstring(string.sub(body, rest))
-			cacheAge = os.time() - tonumber(stamp)
-		end)
-	end
-
-	if cachedChunk then
-		MD3 = cachedChunk()
-		if not cacheAge or cacheAge < 0 or cacheAge > MD3_CACHE_TTL then
-			task.spawn(function()
-				pcall(function()
-					local finalSource, chunk = buildMD3()
-					if chunk then
-						saveCache(finalSource)
-					end
-				end)
-			end)
-		end
-	else
-		local finalSource, chunk = buildMD3()
-		MD3 = chunk()
-		saveCache(finalSource)
-	end
-end
-
--- MD3's ripple parents its circle straight to the pressed row. Rows use
--- AutomaticSize.Y, which counts that growing circle (ClipsDescendants only
--- hides it), so a tap blew the row up to fill the page. Grow the circle
--- inside a ScrollingFrame instead: AutomaticSize doesn't look past one (a
--- plain Frame or CanvasGroup holder still grows the row).
-do
-	local emit = MD3.Ripple and MD3.Ripple.Emit
-	if type(emit) == "function" then
-		MD3.Ripple.Emit = function(parent, inputPosition, color)
-			if typeof(parent) ~= "Instance" or not parent:IsA("GuiObject") then
-				return emit(parent, inputPosition, color)
-			end
-			local holder = Instance.new("ScrollingFrame")
-			holder.Name = "RippleHolder"
-			holder.BackgroundTransparency = 1
-			holder.BorderSizePixel = 0
-			holder.ClipsDescendants = true
-			holder.ScrollingEnabled = false
-			holder.ScrollBarThickness = 0
-			holder.CanvasSize = UDim2.new()
-			holder.Active = false
-			holder.Selectable = false
-			pcall(function()
-				holder.Interactable = false -- never swallows the next tap on the row
-			end)
-			holder.Size = UDim2.fromScale(1, 1)
-			holder.ZIndex = parent.ZIndex
-			local corner = parent:FindFirstChildOfClass("UICorner")
-			if corner then
-				corner:Clone().Parent = holder
-			end
-			holder.Parent = parent
-			emit(holder, inputPosition, color)
-			task.delay(1, function()
-				holder:Destroy()
-			end)
-		end
-	end
-end
-
-    return MD3
-    end
-
-    ---------------------------------------------------------------------------------------------- logo
-    -- the LY logo (128x128 PNG): written to disk once and turned into an asset id for the window, the mobile button
-    -- and the watermark
-    local LY_LOGO_B64 = "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"
-    local logoId, logoTried
-    function LYUI.Logo()
-        if logoTried then return logoId end
-        logoTried = true
-        pcall(function()
-            local alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-            local map = {}
-            for i = 1, 64 do map[alphabet:byte(i)] = i - 1 end
-            local s = LY_LOGO_B64
-            local out = buffer.create(#s * 3 // 4 + 3)
-            local n = 0
-            for i = 1, #s, 4 do
-                local a, b, c, d = s:byte(i, i + 3)
-                local vc, vd = map[c], map[d]
-                local v = map[a] * 262144 + map[b] * 4096 + (vc or 0) * 64 + (vd or 0)
-                buffer.writeu8(out, n, bit32.rshift(v, 16))
-                n += 1
-                if vc then buffer.writeu8(out, n, bit32.band(bit32.rshift(v, 8), 255)) n += 1 end
-                if vd then buffer.writeu8(out, n, bit32.band(v, 255)) n += 1 end
-            end
-            local wrf, gca = K.fn("writefile"), K.fn("getcustomasset") or K.fn("getsynasset")
-            if wrf and gca then
-                local path = "LxYHook/ly_logo.png"
-                local makeFolder, isFolder = K.fn("makefolder"), K.fn("isfolder")
-                if makeFolder and isFolder and not isFolder("LxYHook") then makeFolder("LxYHook") end
-                wrf(path, buffer.readstring(out, 0, n))
-                local id = gca(path)
-                if type(id) == "string" and id ~= "" then logoId = id end
-            end
-        end)
-        return logoId
-    end
-
-    local md3lib
-    function LYUI.Load()
-        if md3lib ~= nil then return md3lib end
-        local t0 = os.clock()
-        md3lib = LYUI.LoadMD3()
-        log(string.format("LY: Material Design 3 library ready in %.2f s", os.clock() - t0))
-        return md3lib
-    end
-
-    ---------------------------------------------------------------------------------------------- HUD layout editor
-    -- LY's HUD layout (every HUD piece registers; the editor page moves and resizes them, the layout is saved to
-    -- LxYHook/hud_layout.json). Taken from LY.lua; `Window` is the MD3 window.
-    function LYUI.InstallHud(Window)
-        local MD3 = LYUI.Load()
-        local HttpService = game:GetService("HttpService")
-        local owned, cleanups = {}, {}
-        local function own(x) owned[#owned + 1] = x return x end
-        local function track(fn) cleanups[#cleanups + 1] = fn end
--- HUD layout ---------------------------------------------------------------------------
--- Every on-screen HUD piece (watermark, keybind list, Target HUD, the manual FIRE button)
--- registers here. They can only be moved or resized in the HUD editor (Settings > HUD
--- editor); the layout is saved to LxYHook/hud_layout.json and applied again at the next start.
-do
-	local Hud = { Elements = {}, Order = {}, Editing = false }
-	MD3.LYHud = Hud
-	getgenv().LYHud = Hud
-	local LAYOUT_FILE = "LxYHook/hud_layout.json"
-	local env = (getgenv and getgenv()) or _G
-	env.__LYHudLocks = setmetatable({}, { __mode = "k" })
-
-	local saved = {}
-	pcall(function()
-		if type(isfile) == "function" and isfile(LAYOUT_FILE) then
-			local decoded = HttpService:JSONDecode(readfile(LAYOUT_FILE))
-			if type(decoded) == "table" then
-				saved = decoded
-			end
-		end
-	end)
-
-	local function write()
-		pcall(function()
-			if type(writefile) ~= "function" then
-				return
-			end
-			if type(isfolder) == "function" and not isfolder("LxYHook") then
-				makefolder("LxYHook")
-			end
-			writefile(LAYOUT_FILE, HttpService:JSONEncode(saved))
-		end)
-	end
-
-	-- spec: Frame, Title, Lib (a library piece: also lock its own dragging), Show (returns a
-	-- restore function; makes the piece visible while editing), MinScale, MaxScale.
-	function Hud.register(name, spec)
-		local frame = spec.Frame
-		local scale = frame:FindFirstChild("LYHudScale")
-		if not scale then
-			scale = Instance.new("UIScale")
-			scale.Name = "LYHudScale"
-			scale.Parent = frame
-		end
-		local entry = {
-			Name = name,
-			Title = spec.Title or name,
-			Frame = frame,
-			Scale = scale,
-			Show = spec.Show,
-			Hideable = spec.Hideable,
-			Min = spec.MinScale or 0.5,
-			Max = spec.MaxScale or 3,
-			Touched = false,
-			Default = { Position = frame.Position, Anchor = frame.AnchorPoint, Scale = scale.Scale },
-		}
-		if not Hud.Elements[name] then
-			table.insert(Hud.Order, name)
-		end
-		Hud.Elements[name] = entry
-		if spec.Lib then
-			env.__LYHudLocks[frame] = true
-		end
-		local layout = saved[name]
-		if type(layout) == "table" and type(layout.x) == "number" and type(layout.y) == "number" then
-			frame.AnchorPoint = Vector2.zero
-			frame.Position = UDim2.fromScale(layout.x, layout.y)
-			scale.Scale = math.clamp(tonumber(layout.s) or 1, entry.Min, entry.Max)
-			entry.Fraction = Vector2.new(layout.x, layout.y)
-			entry.Touched = true
-		end
-		return entry
-	end
-
-	function Hud.save()
-		for name, entry in Hud.Elements do
-			if entry.Touched and entry.Fraction then
-				saved[name] = { x = entry.Fraction.X, y = entry.Fraction.Y, s = entry.Scale.Scale }
-			end
-		end
-		write()
-	end
-
-	function Hud.reset()
-		for name, entry in Hud.Elements do
-			entry.Frame.Position = entry.Default.Position
-			entry.Frame.AnchorPoint = entry.Default.Anchor
-			entry.Scale.Scale = entry.Default.Scale
-			entry.Touched = false
-			entry.Fraction = nil
-			saved[name] = nil
-		end
-		write()
-	end
-end
-
--- A full-screen page (the hub window hides while it is open): every HUD piece gets a frame
--- you drag to move and a dot at its corner you drag to resize. "Done" saves the layout and
--- locks the pieces in place.
-do
-	local Hud = MD3.LYHud
-	local Create, Typography, Shape = MD3.Create, MD3.Typography, MD3.Shape
-	local session = nil
-
-	local GuiService = game:GetService("GuiService")
-
-	-- Every GuiObject's AbsolutePosition is measured from just below the top bar, whether or
-	-- not its ScreenGui ignores the inset (an ignoring GUI even reports its own origin as
-	-- (0, -inset)). A GUI that keeps the inset has the same origin, so the frames are drawn
-	-- in one, at AbsolutePosition as it is.
-	local function topInset()
-		local ok, inset = pcall(GuiService.GetGuiInset, GuiService)
-		return ok and inset.Y or 0
-	end
-
-	local function viewport()
-		if session and session.Gui then
-			return session.Gui.AbsoluteSize
-		end
-		local camera = workspace.CurrentCamera
-		return camera and camera.ViewportSize or Vector2.new(1920, 1080)
-	end
-
-	local function parentBounds(frame)
-		local parent = frame.Parent
-		if parent and parent:IsA("GuiBase2d") then
-			return parent.AbsolutePosition, parent.AbsoluteSize
-		end
-		return Vector2.zero, viewport()
-	end
-
-	-- Puts the piece's top-left at a position in its own GUI's coordinates (clamped to that
-	-- GUI). The piece is always anchored top-left, so its resize scales from that corner.
-	local function placeAt(entry, at, userMoved)
-		local frame = entry.Frame
-		local origin, size = parentBounds(frame)
-		local own = frame.AbsoluteSize
-		local screen = entry.BoxGui and entry.BoxGui.AbsoluteSize or viewport()
-		local x = math.clamp(at.X, 0, math.max(0, screen.X - own.X))
-		local y = math.clamp(at.Y, -topInset(), math.max(-topInset(), screen.Y - own.Y))
-		frame.AnchorPoint = Vector2.zero
-		local fraction = Vector2.new((x - origin.X) / math.max(size.X, 1), (y - origin.Y) / math.max(size.Y, 1))
-		frame.Position = UDim2.fromScale(fraction.X, fraction.Y)
-		entry.Fraction = fraction
-		if userMoved then
-			entry.Touched = true
-		end
-	end
-
-	local function isPress(input)
-		return input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch
-	end
-
-	function Hud.close()
-		if not session then
-			return
-		end
-		local done = session
-		session = nil
-		for _, connection in done.Connections do
-			connection:Disconnect()
-		end
-		done.Gui:Destroy()
-		if done.InsetGui then
-			done.InsetGui:Destroy()
-		end
-		for _, restore in done.Restores do
-			pcall(restore)
-		end
-		Hud.Editing = false
-		Hud.save()
-		pcall(function()
-			Window:SetVisible(done.WasVisible ~= false)
-		end)
-	end
-
-	function Hud.open()
-		if session then
-			return
-		end
-		Hud.Editing = true
-		local c = Window.Theme.Colors
-		local screen = viewport()
-		local newSession = { Connections = {}, Restores = {}, WasVisible = Window.Visible }
-		session = newSession
-		pcall(function()
-			Window:SetVisible(false)
-		end)
-
-		local gui = Instance.new("ScreenGui")
-		gui.Name = MD3.Env.RandomName()
-		gui.ResetOnSpawn = false
-		gui.IgnoreGuiInset = true
-		gui.DisplayOrder = 1000
-		gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-		MD3.Env.ProtectGui(gui)
-		gui.Parent = MD3.Env.GetGuiParent()
-		own(gui)
-		newSession.Gui = gui
-
-		-- Frames live in a GUI that keeps the top bar inset: same origin as AbsolutePosition.
-		local insetGui = Instance.new("ScreenGui")
-		insetGui.Name = MD3.Env.RandomName()
-		insetGui.ResetOnSpawn = false
-		insetGui.IgnoreGuiInset = false
-		insetGui.DisplayOrder = 1001
-		insetGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-		MD3.Env.ProtectGui(insetGui)
-		insetGui.Parent = MD3.Env.GetGuiParent()
-		own(insetGui)
-		newSession.InsetGui = insetGui
-
-		-- A modal button frees the mouse (the game keeps it locked for aiming).
-		Create("TextButton") {
-			Name = "Modal", Text = "", BackgroundTransparency = 1, Modal = true,
-			Size = UDim2.fromScale(1, 1), Parent = gui,
-		}
-		Create("Frame") {
-			Name = "Backdrop", BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.55,
-			BorderSizePixel = 0, Active = true, Size = UDim2.fromScale(1, 1), ZIndex = 1, Parent = gui,
-		}
-
-		-- Toolbar ---------------------------------------------------------------------------
-		local width = math.min(460, screen.X - 24)
-		local toolbar = Create("Frame") {
-			Name = "Toolbar", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 12),
-			Size = UDim2.fromOffset(width, 66), BackgroundColor3 = c.SurfaceContainerHigh,
-			BorderSizePixel = 0, Active = true, ZIndex = 20, Parent = gui,
-		}
-		Shape.Corner(Shape.Large, toolbar)
-		Create("UIStroke") { Color = c.OutlineVariant, Thickness = 1, Parent = toolbar }
-		local title = Create("TextLabel") {
-			Text = "HUD editor  \u{00B7}  HUD 編輯器", Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -230, 0, 22),
-			BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = c.OnSurface,
-			ZIndex = 21, Parent = toolbar,
-		}
-		Typography.Apply(title, "TitleSmall")
-		local hint = Create("TextLabel") {
-			Text = "Drag to move, drag the dot to resize\n拖曳移動，拖曳圓點縮放", Position = UDim2.fromOffset(16, 30),
-			Size = UDim2.new(1, -230, 0, 30), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
-			TextYAlignment = Enum.TextYAlignment.Top, TextWrapped = true, TextColor3 = c.OnSurfaceVariant,
-			ZIndex = 21, Parent = toolbar,
-		}
-		Typography.Apply(hint, "BodySmall")
-
-		local function button(text, x, w, background, foreground, onPress)
-			local b = Create("TextButton") {
-				Text = text, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, x, 0.5, 0),
-				Size = UDim2.fromOffset(w, 40), BackgroundColor3 = background, TextColor3 = foreground,
-				AutoButtonColor = true, BorderSizePixel = 0, ZIndex = 22, Parent = toolbar,
-			}
-			Typography.Apply(b, "LabelLarge")
-			Shape.Corner(Shape.Full, b)
-			table.insert(newSession.Connections, b.Activated:Connect(onPress))
-			return b
-		end
-		button("Done 完成", -12, 100, c.Primary, c.OnPrimary, function()
-			Hud.close()
-		end)
-		button("Reset 重設", -120, 100, c.SecondaryContainer, c.OnSecondaryContainer, function()
-			Hud.reset()
-		end)
-
-		-- One frame + resize dot per HUD piece -----------------------------------------------
-		local boxes = {}
-		local drag = nil
-		for _, name in Hud.Order do
-			local entry = Hud.Elements[name]
-			if entry.Show then
-				local ok, restore = pcall(entry.Show)
-				if ok and restore then
-					table.insert(newSession.Restores, restore)
-				end
-			end
-		end
-		-- Pieces that were hidden only get their real size and place on the next frame.
-		RunService.RenderStepped:Wait()
-		if session ~= newSession then
-			return
-		end
-		for _, name in Hud.Order do
-			local entry = Hud.Elements[name]
-			entry.BoxGui = insetGui
-			placeAt(entry, entry.Frame.AbsolutePosition, false)
-
-			local box = Create("Frame") {
-				Name = name, BackgroundColor3 = c.Primary, BackgroundTransparency = 0.82,
-				BorderSizePixel = 0, Active = true, ZIndex = 5, Parent = entry.BoxGui,
-			}
-			Shape.Corner(UDim.new(0, 10), box)
-			Create("UIStroke") { Color = c.Primary, Thickness = 2, Parent = box }
-			local tag = Create("TextLabel") {
-				Text = " " .. entry.Title .. " ", AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromOffset(0, -4),
-				AutomaticSize = Enum.AutomaticSize.XY, BackgroundColor3 = c.Primary, TextColor3 = c.OnPrimary,
-				BorderSizePixel = 0, ZIndex = 6, Parent = box,
-			}
-			Typography.Apply(tag, "LabelSmall")
-			Shape.Corner(Shape.Full, tag)
-			if entry.Hideable then
-				local chip = Create("TextButton") {
-					AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, 0, 0, -4),
-					AutomaticSize = Enum.AutomaticSize.XY, BackgroundColor3 = c.SecondaryContainer,
-					TextColor3 = c.OnSecondaryContainer, BorderSizePixel = 0, AutoButtonColor = true,
-					ZIndex = 8, Parent = box,
-				}
-				Typography.Apply(chip, "LabelSmall")
-				Shape.Corner(Shape.Full, chip)
-				local function paint()
-					local hidden = entry.Hideable.Get()
-					chip.Text = hidden and " Show 顯示 " or " Hide 隱藏 "
-					box.BackgroundTransparency = hidden and 0.94 or 0.82
-					tag.BackgroundTransparency = hidden and 0.6 or 0
-				end
-				paint()
-				table.insert(newSession.Connections, chip.Activated:Connect(function()
-					entry.Hideable.Set(not entry.Hideable.Get())
-					paint()
-				end))
-			end
-			local grip = Create("Frame") {
-				Name = "Grip", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(1, 1),
-				Size = UDim2.fromOffset(26, 26), BackgroundColor3 = c.Primary, BorderSizePixel = 0,
-				Active = true, ZIndex = 7, Parent = box,
-			}
-			Shape.Corner(Shape.Full, grip)
-			Create("UIStroke") { Color = c.OnPrimary, Thickness = 2, Parent = grip }
-			boxes[name] = box
-
-			table.insert(newSession.Connections, box.InputBegan:Connect(function(input)
-				if isPress(input) and not drag then
-					drag = { Mode = "move", Entry = entry, Input = input, Pointer = input.Position, Start = entry.Frame.AbsolutePosition }
-				end
-			end))
-			table.insert(newSession.Connections, grip.InputBegan:Connect(function(input)
-				if isPress(input) and not drag then
-					drag = {
-						Mode = "resize", Entry = entry, Input = input, Pointer = input.Position,
-						Scale = entry.Scale.Scale, Size = entry.Frame.AbsoluteSize,
-					}
-				end
-			end))
-		end
-
-		table.insert(newSession.Connections, UserInputService.InputChanged:Connect(function(input)
-			if not drag then
-				return
-			end
-			if input.UserInputType ~= Enum.UserInputType.MouseMovement and input ~= drag.Input then
-				return
-			end
-			local delta = input.Position - drag.Pointer
-			if drag.Mode == "move" then
-				placeAt(drag.Entry, drag.Start + Vector2.new(delta.X, delta.Y), true)
-			else
-				local size = drag.Size
-				local ratio = ((size.X + delta.X) / math.max(size.X, 1) + (size.Y + delta.Y) / math.max(size.Y, 1)) / 2
-				drag.Entry.Scale.Scale = math.clamp(drag.Scale * ratio, drag.Entry.Min, drag.Entry.Max)
-				drag.Entry.Touched = true
-			end
-		end))
-		table.insert(newSession.Connections, UserInputService.InputEnded:Connect(function(input)
-			if drag and isPress(input) and (input.UserInputType ~= Enum.UserInputType.Touch or input == drag.Input) then
-				drag = nil
-			end
-		end))
-		table.insert(newSession.Connections, RunService.RenderStepped:Connect(function()
-			for name, box in boxes do
-				local frame = Hud.Elements[name].Frame
-				local at, size = frame.AbsolutePosition, frame.AbsoluteSize
-				box.Position = UDim2.fromOffset(at.X, at.Y)
-				box.Size = UDim2.fromOffset(math.max(size.X, 48), math.max(size.Y, 32))
-			end
-		end))
-	end
-
-	track(function()
-		Hud.close()
-	end)
-
-end
-        local Hud = MD3.LYHud
-        function Hud.destroy()
-            for _, fn in ipairs(cleanups) do pcall(fn) end
-            for _, g in ipairs(owned) do pcall(function() g:Destroy() end) end
-        end
-        return Hud
-    end
-
-    ---------------------------------------------------------------------------------------------- facade
-    local ACCENT = Color3.fromHex("#A21FF2")
-
-    local function iconArg(icon)
-        if type(icon) == "string" and icon ~= "" then return icon end
-        return "widgets"
-    end
-
-    local function tip(o)
-        local t = o and o.Tooltip
-        if type(t) == "string" and t ~= "" then return t end
-        return nil
-    end
-
-    -- an element of the facade: what the Starlight controls hold in `_el`
-    local El = {}
-    El.__index = El
-
-    local function newEl(gb, md, text)
-        return setmetatable({ _gb = gb, _md = md, Instance = md.Instance, _text = text }, El)
-    end
-
-    function El:Set(t)
-        if type(t) ~= "table" then return end
-        local md = self._md
-        if t.Name ~= nil then
-            self._text = tostring(t.Name)
-            if md.Type == "Label" then
-                md:Set(self._text, true)
-            elseif md.SetTitle ~= nil then
-                md:SetTitle(self._text)
-            end
-        end
-        if t.CurrentValue ~= nil then
-            pcall(md.Set, md, t.CurrentValue, true)
-        end
-    end
-
-    function El:Lock() end
-    function El:Unlock() end
-
-    function El:Destroy()
-        pcall(function() self._md:Destroy() end)
-        local n = self._nested
-        if n ~= nil then pcall(function() n._md:Destroy() end) end
-    end
-
-    -- the label row that carries a dropdown / colour picker / key box is replaced by that control's own row
-    -- (MD3 has no inline controls): the label's text becomes its title and the host points at the new row
-    local function takeOver(host, row)
-        pcall(function() host._md:SetVisible(false) end)
-        host._md = row
-        host.Instance = row.Instance
-    end
-
-    local function nestedWrapper(row, extra)
-        local n = setmetatable({ _md = row, Instance = row.Instance, LYRow = row.Instance,
-            Instances = { row.Instance, row.Instance } }, El)
-        if extra then for k, v in pairs(extra) do n[k] = v end end
-        return n
-    end
-
-    function El:AddDropdown(spec)
-        local multi = spec.MultipleOptions == true
-        local current = spec.CurrentOption
-        local default
-        if multi then
-            default = type(current) == "table" and current or {}
-        else
-            default = type(current) == "table" and current[1] or current
-        end
-        local cb = spec.Callback
-        local row = self._gb._md:AddDropdown({
-            Title = self._text, Options = spec.Options or {}, Default = default, Multi = multi,
-            Callback = function(v)
-                if cb ~= nil then cb(type(v) == "table" and v or { v }) end
-            end,
-        })
-        takeOver(self, row)
-        local n = nestedWrapper(row)
-        n.Set = function(_, t)
-            if type(t) ~= "table" then return end
-            if t.Options ~= nil then pcall(row.SetOptions, row, t.Options) end
-            if t.CurrentOption ~= nil then
-                local cur = t.CurrentOption
-                pcall(row.Set, row, multi and cur or cur[1], true)
-            end
-        end
-        self._nested = n
-        return n
-    end
-
-    function El:AddColorPicker(spec)
-        local cb = spec.Callback
-        local own = self._md.Type == "Label"
-        local title = own and self._text or (tostring(self._text) .. " Color")
-        local row = self._gb._md:AddColorPicker({
-            Title = title, Default = spec.CurrentValue or Color3.new(1, 1, 1),
-            Transparency = type(spec.Transparency) == "number" and spec.Transparency or 0,
-            Callback = function(color, transparency)
-                if cb ~= nil then cb(color, transparency) end
-            end,
-        })
-        if own then takeOver(self, row) end
-        local n = nestedWrapper(row)
-        n.Set = function(_, t)
-            if type(t) ~= "table" then return end
-            local color = t.CurrentValue
-            if typeof(color) ~= "Color3" then return end
-            pcall(row.Set, row, { Color = color, Transparency = t.Transparency or 0 }, true)
-        end
-        self._nested = n
-        return n
-    end
-
-    local function keyFromText(text)
-        if type(text) ~= "string" or text == "No Bind" or text == "" then return nil end
-        local ok, key = pcall(function() return Enum.KeyCode[text] end)
-        if ok and key ~= nil then return key end
-        return nil
-    end
-
-    function El:AddBind(spec)
-        local own = self._md.Type == "Label"
-        local title = own and self._text or (tostring(self._text) .. " Key")
-        local changed = spec.OnChangedCallback
-        local row = self._gb._md:AddKeybind({
-            Title = title, Default = keyFromText(spec.CurrentValue), Mode = "Press", Notify = false,
-            ChangedCallback = function(key)
-                if changed ~= nil then changed(key and key.Name or "No Bind") end
-            end,
-        })
-        if own then takeOver(self, row) end
-        -- the keybind list is fed by the menu's list entries, not by this row
-        local win = self._gb._tab._lib.Window
-        local keybinds = win and win._keybinds
-        local at = keybinds and table.find(keybinds, row)
-        if at then table.remove(keybinds, at) end
-        local n = nestedWrapper(row)
-        n.Set = function(_, t)
-            if type(t) ~= "table" or t.CurrentValue == nil then return end
-            pcall(row.Set, row, keyFromText(t.CurrentValue), true)
-        end
-        self._nested = n
-        return n
-    end
-
-    -- groupbox: one MD3 section
-    local Gb = {}
-    Gb.__index = Gb
-
-    function Gb:CreateLabel(o)
-        local md = self._md:AddLabel({ Text = tostring(o.Name or "") })
-        return newEl(self, md, tostring(o.Name or ""))
-    end
-
-    function Gb:CreateToggle(o)
-        local md = self._md:AddToggle({
-            Title = tostring(o.Name or ""), Description = tip(o), Default = o.CurrentValue == true, Callback = o.Callback,
-        })
-        return newEl(self, md, tostring(o.Name or ""))
-    end
-
-    function Gb:CreateSlider(o)
-        local range = o.Range or { 0, 100 }
-        local md = self._md:AddSlider({
-            Title = tostring(o.Name or ""), Description = tip(o), Min = range[1], Max = range[2],
-            Step = o.Increment or 1, Default = o.CurrentValue, Suffix = o.Suffix or "", Callback = o.Callback,
-        })
-        return newEl(self, md, tostring(o.Name or ""))
-    end
-
-    function Gb:CreateButton(o)
-        local md = self._md:AddButton({ Title = tostring(o.Name or ""), Description = tip(o), Callback = o.Callback })
-        return newEl(self, md, tostring(o.Name or ""))
-    end
-
-    function Gb:CreateDivider()
-        local md = self._md:AddDivider()
-        return newEl(self, md, "")
-    end
-
-    function Gb:CreateInput(o)
-        local md = self._md:AddInput({
-            Title = tostring(o.Name or ""), Description = tip(o), Placeholder = tostring(o.PlaceholderText or ""),
-            Default = tostring(o.CurrentValue or ""), Callback = o.Callback,
-        })
-        return newEl(self, md, tostring(o.Name or ""))
-    end
-
-    -- tab (a page of the menu): one MD3 sub tab
-    local TabC = {}
-    TabC.__index = TabC
-
-    function TabC:CreateGroupbox(o)
-        local side = (o.Column or 1) >= 2 and "Right" or "Left"
-        local title = o.Name
-        if title == " " then title = nil end
-        local sec = self._sub:AddSection(title, side)
-        return setmetatable({ _md = sec, Instance = sec.Instance, _tab = self }, Gb)
-    end
-
-    -- Settings > Theme: MD3's own theme editor
-    function TabC:BuildThemeGroupbox()
-        local win = self._lib.Window
-        local ok, err = pcall(win.AddThemeEditor, win, self._sub)
-        if not ok then log("LY theme editor failed: " .. tostring(err)) end
-    end
-
-    -- sidebar section: one MD3 tab
-    local TS = {}
-    TS.__index = TS
-
-    function TS:CreateTab(o)
-        local mdTab = self._mdTab
-        local columns = (o.Columns or 2) >= 2 and 2 or 1
-        local sub = mdTab:AddSubTab(tostring(o.Name), { Columns = columns })
-        -- the button row of the sub tabs scrolls sideways; a mouse wheel only scrolls pages up and down, so over
-        -- the row the wheel moves the row (and the page stays still meanwhile)
-        local nav = mdTab._subNav
-        if nav ~= nil and not mdTab._lyWheel then
-            mdTab._lyWheel = true
-            pcall(function()
-                nav.InputChanged:Connect(function(input)
-                    if input.UserInputType ~= Enum.UserInputType.MouseWheel then return end
-                    local limit = math.max(0, nav.AbsoluteCanvasSize.X - nav.AbsoluteSize.X)
-                    nav.CanvasPosition = Vector2.new(math.clamp(nav.CanvasPosition.X - input.Position.Z * 70, 0, limit), 0)
-                end)
-                nav.MouseEnter:Connect(function() mdTab.Instance.ScrollingEnabled = false end)
-                nav.MouseLeave:Connect(function() mdTab.Instance.ScrollingEnabled = true end)
-            end)
-        end
-        local index = #mdTab._subTabs
-        local t = setmetatable({ _sub = sub, _ts = self, _lib = self._lib }, TabC)
-        -- the first page of the tab that is open is built at once; any other page when its button is first pressed
-        -- (the first page of another tab: the sidebar button of that tab)
-        if index == 1 then
-            t.Active = self._lib.Window.SelectedTab == mdTab
-            t.Instances = { Button = { Interact = mdTab._button } }
-        else
-            t.Active = false
-            t.Instances = { Button = { Interact = sub.Button } }
-        end
-        return t
-    end
-
-    local Lib = {}
-    Lib.__index = Lib
-
-    function Lib.new()
-        return setmetatable({ Minimized = false }, Lib)
-    end
-
-    function Lib:CreateWindow(o)
-        local md3 = LYUI.Load()
-        local win = md3:CreateWindow({
-            Title = o.Name, Subtitle = o.Subtitle, Icon = "sports_esports", Logo = LYUI.Logo() or K.LithiumLogo, Mode = "Dark", ThemeColor = ACCENT,
-            ToggleKey = Enum.KeyCode.F15, ConfigFolder = "LxYHook", SectionsAsSubTabs = false,
-            LoadingScreen = false, KeybindNotify = false, MinimizeButton = false,
-        })
-        pcall(win.SetVisible, win, false)
-        self.Window = win
-        return win
-    end
-
-    function Lib:CreateTabSection(name, icon)
-        local win = self.Window
-        local mdTab = win:AddTab({ Title = tostring(name), Icon = iconArg(icon) })
-        return setmetatable({ _mdTab = mdTab, _lib = self }, TS)
-    end
-
-    function Lib:Destroy()
-        local win = self.Window
-        self.Window = nil
-        if win ~= nil then pcall(win.Destroy, win) end
-    end
-
-    ---------------------------------------------------------------------------------------------- menu
-    local LMenu = {}
-    LMenu.__index = function(t, k)
-        local v = rawget(LMenu, k)
-        if v ~= nil then return v end
-        v = rawget(Menu, k)
-        if v ~= nil then return v end
-        if isMethodName(k) then return function() return nil end end
-        return nil
-    end
-    LYUI.Menu = LMenu
-
-    function LMenu.new(opts)
-        -- Menu.new asks StarUI.Load for its library: hand it the facade
-        local saved = StarUI.Load
-        -- the library is loaded here, inside the build that falls back to the classic menu when it fails
-        LYUI.Load()
-        StarUI.Load = function() return Lib.new() end
-        local ok, self = pcall(Menu.new, opts)
-        StarUI.Load = saved
-        if not ok then error(self, 0) end
-        setmetatable(self, LMenu)
-        self._listEntries = {}
-        -- the window (and with it the HUD: watermark, keybind list) is built in the background, hidden: without this
-        -- the keybind list would not exist until the menu is opened for the first time
-        task.delay(2, function()
-            if self._destroyed or self._materialized or self._materializing then return end
-            local okBuild, errBuild = pcall(self._materialize, self)
-            if not okBuild then
-                self._materializing = false
-                log("LY menu failed to build: " .. tostring(errBuild))
-                pcall(function() tbl17.aB().get():Notify("The LY menu could not be built, the classic menu is shown instead (see the log).") end)
-                if K.RebuildMenu then task.defer(K.RebuildMenu, "Classic") end
-                return
-            end
-            if self._wantShow == true and not self._destroyed then self:SetVisible(true, true) end
-        end)
-        return self
-    end
-
-    -- Keybind list entries: one per keybind control, made when the control is (the control's page may never be
-    -- opened). Each is a keybind element of MD3 that lives in a section nobody sees; the list of the HUD reads
-    -- those. update(show, key, active, always): `show` = the feature is on and its key is meant for the list.
-    function LMenu:_listMake(entry)
-        local win = self._lib.Window
-        if win == nil or entry.el ~= nil then return end
-        local saved = rawget(win, "_registerSearchable")
-        win._registerSearchable = function() end
-        local ok, err = pcall(function()
-            if self._listSection == nil then
-                self._listSection = win.Tabs[1]:_addSectionIn(Instance.new("Frame"), "KeybindList", nil)
-            end
-            entry.el = self._listSection:AddKeybind({ Title = entry.label, Mode = "Press", Notify = false })
-        end)
-        win._registerSearchable = saved
-        if not ok then
-            log("LY keybind list entry failed: " .. tostring(err))
-            return
-        end
-        entry.apply()
-    end
-
-    function LMenu:_listAdd(label)
-        local entry = { label = label, show = false, key = nil, active = false, always = false }
-        function entry.apply()
-            local el = entry.el
-            if el == nil then return end
-            if entry.show then
-                el.Value = entry.key or { Name = entry.always and "Always" or "None" }
-                el:SetState(entry.active or entry.always)
-            else
-                el.Value = nil
-                el:SetState(false)
-            end
-        end
-        function entry.update(show, key, active, always)
-            entry.show, entry.key, entry.active, entry.always = show == true, key, active == true, always == true
-            entry.apply()
-        end
-        table.insert(self._listEntries, entry)
-        if self._hud ~= nil then self:_listMake(entry) end
-        return entry
-    end
-
-    function LMenu:_materialize()
-        if self._materialized or self._materializing or self._destroyed then return end
-        self._materializing = true
-        local L, opts = self._lib, self._opts
-        local t0 = os.clock()
-        L:CreateWindow({ Name = self.Title, Subtitle = opts.Subtitle or "Rivals" })
-        -- the menu's tabs and dialogs ask its "window" for sidebar sections: that is the facade
-        self._win = L
-        if coroutine.isyieldable() then task.wait() end
-        local function owner(o)
-            if o._ts == nil then o._ts = L:CreateTabSection(o.Label, o.Icon) end
-            for _, page in ipairs(o._pagesOrder) do
-                if self._destroyed then return end
-                page:_physical()
-            end
-            -- a tab with a single page has no use for a button row of one
-            if #o._pagesOrder == 1 then
-                pcall(function() o._ts._mdTab._subNav.Visible = false end)
-            end
-            if coroutine.isyieldable() then task.wait() end
-        end
-        for _, tab in ipairs(self._tabs) do owner(tab) end
-        for _, o in ipairs(self._owners) do owner(o) end
-        self._materialized = true
-        self._materializing = false
-        self:_buildHud()
-        log(string.format("menu step: LY menu built on first show in %.3f s", os.clock() - t0))
-        -- the window's own visibility (its mobile button) is followed
-        task.spawn(function()
-            local last
-            while not self._destroyed do
-                task.wait(0.25)
-                pcall(function()
-                    local win = L.Window
-                    local vis = win ~= nil and win.Visible == true
-                    if vis ~= last then
-                        last = vis
-                        self:_setVisibleState(vis)
-                    end
-                end)
-            end
-        end)
-    end
-
-    function LMenu:SetVisible(visible, instant)
-        if K.UIMark then K.UIMark(visible and "window shown" or "window hidden") end
-        if not self._materialized then
-            if self._destroyed then return true end
-            if self._materializing then self._wantShow = visible return true end
-            if not visible then
-                self:_setVisibleState(false)
-                return true
-            end
-            self._wantShow = true
-            local ok, err = pcall(self._materialize, self)
-            if not ok then
-                self._materializing = false
-                log("LY menu failed to build: " .. tostring(err))
-                pcall(function() tbl17.aB().get():Notify("The LY menu could not be built, the classic menu is shown instead (see the log).") end)
-                if K.RebuildMenu then task.defer(K.RebuildMenu, "Classic") end
-                return true
-            end
-            if self._destroyed or not self._materialized then return true end
-            visible, instant = self._wantShow, true
-        end
-        local win = self._lib.Window
-        if win ~= nil then pcall(win.SetVisible, win, visible) end
-        self:_setVisibleState(visible)
-        return true
-    end
-
-    function LMenu:Destroy()
-        local hud = self._hud
-        self._hud = nil
-        if hud ~= nil and hud.Editor ~= nil then pcall(hud.Editor.destroy) end
-        -- every piece the editor moved goes back to where it was made
-        K.HudRegisterFn = nil
-        pcall(function()
-            local editor = hud ~= nil and hud.Editor or nil
-            if editor == nil then return end
-            for _, e in pairs(editor.Elements) do
-                if e.Frame ~= nil and e.Frame.Parent ~= nil then
-                    e.Frame.Position, e.Frame.AnchorPoint = e.Default.Position, e.Default.Anchor
-                    pcall(function() e.Scale:Destroy() end)
-                end
-            end
-        end)
-        -- the card of LY goes; the script's own Target HUD draws again
-        K.TargetHudLY = nil
-        pcall(function()
-            for _, fn in ipairs(hud ~= nil and hud.targetCleanups or {}) do pcall(fn) end
-        end)
-        Menu.Destroy(self)
-    end
-
-    function LMenu:SetAccent(c)
-        if typeof(c) == "table" then c = c.Rgb end
-        local win = self._lib.Window
-        if typeof(c) == "Color3" and win ~= nil then
-            pcall(function() win.Theme:SetSeedColor(c) end)
-        end
-        self.AccentChanged:Fire(c)
-    end
-
-    -- HUD: LY's watermark and keybind list, on the window's own HUD layer (they stay up while the menu is closed)
-    function LMenu:_buildHud()
-        local win = self._lib.Window
-        if win == nil then return end
-        local hud = {}
-        self._hud = hud
-        pcall(function()
-            hud.Watermark = win:AddWatermark({ Title = "LxYHook", Player = true, FPS = true, Ping = true, Clock = true })
-            hud.Watermark.Instance.Visible = self._watermark ~= false
-        end)
-        pcall(function()
-            -- every entry is a feature that is on: the active ones are lit; the box is hidden while it is empty
-            hud.Keybinds = win:AddKeybindList({ Title = "Keybinds", Position = "Left", ShowAll = true })
-            local list = hud.Keybinds
-            local function visibility()
-                -- a phone has the on-screen key buttons instead
-                local phone = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
-                list.Instance.Visible = self._keybindList ~= false and not phone and (list.Count or 0) > 0
-            end
-            -- after every draw of the list (the library's own handler order is not fixed)
-            local render = list._render
-            list._render = function(self2, ...)
-                render(self2, ...)
-                visibility()
-            end
-            self._listVisibility = visibility
-            for _, entry in ipairs(self._listEntries) do self:_listMake(entry) end
-            visibility()
-        end)
-        -- the layout editor; the library's own HUD pieces stay up while it is open and are locked afterwards
-        local okEditor, editor = pcall(LYUI.InstallHud, win)
-        if okEditor then
-            hud.Editor = editor
-            pcall(function()
-            for _, piece in ipairs({ { "Watermark", "Watermark", hud.Watermark }, { "Keybind list", "Keybinds", hud.Keybinds } }) do
-                local frame = piece[3] and piece[3].Instance
-                if frame then
-                    editor.register(piece[1], {
-                        Frame = frame, Title = piece[2], Lib = true,
-                        Show = function()
-                            local layer = win._hudLayer
-                            local layerWas, frameWas = layer and layer.Visible, frame.Visible
-                            if layer then layer.Visible = true end
-                            frame.Visible = true
-                            return function()
-                                if layer then layer.Visible = layerWas end
-                                frame.Visible = frameWas
-                            end
-                        end,
-                    })
-                end
-            end
-            end)
-            -- the Target HUD card of LY (the script's own card stays hidden while this menu is up)
-            hud.targetCleanups = {}
-            K.TargetHudLY = {}
-            local okTh, errTh = pcall(self._buildTargetHud, self, win, editor)
-            if not okTh then
-                K.TargetHudLY = nil
-                log("LY Target HUD failed: " .. tostring(errTh))
-            end
-            -- the FIRE button and the on-screen key buttons of the script
-            K.HudRegisterFn = function(name, spec)
-                if editor.Elements[name] == nil or editor.Elements[name].Frame ~= spec.Frame then editor.register(name, spec) end
-            end
-            for name, spec in pairs(K.HudPieces or {}) do pcall(K.HudRegisterFn, name, spec) end
-        else
-            log("LY HUD editor failed: " .. tostring(editor))
-        end
-        -- the Target HUD card and the other kh pieces take their colours from the script's theme tokens: the
-        -- tokens follow the MD3 theme
-        local function syncTokens()
-            local c = win.Theme.Colors
-            local t = tbl17.z()
-            t.Accent, t.Outline, t.Background = c.Primary, c.Outline, c.Surface
-            t.ElementBackground, t.TabButtonSelected = c.SurfaceContainerHigh, c.SecondaryContainer
-            t.Unselected, t.TextColor = c.OnSurfaceVariant, c.OnSurface
-        end
-        pcall(syncTokens)
-        pcall(function() win.Theme.Changed:Connect(function() pcall(syncTokens) end) end)
-    end
-
-    -- Settings > HUD: the layout editor
-    function LMenu:AddSettingsTab()
-        local tab, result = Menu.AddSettingsTab(self)
-        pcall(function()
-            local page = tab:AddTab({ Label = "HUD" })
-            local sec = page:Grid({ Columns = 1 }):AddSection({ Title = "HUD editor" })
-            local function editor()
-                local hud = self._hud
-                return hud ~= nil and hud.Editor or nil
-            end
-            sec:AddButton({
-                Label = "Edit HUD layout",
-                Tooltip = "Move and resize the watermark and the keybind list. Leaving the editor locks them in place",
-                OnClick = function()
-                    local e = editor()
-                    if e ~= nil then e.open() end
-                end,
-            })
-            sec:AddToggle({
-                Label = "Mobile key buttons",
-                Tooltip = "An on-screen button for every key feature that is not Always: hold it for a Hold key, tap it for a Toggle key. On by default on phones. Move and hide them in the HUD editor",
-                Default = K.MobileKeys ~= nil and K.MobileKeys.Enabled == true,
-                OnChanged = function(on)
-                    if K.MobileKeys ~= nil then K.MobileKeys.setEnabled(on) end
-                end,
-            })
-            sec:AddButton({
-                Label = "Reset HUD layout",
-                Tooltip = "Put every HUD piece back at its default place and size",
-                OnClick = function()
-                    local e = editor()
-                    if e ~= nil then e.reset() end
-                end,
-            })
-        end)
-        return tab, result
-    end
-
-    function LMenu:SetWatermarkEnabled(v)
-        self._watermark = v
-        self:_persistFlag("ShowWatermark", v)
-        local hud = self._hud
-        if hud ~= nil and hud.Watermark ~= nil then pcall(function() hud.Watermark.Instance.Visible = v ~= false end) end
-    end
-
-    function LMenu:SetKeybindListEnabled(v)
-        self._keybindList = v
-        self:_persistFlag("ShowKeybinds", v)
-        local hud = self._hud
-        if hud ~= nil and hud.Keybinds ~= nil then
-            pcall(function()
-                hud.Keybinds:SetVisible(v ~= false)
-                if self._listVisibility then self._listVisibility() end
-            end)
-        end
-    end
-
-    function LMenu:SetWatermarkUsername(name)
-        self._wmName = name
-    end
-    ---------------------------------------------------------------------------------------------- skin changer
-    -- The picker of skins, wraps, charms and finishers as a card grid of MD3 (the classic menu's own widget is made of
-    -- the classic menu's controls). Same surface as the classic one: SetItems / SetState / SetFilter /
-    -- SetClearFilterAction / Set / Value / OnChanged; items are { Name, Image, Render }.
-    do
-        local SkinC = S.subclass()
-        local origMaker = S.Makers.SkinChanger
-
-        S.Makers.SkinChanger = function(sec, o)
-            -- only the LY menu has the keybind list entries of this form
-            if sec._menu._listAdd == nil then return origMaker(sec, o) end
-            return SkinC.new(sec, o or {})
-        end
-
-        local STATE_TEXT = {
-            Loading = { "Loading catalog", "The previews are being prepared." },
-            Unavailable = { "Unavailable", "The catalog could not be loaded." },
-            Empty = { "No items available", "This catalog does not have any items yet." },
-            NoMatches = { "No matches", "Nothing matches the search." },
-        }
-
-        local function indexOf(items, name)
-            for i, it in ipairs(items) do
-                if it.Name == name then return i end
-            end
-            return nil
-        end
-
-        function SkinC.new(sec, o)
-            local self = S.newControl(sec, "SkinChanger", SkinC)
-            self.Items = o.Items or {}
-            self._published = o.Items ~= nil
-            self.State = o.State or "Ready"
-            self._stateMsg = o.StateMessage
-            self._onClear = o.OnClearFilter
-            self._filter = nil
-            self._entries = {}
-            self._token = 0
-            self._label = "SkinChanger"
-            if o.OnChanged ~= nil then self:OnChanged(o.OnChanged) end
-            self:_defer(function() self:_build() end)
-            return self
-        end
-
-        function SkinC:_instance() return self._frame end
-        function SkinC:_isReady() return self._frame ~= nil end
-
-        function SkinC:_paint(entry, selected)
-            if entry == nil then return end
-            entry.Selected = selected
-            local themer = self._themer
-            themer:Bind(entry.Button, { BackgroundColor3 = selected and "SecondaryContainer" or "SurfaceContainerHighest" })
-            themer:Bind(entry.Title, { TextColor3 = selected and "OnSecondaryContainer" or "OnSurface" })
-            entry.Stroke.Enabled = selected
-        end
-
-        function SkinC:_applyFilter()
-            local filter = self._filter
-            for _, e in ipairs(self._entries) do
-                local show = filter == nil or filter(e.Item, e.Key)
-                if e.Button.Visible ~= show then e.Button.Visible = show end
-            end
-        end
-
-        function SkinC:_applyState()
-            if self._frame == nil then return end
-            local ready = self.State == "Ready"
-            self._holder.Visible = ready
-            self._overlay.Visible = not ready
-            local text = STATE_TEXT[self.State] or { "", "" }
-            self._stTitle.Text = text[1]
-            self._stMsg.Text = self._stateMsg or text[2]
-            self._clear.Visible = self.State == "NoMatches" and self._onClear ~= nil
-        end
-
-        function SkinC:_cards()
-            self._token = self._token + 1
-            local token = self._token
-            for _, e in ipairs(self._entries) do pcall(function() e.Button:Destroy() end) end
-            self._entries = {}
-            self._sel = nil
-            local items = self.Items
-            local themer = self._themer
-            task.spawn(function()
-                for i, item in ipairs(items) do
-                    if self._token ~= token or self._dead then return end
-                    local button = Instance.new("TextButton")
-                    button.Name = tostring(item.Name)
-                    button.Text = ""
-                    button.AutoButtonColor = false
-                    button.BorderSizePixel = 0
-                    button.LayoutOrder = i
-                    button.ClipsDescendants = true
-                    local corner = Instance.new("UICorner")
-                    corner.CornerRadius = UDim.new(0, 12)
-                    corner.Parent = button
-                    local stroke = Instance.new("UIStroke")
-                    stroke.Thickness = 2
-                    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-                    stroke.Enabled = false
-                    themer:Bind(stroke, { Color = "Primary" })
-                    stroke.Parent = button
-                    local preview = Instance.new("Frame")
-                    preview.BackgroundTransparency = 1
-                    preview.Size = UDim2.new(1, -12, 1, -34)
-                    preview.Position = UDim2.fromOffset(6, 6)
-                    preview.Parent = button
-                    local image = Instance.new("ImageLabel")
-                    image.BackgroundTransparency = 1
-                    image.Size = UDim2.fromScale(1, 1)
-                    image.ScaleType = Enum.ScaleType.Fit
-                    image.Image = item.Image or "rbxassetid://89204837120267"
-                    image.Parent = preview
-                    local title = Instance.new("TextLabel")
-                    title.BackgroundTransparency = 1
-                    title.Size = UDim2.new(1, -8, 0, 24)
-                    title.Position = UDim2.new(0, 4, 1, -27)
-                    title.Font = Enum.Font.GothamMedium
-                    title.TextSize = 12
-                    title.Text = tostring(item.Name)
-                    title.TextTruncate = Enum.TextTruncate.AtEnd
-                    title.TextWrapped = true
-                    title.Parent = button
-                    local entry = { Item = item, Button = button, Title = title, Stroke = stroke, Key = tostring(item.Name):lower() }
-                    self._entries[#self._entries + 1] = entry
-                    self:_paint(entry, item.Name == self.Value)
-                    if item.Name == self.Value then self._sel = entry end
-                    if item.Render ~= nil then
-                        local content = Instance.new("Frame")
-                        content.BackgroundTransparency = 1
-                        content.Size = UDim2.fromScale(1, 1)
-                        content.Parent = preview
-                        local ok, err = pcall(item.Render, item, {
-                            Content = content,
-                            HideImage = function() image.Visible = false end,
-                        })
-                        if not ok then log("LY skin preview failed: " .. tostring(err)) end
-                    end
-                    button.MouseButton1Click:Connect(function() self:Set(item.Name) end)
-                    local filter = self._filter
-                    if filter ~= nil and not filter(item, entry.Key) then button.Visible = false end
-                    button.Parent = self._holder
-                    if i % 8 == 0 then task.wait() end
-                end
-            end)
-        end
-
-        function SkinC:_build()
-            local gb = self._sec._gb
-            local md = gb._md
-            local win = gb._tab._lib.Window
-            local themer = win._themer
-            self._themer = themer
-            local frame = Instance.new("Frame")
-            frame.Name = "SkinChanger"
-            frame.BorderSizePixel = 0
-            frame.Size = UDim2.new(1, 0, 0, 340)
-            frame.LayoutOrder = md:_nextOrder()
-            themer:Bind(frame, { BackgroundColor3 = "SurfaceContainerHigh" })
-            local corner = Instance.new("UICorner")
-            corner.CornerRadius = UDim.new(0, 14)
-            corner.Parent = frame
-            local holder = Instance.new("ScrollingFrame")
-            holder.Name = "Cards"
-            holder.BackgroundTransparency = 1
-            holder.BorderSizePixel = 0
-            holder.Size = UDim2.new(1, -12, 1, -12)
-            holder.Position = UDim2.fromOffset(6, 6)
-            holder.ScrollBarThickness = 4
-            holder.CanvasSize = UDim2.new()
-            holder.AutomaticCanvasSize = Enum.AutomaticSize.Y
-            holder.ScrollingDirection = Enum.ScrollingDirection.Y
-            holder.Parent = frame
-            local grid = Instance.new("UIGridLayout")
-            grid.CellSize = UDim2.fromOffset(108, 124)
-            grid.CellPadding = UDim2.fromOffset(8, 8)
-            grid.SortOrder = Enum.SortOrder.LayoutOrder
-            grid.HorizontalAlignment = Enum.HorizontalAlignment.Center
-            grid.Parent = holder
-            local overlay = Instance.new("Frame")
-            overlay.Name = "State"
-            overlay.BackgroundTransparency = 1
-            overlay.Size = UDim2.fromScale(1, 1)
-            overlay.Visible = false
-            overlay.Parent = frame
-            local list = Instance.new("UIListLayout")
-            list.HorizontalAlignment = Enum.HorizontalAlignment.Center
-            list.VerticalAlignment = Enum.VerticalAlignment.Center
-            list.Padding = UDim.new(0, 6)
-            list.SortOrder = Enum.SortOrder.LayoutOrder
-            list.Parent = overlay
-            local stTitle = Instance.new("TextLabel")
-            stTitle.BackgroundTransparency = 1
-            stTitle.Size = UDim2.new(1, -24, 0, 22)
-            stTitle.Font = Enum.Font.GothamMedium
-            stTitle.TextSize = 16
-            stTitle.LayoutOrder = 1
-            themer:Bind(stTitle, { TextColor3 = "OnSurface" })
-            stTitle.Parent = overlay
-            local stMsg = Instance.new("TextLabel")
-            stMsg.BackgroundTransparency = 1
-            stMsg.Size = UDim2.new(1, -24, 0, 36)
-            stMsg.Font = Enum.Font.Gotham
-            stMsg.TextSize = 13
-            stMsg.TextWrapped = true
-            stMsg.LayoutOrder = 2
-            themer:Bind(stMsg, { TextColor3 = "OnSurfaceVariant" })
-            stMsg.Parent = overlay
-            local clear = Instance.new("TextButton")
-            clear.Size = UDim2.fromOffset(120, 32)
-            clear.AutoButtonColor = true
-            clear.Text = "Clear search"
-            clear.Font = Enum.Font.GothamMedium
-            clear.TextSize = 13
-            clear.BorderSizePixel = 0
-            clear.Visible = false
-            clear.LayoutOrder = 3
-            themer:Bind(clear, { BackgroundColor3 = "SecondaryContainer", TextColor3 = "OnSecondaryContainer" })
-            local clearCorner = Instance.new("UICorner")
-            clearCorner.CornerRadius = UDim.new(1, 0)
-            clearCorner.Parent = clear
-            clear.Parent = overlay
-            clear.MouseButton1Click:Connect(function()
-                local fn = self._onClear
-                if fn ~= nil then fn() end
-            end)
-            frame.Parent = md._holder
-            self._frame, self._holder, self._overlay, self._stTitle, self._stMsg, self._clear = frame, holder, overlay, stTitle, stMsg, clear
-            self._el = { Instance = frame, Destroy = function() frame:Destroy() end }
-            self:_cards()
-            self:_applyState()
-        end
-
-        function SkinC:Set(name, silent)
-            local v = name
-            if v ~= nil and self._published and indexOf(self.Items, v) == nil then v = nil end
-            local entry
-            for _, e in ipairs(self._entries) do
-                if e.Item.Name == v then entry = e break end
-            end
-            if self.Value == v and (entry == nil or self._sel == entry) and not (name ~= nil and v == nil) then return end
-            self.Value = v
-            if self._sel ~= nil and self._sel ~= entry then self:_paint(self._sel, false) end
-            self._sel = entry
-            if entry ~= nil then self:_paint(entry, true) end
-            self.ValueChanged:Fire(v)
-            if not silent then self.Changed:Fire(v) end
-        end
-
-        function SkinC:SetItems(items, silent)
-            self.Items = table.clone(items)
-            self._published = true
-            local value, emit = self.Value, false
-            if value == nil or indexOf(self.Items, value) == nil then
-                value = self.Items[1] and self.Items[1].Name or nil
-                emit = self.Value ~= nil
-            end
-            self.Value = value
-            if self._frame ~= nil then self:_cards() end
-            self.ValueChanged:Fire(value)
-            if emit and not silent then self.Changed:Fire(value) end
-        end
-
-        function SkinC:SetFilter(filter)
-            self._filter = filter
-            if self._frame ~= nil then self:_applyFilter() end
-            return self
-        end
-
-        function SkinC:SetState(state, message)
-            self.State = state
-            self._stateMsg = message
-            self:_applyState()
-            return self
-        end
-
-        function SkinC:SetClearFilterAction(fn)
-            self._onClear = fn
-            self:_applyState()
-            return self
-        end
-
-        function SkinC:Destroy()
-            self._token = self._token + 1
-            self._dead = true
-            pcall(function() self._frame:Destroy() end)
-        end
-    end
-    -- The Target HUD card of LY.lua (a Material 3 card: avatar, name, device, level / rank / win streak, held weapon,
-    -- health bar and the four loadout slots), drawn by the LY form instead of the script's own card. What it shows
-    -- comes from the script's Target HUD (see K.TargetHudLY); position and size are set in the HUD editor.
-    function LMenu:_buildTargetHud(win, editor)
-        local MD3 = LYUI.Load()
-        local Window = win
-        local Players = game:GetService("Players")
-        local RunService = game:GetService("RunService")
-        local UserInputService = game:GetService("UserInputService")
-        local TweenService = game:GetService("TweenService")
-        local LocalPlayer = Players.LocalPlayer
-        local self = self
-        local cleanups = self._hud.targetCleanups
-        local function own(x) cleanups[#cleanups + 1] = function() pcall(function() x:Destroy() end) end return x end
-        local function track(fn) cleanups[#cleanups + 1] = fn end
-	local hudLayer = Window._hudLayer
-	local themer = Window._themer
-	if not (hudLayer and themer) then
-		return
-	end
-	local Create, Typography, Shape = MD3.Create, MD3.Typography, MD3.Shape
-
-	local CARD_W, CARD_H = 340, 136
-	local TEXT_X = 78 -- left edge of the text column (avatar + gaps)
-
-	local card = own(Create("Frame") {
-		Name = "TargetHUD",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0.7, 0),
-		Size = UDim2.fromOffset(CARD_W, CARD_H),
-		BorderSizePixel = 0,
-		Active = true,
-		Visible = false,
-		Parent = hudLayer,
-	})
-	Shape.Corner(Shape.Medium, card)
-	local function hudFill()
-		return Window.Theme:GetTransparency("HUDBackground") or 0
-	end
-	local function hudText()
-		return Window.Theme:GetTransparency("HUDText") or 0
-	end
-	themer:Bind(card, {
-		BackgroundColor3 = function(c)
-			return c.HUDBackground
-		end,
-		BackgroundTransparency = hudFill,
-	})
-	local cardStroke = Create("UIStroke") {
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		Thickness = 1,
-		Parent = card,
-	}
-	themer:Bind(cardStroke, {
-		Color = function(c)
-			return c.HUDOutline
-		end,
-		Transparency = hudFill,
-	})
-
-	local function label(name, role, props)
-		props.Name = name
-		props.BackgroundTransparency = 1
-		props.Parent = card
-		local text = Create("TextLabel")(props)
-		Typography.Apply(text, role)
-		text.TextTruncate = Enum.TextTruncate.AtEnd
-		return text
-	end
-
-	local avatar = Create("ImageLabel") {
-		Name = "Avatar",
-		Position = UDim2.fromOffset(12, 15),
-		Size = UDim2.fromOffset(56, 56),
-		BorderSizePixel = 0,
-		Parent = card,
-	}
-	Shape.Corner(Shape.Full, avatar)
-	themer:Bind(avatar, { BackgroundColor3 = "SurfaceContainerHighest" })
-
-	-- Name (title) + device chip.
-	local nameLabel = label("TargetName", "TitleSmall", {
-		Position = UDim2.fromOffset(TEXT_X, 8),
-		Size = UDim2.fromOffset(110, 22),
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Text = "Target",
-	})
-	themer:Bind(nameLabel, {
-		TextColor3 = function(c)
-			return c.HUDText
-		end,
-		TextTransparency = hudText,
-	})
-
-	local deviceChip = Create("Frame") {
-		Name = "DeviceChip",
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -12, 0, 10),
-		Size = UDim2.fromOffset(0, 20),
-		AutomaticSize = Enum.AutomaticSize.X,
-		BorderSizePixel = 0,
-		Parent = card,
-	}
-	Shape.Corner(Shape.Full, deviceChip)
-	themer:Bind(deviceChip, { BackgroundColor3 = "SecondaryContainer" })
-	Create("UIPadding") {
-		PaddingLeft = UDim.new(0, 8),
-		PaddingRight = UDim.new(0, 8),
-		Parent = deviceChip,
-	}
-	local deviceLabel = Create("TextLabel") {
-		Name = "DeviceText",
-		BackgroundTransparency = 1,
-		Size = UDim2.fromOffset(0, 20),
-		AutomaticSize = Enum.AutomaticSize.X,
-		Text = "PC",
-		Parent = deviceChip,
-	}
-	Typography.Apply(deviceLabel, "LabelSmall")
-	themer:Bind(deviceLabel, { TextColor3 = "OnSecondaryContainer" })
-
-	-- Level / rank line + win-streak chip.
-	local statsLabel = label("StatsText", "BodySmall", {
-		Position = UDim2.fromOffset(TEXT_X, 30),
-		Size = UDim2.fromOffset(120, 16),
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Text = "Lv.1 · Unranked",
-	})
-	themer:Bind(statsLabel, { TextColor3 = "OnSurfaceVariant" })
-
-	local streakChip = Create("Frame") {
-		Name = "StreakChip",
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -12, 0, 30),
-		Size = UDim2.fromOffset(0, 16),
-		AutomaticSize = Enum.AutomaticSize.X,
-		BorderSizePixel = 0,
-		Visible = false,
-		Parent = card,
-	}
-	Shape.Corner(Shape.Full, streakChip)
-	themer:Bind(streakChip, { BackgroundColor3 = "TertiaryContainer" })
-	Create("UIPadding") {
-		PaddingLeft = UDim.new(0, 8),
-		PaddingRight = UDim.new(0, 8),
-		Parent = streakChip,
-	}
-	local streakLabel = Create("TextLabel") {
-		Name = "StreakText",
-		BackgroundTransparency = 1,
-		Size = UDim2.fromOffset(0, 16),
-		AutomaticSize = Enum.AutomaticSize.X,
-		Text = "",
-		Parent = streakChip,
-	}
-	Typography.Apply(streakLabel, "LabelSmall")
-	themer:Bind(streakLabel, { TextColor3 = "OnTertiaryContainer" })
-
-	-- Health text + held weapon.
-	local healthLabel = label("HealthText", "LabelMedium", {
-		Position = UDim2.fromOffset(TEXT_X, 48),
-		Size = UDim2.fromOffset(80, 16),
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Text = "100 / 100 HP",
-	})
-	themer:Bind(healthLabel, { TextColor3 = "OnSurfaceVariant" })
-
-	local weaponLabel = label("WeaponText", "LabelMedium", {
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -12 - 76 - 4, 0, 48),
-		Size = UDim2.fromOffset(88, 16),
-		TextXAlignment = Enum.TextXAlignment.Right,
-		Text = "Fists",
-	})
-	themer:Bind(weaponLabel, { TextColor3 = "Primary" })
-
-	-- Rounds in the magazine / in reserve for the weapon in hand (colored by refresh).
-	local ammoLabel = label("AmmoText", "LabelMedium", {
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -12, 0, 48),
-		Size = UDim2.fromOffset(76, 16),
-		TextXAlignment = Enum.TextXAlignment.Right,
-		Text = "",
-	})
-	ammoLabel.TextTruncate = Enum.TextTruncate.None
-
-	-- Health bar: a pill track with a pill fill (M3 linear progress).
-	local barTrack = Create("Frame") {
-		Name = "HealthBarTrack",
-		Position = UDim2.fromOffset(TEXT_X, 70),
-		Size = UDim2.fromOffset(CARD_W - TEXT_X - 12, 6),
-		BorderSizePixel = 0,
-		ClipsDescendants = true,
-		Parent = card,
-	}
-	Shape.Corner(Shape.Full, barTrack)
-	themer:Bind(barTrack, { BackgroundColor3 = "SurfaceContainerHighest" })
-	local barFill = Create("Frame") {
-		Name = "HealthBarFill",
-		Size = UDim2.fromScale(1, 1),
-		BorderSizePixel = 0,
-		Parent = barTrack,
-	}
-	Shape.Corner(Shape.Full, barFill)
-
-	-- The four loadout slots (primary, secondary, melee, utility): each shows the weapon's
-	-- own picture (never the skin's); the one in hand is highlighted, empty slots stay blank.
-	local slotRow = Create("Frame") {
-		Name = "Slots",
-		Position = UDim2.fromOffset(12, 88),
-		Size = UDim2.new(1, -24, 0, 38),
-		BackgroundTransparency = 1,
-		Parent = card,
-		[1] = Create("UIListLayout") {
-			FillDirection = Enum.FillDirection.Horizontal,
-			SortOrder = Enum.SortOrder.LayoutOrder,
-			Padding = UDim.new(0, 6),
-		},
-	}
-	local slotTiles = {}
-	for i = 1, 4 do
-		local tile = Create("Frame") {
-			Name = "Slot" .. i,
-			LayoutOrder = i,
-			Size = UDim2.new(0.25, -4.5, 1, 0),
-			BorderSizePixel = 0,
-			ClipsDescendants = true,
-			Parent = slotRow,
-		}
-		Shape.Corner(Shape.Small, tile)
-		local icon = Create("ImageLabel") {
-			Name = "Icon",
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			-- The game's weapon pictures are mostly empty margin (the weapon fills a
-			-- quarter to a half of the square), so draw them bigger than the tile and
-			-- let the tile crop the margin away.
-			Size = UDim2.fromOffset(92, 92),
-			BackgroundTransparency = 1,
-			ScaleType = Enum.ScaleType.Fit,
-			Visible = false,
-			Parent = tile,
-		}
-		local count = Create("TextLabel") {
-			Name = "Ammo",
-			AnchorPoint = Vector2.new(1, 1),
-			Position = UDim2.new(1, -5, 1, -1),
-			Size = UDim2.fromOffset(60, 12),
-			BackgroundTransparency = 1,
-			TextXAlignment = Enum.TextXAlignment.Right,
-			Text = "",
-			Parent = tile,
-		}
-		Typography.Apply(count, "LabelSmall")
-		count.TextSize = 10
-		count.TextTruncate = Enum.TextTruncate.None
-		slotTiles[i] = { tile = tile, icon = icon, count = count }
-	end
-
-	-- Avatar thumbnails: fetched once per user, applied only if still the target.
-	local thumbnails, requested = {}, {}
-	local shownUserId = nil
-	local function setAvatar(userId)
-		shownUserId = userId
-		local cached = thumbnails[userId]
-		if cached then
-			avatar.Image = cached
-		elseif not requested[userId] then
-			requested[userId] = true
-			avatar.Image = ""
-			task.spawn(function()
-				local ok, url = pcall(
-					Players.GetUserThumbnailAsync,
-					Players,
-					userId,
-					Enum.ThumbnailType.HeadShot,
-					Enum.ThumbnailSize.Size100x100
-				)
-				if ok and url then
-					thumbnails[userId] = url
-					if shownUserId == userId then
-						avatar.Image = url
-					end
-				end
-			end)
-		end
-	end
-
-	-- Player data -------------------------------------------------------------------
-	local function leaderstat(player, ...)
-		local stats = player:FindFirstChild("leaderstats")
-		if stats then
-			for _, name in { ... } do
-				local item = stats:FindFirstChild(name)
-				if item and item:IsA("ValueBase") then
-					return item.Value
-				end
-			end
-		end
-		return nil
-	end
-
-	local function playerLevel(player)
-		local level = player:GetAttribute("Level") or player:GetAttribute("PlayerLevel") or leaderstat(player, "Level", "Rank")
-		return level and tostring(level) or "1"
-	end
-
-	local function playerRank(player)
-		local rank = player:GetAttribute("Rank")
-			or player:GetAttribute("DisplayRank")
-			or player:GetAttribute("DisplayELO")
-			or leaderstat(player, "Rank", "Elo")
-		return rank and tostring(rank) or "Unranked"
-	end
-
-	local function playerStreak(player)
-		local streak = player:GetAttribute("StatisticDuelsWinStreak")
-			or player:GetAttribute("WinStreak")
-			or player:GetAttribute("Streak")
-			or leaderstat(player, "Streak", "WinStreak")
-		return tonumber(streak) or 0
-	end
-
-	local function playerDevice(player)
-		local device = player:GetAttribute("DevicePlatform") or player:GetAttribute("Platform") or player:GetAttribute("Device")
-		if device then
-			local text = string.lower(tostring(device))
-			if text:find("mobile") or text:find("phone") or text:find("tablet") or text:find("touch") then
-				return "Mobile"
-			elseif text:find("console") or text:find("xbox") or text:find("playstation") then
-				return "Console"
-			end
-			return "PC"
-		end
-		if player == LocalPlayer then
-			if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled then
-				return "Mobile"
-			elseif UserInputService.GamepadEnabled and not UserInputService.KeyboardEnabled then
-				return "Console"
-			end
-		end
-		return "PC"
-	end
-
-	local KNOWN_WEAPONS = {
-		["Assault Rifle"] = true, ["Handgun"] = true, ["Sniper"] = true, ["Shotgun"] = true,
-		["Katana"] = true, ["Knife"] = true, ["Burst Rifle"] = true, ["Revolver"] = true,
-		["Submachine Gun"] = true, ["Minigun"] = true, ["Rocket Launcher"] = true, ["Bow"] = true,
-		["Crossbow"] = true, ["Flamethrower"] = true, ["Grenade Launcher"] = true,
-		["Energy Rifle"] = true, ["Paintball Gun"] = true, ["Slingshot"] = true, ["Fists"] = true,
-		["Taser"] = true, ["Medkit"] = true, ["Exo Gauntlets"] = true, ["Chainsaw"] = true, ["Wrench"] = true,
-	}
-
-	local function equippedWeapon(player)
-		local character = player.Character
-		if not character then
-			return "Fists"
-		end
-		local tool = character:FindFirstChildOfClass("Tool")
-		if tool then
-			return tool.Name
-		end
-		for _, attribute in { "EquippedWeapon", "CurrentWeapon", "Weapon", "EquippedTool" } do
-			local value = character:GetAttribute(attribute) or player:GetAttribute(attribute)
-			if type(value) == "string" and #value > 0 then
-				return value
-			end
-		end
-		for _, child in character:GetChildren() do
-			if KNOWN_WEAPONS[child.Name] then
-				return child.Name
-			end
-		end
-		for _, child in character:GetChildren() do
-			if
-				child:IsA("Model")
-				and (child:FindFirstChild("Muzzle") or child:FindFirstChild("Barrel") or child:FindFirstChild("Handle"))
-			then
-				return child.Name
-			end
-		end
-		return "Fists"
-	end
-
-	-- Same team test as the combat features: the TeamID attribute first (the game's own
-	-- teams), then Player.Team. Teammates never show on the Target HUD.
-	local function isTeammate(player)
-		local myId, theirId = LocalPlayer:GetAttribute("TeamID"), player:GetAttribute("TeamID")
-		if myId ~= nil and theirId ~= nil then
-			return myId == theirId
-		end
-		local localTeam, playerTeam = LocalPlayer.Team, player.Team
-		return localTeam ~= nil and playerTeam ~= nil and localTeam == playerTeam
-	end
-
-	local function closestPlayer()
-		local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-		if not myRoot then
-			return nil
-		end
-		local closest, shortest = nil, math.huge
-		for _, player in Players:GetPlayers() do
-			local character = player ~= LocalPlayer and not isTeammate(player) and player.Character
-			local root = character and character:FindFirstChild("HumanoidRootPart")
-			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-			if root and humanoid and humanoid.Health > 0 then
-				local distance = (root.Position - myRoot.Position).Magnitude
-				if distance < shortest then
-					shortest, closest = distance, player
-				end
-			end
-		end
-		return closest
-	end
-
-	-- Weapon pictures: ItemLibrary.ViewModels[weapon].Image. A skin's name is mapped back
-	-- to its weapon through CosmeticLibrary first, so the plain weapon picture is used.
-	local ReplicatedStorage = game:GetService("ReplicatedStorage")
-	local libraries = {}
-	local function library(name)
-		if libraries[name] == nil then
-			local ok, result = pcall(function()
-				return require(ReplicatedStorage.Modules[name])
-			end)
-			libraries[name] = ok and type(result) == "table" and result or false
-		end
-		return libraries[name] or nil
-	end
-
-	local function safeIndex(value, key)
-		local ok, result = pcall(function()
-			return value[key]
-		end)
-		return ok and result or nil
-	end
-
-	local iconCache = {}
-	local function weaponImage(name)
-		local cached = iconCache[name]
-		if cached ~= nil then
-			return cached
-		end
-		local weapon = name
-		local cosmetics = library("CosmeticLibrary") and safeIndex(library("CosmeticLibrary"), "Cosmetics")
-		local skin = type(cosmetics) == "table" and safeIndex(cosmetics, name)
-		if type(skin) == "table" and type(safeIndex(skin, "ItemName")) == "string" then
-			weapon = skin.ItemName
-		end
-		local image = ""
-		local items = library("ItemLibrary")
-		local viewModels = items and safeIndex(items, "ViewModels")
-		local entry = type(viewModels) == "table" and safeIndex(viewModels, weapon)
-		if type(entry) == "table" then
-			for _, key in { "Image", "ImageHighResolution" } do
-				local value = safeIndex(entry, key)
-				if type(value) == "string" and value ~= "" then
-					image = value
-					break
-				end
-			end
-		end
-		if tonumber(image) then
-			image = "rbxassetid://" .. image
-		end
-		-- Only cache a hit: libraries may not be loaded yet on the first tries.
-		if image ~= "" or (library("ItemLibrary") and viewModels) then
-			iconCache[name] = image
-		end
-		return image
-	end
-
-	-- Outlined icons -------------------------------------------------------------------
-	-- The game's weapon pictures are mostly empty margin and dark ones vanish on a dark
-	-- tile. With EditableImage support the picture is cropped to the weapon and given a
-	-- soft white halo (like the website preview); without it the plain picture is shown.
-	local AssetService = game:GetService("AssetService")
-	local outlineEnabled = type(safeIndex(AssetService, "CreateEditableImageAsync")) == "function"
-		and type(safeIndex(AssetService, "CreateEditableImage")) == "function"
-	local HALO = 2
-	local outlinedIcons, outlinePending, editableImages = {}, {}, {}
-
-	-- The build is pixel-by-pixel Luau; yield to the game whenever a slice of it has used
-	-- ~3 ms, so it never stalls a frame (on a phone one build is long).
-	local SLICE = 0.003
-	local sliceStart = os.clock()
-	local function breathe()
-		if os.clock() - sliceStart >= SLICE then
-			task.wait()
-			sliceStart = os.clock()
-		end
-	end
-
-	local function buildOutlined(imageId)
-		local source = AssetService:CreateEditableImageAsync(Content.fromUri(imageId))
-		sliceStart = os.clock()
-		local w, h = source.Size.X, source.Size.Y
-		local px = source:ReadPixelsBuffer(Vector2.zero, source.Size)
-		source:Destroy()
-
-		local minX, minY, maxX, maxY = w, h, -1, -1
-		for y = 0, h - 1 do
-			breathe()
-			for x = 0, w - 1 do
-				if buffer.readu8(px, (y * w + x) * 4 + 3) > 12 then
-					if x < minX then minX = x end
-					if x > maxX then maxX = x end
-					if y < minY then minY = y end
-					if y > maxY then maxY = y end
-				end
-			end
-		end
-		if maxX < 0 then
-			return nil
-		end
-
-		local pad = HALO + 2
-		local cw, ch = maxX - minX + 1 + 2 * pad, maxY - minY + 1 + 2 * pad
-		local alpha = buffer.create(cw * ch)
-		for y = 0, ch - 1 do
-			breathe()
-			local sy = y - pad + minY
-			for x = 0, cw - 1 do
-				local sx = x - pad + minX
-				if sx >= 0 and sx < w and sy >= 0 and sy < h then
-					buffer.writeu8(alpha, y * cw + x, buffer.readu8(px, (sy * w + sx) * 4 + 3))
-				end
-			end
-		end
-
-		-- Grow the alpha by HALO px (max filter, horizontal then vertical), then soften it.
-		local across, grown, soft = buffer.create(cw * ch), buffer.create(cw * ch), buffer.create(cw * ch)
-		for y = 0, ch - 1 do
-			breathe()
-			for x = 0, cw - 1 do
-				local best = 0
-				for k = -HALO, HALO do
-					local xx = x + k
-					if xx >= 0 and xx < cw then
-						local v = buffer.readu8(alpha, y * cw + xx)
-						if v > best then best = v end
-					end
-				end
-				buffer.writeu8(across, y * cw + x, best)
-			end
-		end
-		for y = 0, ch - 1 do
-			breathe()
-			for x = 0, cw - 1 do
-				local best = 0
-				for k = -HALO, HALO do
-					local yy = y + k
-					if yy >= 0 and yy < ch then
-						local v = buffer.readu8(across, yy * cw + x)
-						if v > best then best = v end
-					end
-				end
-				buffer.writeu8(grown, y * cw + x, best)
-			end
-		end
-		for y = 0, ch - 1 do
-			breathe()
-			for x = 0, cw - 1 do
-				local sum, count = 0, 0
-				for dy = -1, 1 do
-					for dx = -1, 1 do
-						local xx, yy = x + dx, y + dy
-						if xx >= 0 and xx < cw and yy >= 0 and yy < ch then
-							sum += buffer.readu8(grown, yy * cw + xx)
-							count += 1
-						end
-					end
-				end
-				buffer.writeu8(soft, y * cw + x, sum // count)
-			end
-		end
-
-		-- Weapon over a white halo (straight-alpha "over" blend).
-		local out = buffer.create(cw * ch * 4)
-		for y = 0, ch - 1 do
-			breathe()
-			local sy = y - pad + minY
-			for x = 0, cw - 1 do
-				local sx = x - pad + minX
-				local i = y * cw + x
-				local sa, sr, sg, sb = 0, 255, 255, 255
-				if sx >= 0 and sx < w and sy >= 0 and sy < h then
-					local si = (sy * w + sx) * 4
-					sr, sg, sb = buffer.readu8(px, si), buffer.readu8(px, si + 1), buffer.readu8(px, si + 2)
-					sa = buffer.readu8(alpha, i) / 255
-				end
-				local glow = buffer.readu8(soft, i) / 255 * 0.85
-				local outA = sa + glow * (1 - sa)
-				local o = i * 4
-				if outA > 0 then
-					local k = glow * (1 - sa)
-					buffer.writeu8(out, o, math.floor((sr * sa + 255 * k) / outA + 0.5))
-					buffer.writeu8(out, o + 1, math.floor((sg * sa + 255 * k) / outA + 0.5))
-					buffer.writeu8(out, o + 2, math.floor((sb * sa + 255 * k) / outA + 0.5))
-					buffer.writeu8(out, o + 3, math.floor(outA * 255 + 0.5))
-				end
-			end
-		end
-
-		local result = AssetService:CreateEditableImage({ Size = Vector2.new(cw, ch) })
-		result:WritePixelsBuffer(Vector2.zero, Vector2.new(cw, ch), out)
-		return Content.fromObject(result), result
-	end
-
-	-- Builds run one at a time in the background; the picture is used once it is ready.
-	local outlineQueue, outlineWorking = {}, false
-	local function runOutlineQueue()
-		if outlineWorking then
-			return
-		end
-		outlineWorking = true
-		task.spawn(function()
-			while #outlineQueue > 0 do
-				local imageId = table.remove(outlineQueue, 1)
-				local ok, content, editable = pcall(buildOutlined, imageId)
-				outlinedIcons[imageId] = ok and content or false
-				if ok and editable then
-					table.insert(editableImages, editable)
-				end
-				outlinePending[imageId] = nil
-			end
-			outlineWorking = false
-		end)
-	end
-
-	-- Returns the outlined picture once it is ready; nil while queued or when unsupported,
-	-- so the caller shows the plain one.
-	local function outlinedIcon(imageId)
-		if not outlineEnabled or imageId == "" then
-			return nil
-		end
-		local cached = outlinedIcons[imageId]
-		if cached ~= nil then
-			return cached or nil
-		end
-		if not outlinePending[imageId] then
-			outlinePending[imageId] = true
-			table.insert(outlineQueue, imageId)
-			runOutlineQueue()
-		end
-		return nil
-	end
-
-	-- A player's fighter (the game's per-player object): its Items are the four slots and
-	-- EquippedItem the one in hand. Nil when the player has none (lobby, not spawned).
-	local fighterController
-	local function fighterOf(player)
-		if fighterController == nil then
-			local ok, result = pcall(function()
-				return require(LocalPlayer.PlayerScripts.Controllers.FighterController)
-			end)
-			fighterController = ok and type(result) == "table" and result or false
-		end
-		if not fighterController then
-			return nil
-		end
-		local ok, fighter = pcall(function()
-			return fighterController:GetFighter(player)
-		end)
-		if (not ok or not fighter) and player == LocalPlayer then
-			fighter = safeIndex(fighterController, "LocalFighter")
-		end
-		return fighter
-	end
-
-	local function itemName(item)
-		local ok, name = pcall(function()
-			return item:Get("Name")
-		end)
-		return ok and type(name) == "string" and name or nil
-	end
-
-	-- Rounds for a gun: { loaded, reserve, max } (nil for melee / throwables).
-	local function ammoOf(item)
-		local ok, loaded = pcall(function()
-			return item:Get("Ammo")
-		end)
-		if not (ok and type(loaded) == "number") then
-			return nil
-		end
-		local okReserve, reserve = pcall(function()
-			return item:Get("AmmoReserve")
-		end)
-		local info = safeIndex(item, "Info")
-		local max = info and safeIndex(info, "MaxAmmo")
-		return {
-			loaded = loaded,
-			reserve = okReserve and type(reserve) == "number" and reserve or nil,
-			max = type(max) == "number" and max or nil,
-		}
-	end
-
-	-- Infinite-ammo guns report math.huge, which "%d" can't print.
-	local function rounds(n)
-		if n == math.huge then
-			return "∞"
-		end
-		return tostring(math.floor(n))
-	end
-
-	-- { [slot 1-4] = name }, the name in hand, { [slot] = ammo } and the ammo in hand.
-	local function loadoutOf(fighter)
-		local slots, held, ammo, heldAmmo = {}, nil, {}, nil
-		if not fighter then
-			return slots, held, ammo, heldAmmo
-		end
-		pcall(function()
-			local items = rawget(fighter, "Items") or fighter.Items
-			if type(items) == "table" then
-				for position, item in items do
-					local slot = tonumber(safeIndex(item, "index")) or (type(position) == "number" and position)
-					local name = itemName(item)
-					if slot and name and slot >= 1 and slot <= 4 then
-						slots[slot] = name
-						ammo[slot] = ammoOf(item)
-					end
-				end
-			end
-			local equipped = rawget(fighter, "EquippedItem") or fighter.EquippedItem
-			held = equipped and itemName(equipped) or nil
-			heldAmmo = equipped and ammoOf(equipped) or nil
-		end)
-		return slots, held, ammo, heldAmmo
-	end
-
-	-- The target is the one the script's Target HUD hands over (the ragebot's target, or with Always Show the nearest
-	-- enemy): K.TargetHudLY.target = { FighterState, AliveState }, set at the time of the last call.
-	-- Who the card shows: the ragebot's target when it has one (the script hands it over in K.TargetHudLY), otherwise
-	-- the nearest enemy player (LY.lua's closestPlayer: the TeamID attribute for teams, alive, closest to your root).
-	local function closestTarget()
-		local state = K.TargetHudLY
-		local t = state ~= nil and state.target or nil
-		if t ~= nil and state.at ~= nil and os.clock() - state.at < 0.8 then
-			local p = t.FighterState and t.FighterState.Player
-			if typeof(p) == "Instance" and p:IsA("Player") and not isTeammate(p) then
-				return p, nil
-			end
-		end
-		local okSettings, always = pcall(function() return self._config.Data.Ragebot.TargetHud.AlwaysShow ~= false end)
-		if okSettings and always then
-			return closestPlayer(), nil
-		end
-		return nil, nil
-	end
-
-	-- Refresh ------------------------------------------------------------------------
-	local lastRatio, fillTween = nil, nil
-
-	local function refresh()
-		local player, monster = closestTarget()
-		local settings = self._config.Data.Ragebot.TargetHud
-		local hudEditor = getgenv().LYHud
-		local editing = hudEditor ~= nil and hudEditor.Editing == true
-		local want = settings.Enabled == true and player ~= nil
-		card.Visible = want or editing
-		if not want and not editing then
-			return
-		end
-		local target = player or LocalPlayer
-		local humanoid = if monster then monster.humanoid else (target.Character and target.Character:FindFirstChildOfClass("Humanoid"))
-		if not humanoid then
-			return
-		end
-		local colors = Window.Theme.Colors
-
-		if monster then
-			-- No avatar, level or loadout for a monster: its name and health only.
-			shownUserId = nil
-			avatar.Image = ""
-			nameLabel.Text = monster.model.Name
-			deviceLabel.Text = "Monster"
-			statsLabel.Text = monster.label or "NPC"
-			streakChip.Visible = false
-			weaponLabel.Text = ""
-			ammoLabel.Text = ""
-			local off = colors.SurfaceContainerHighest or colors.SurfaceContainer
-			for _, entry in slotTiles do
-				entry.shown = nil
-				entry.icon.Visible = false
-				entry.count.Text = ""
-				entry.tile.BackgroundColor3 = off
-			end
-		else
-			if shownUserId ~= target.UserId then
-				setAvatar(target.UserId)
-			end
-			nameLabel.Text = target.DisplayName
-			deviceLabel.Text = playerDevice(target)
-
-			statsLabel.Text = string.format("Lv.%s · %s", playerLevel(target), playerRank(target))
-			local streak = playerStreak(target)
-			streakChip.Visible = streak > 0
-			if streak > 0 then
-				streakLabel.Text = string.format("%d streak", streak)
-			end
-
-			local slots, held, ammo, heldAmmo = loadoutOf(fighterOf(target))
-			local weaponName = held or equippedWeapon(target)
-			weaponLabel.Text = weaponName
-			if heldAmmo then
-				ammoLabel.Text = if heldAmmo.reserve then rounds(heldAmmo.loaded) .. " / " .. rounds(heldAmmo.reserve) else rounds(heldAmmo.loaded)
-				local low = heldAmmo.loaded <= 0 or (heldAmmo.max ~= nil and heldAmmo.loaded <= heldAmmo.max * 0.25)
-				ammoLabel.TextColor3 = if low then colors.Error else colors.OnSurface
-			else
-				ammoLabel.Text = ""
-			end
-			local off = colors.SurfaceContainerHighest or colors.SurfaceContainer
-			for i, entry in slotTiles do
-				local name = slots[i]
-				local image = name and weaponImage(name) or ""
-				local active = name ~= nil and name == weaponName
-				local slotAmmo = ammo[i]
-				entry.count.Text = if not slotAmmo
-					then ""
-					elseif slotAmmo.reserve then rounds(slotAmmo.loaded) .. "/" .. rounds(slotAmmo.reserve)
-					else rounds(slotAmmo.loaded)
-				entry.count.TextColor3 = if slotAmmo and slotAmmo.loaded <= 0
-					then colors.Error
-					elseif active then colors.OnSecondaryContainer
-					else colors.OnSurfaceVariant
-				local custom = outlinedIcon(image)
-				local shown = (if custom then "c:" else "g:") .. image
-				if entry.shown ~= shown then
-					entry.shown = shown
-					if custom then
-						entry.icon.ImageContent = custom
-						entry.icon.Size = UDim2.new(1, -10, 1, -6)
-					else
-						entry.icon.Image = image
-						entry.icon.Size = UDim2.fromOffset(92, 92)
-					end
-				end
-				entry.icon.Visible = image ~= ""
-				entry.icon.ImageTransparency = if active then 0 else 0.4
-				entry.tile.BackgroundColor3 = if active then colors.SecondaryContainer else off
-			end
-		end
-
-		local maxHealth = humanoid.MaxHealth > 0 and humanoid.MaxHealth or 100
-		local health = math.clamp(humanoid.Health, 0, maxHealth)
-		local ratio = health / maxHealth
-		healthLabel.Text = string.format("%d / %d HP", math.floor(health), math.floor(maxHealth))
-		barFill.BackgroundColor3 = if ratio <= 0.3 then colors.Error else colors.Primary
-
-		if ratio ~= lastRatio then
-			lastRatio = ratio
-			if fillTween then
-				fillTween:Cancel()
-			end
-			fillTween = TweenService:Create(
-				barFill,
-				TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-				{ Size = UDim2.fromScale(ratio, 1) }
-			)
-			fillTween:Play()
-		end
-	end
-
-	-- 10 Hz is plenty for text and a bar that tweens between updates.
-	local heartbeat, elapsed = nil, 0
-	local function setEnabled(on)
-		card.Visible = on
-		if heartbeat then
-			heartbeat:Disconnect()
-			heartbeat = nil
-		end
-		if on then
-			elapsed = 0
-			pcall(refresh)
-			heartbeat = RunService.Heartbeat:Connect(function(dt)
-				elapsed += dt
-				if elapsed >= 0.1 then
-					elapsed = 0
-					pcall(refresh)
-				end
-			end)
-		end
-	end
-	track(function()
-		setEnabled(false)
-		card:Destroy()
-		for _, editable in editableImages do
-			pcall(function()
-				editable:Destroy()
-			end)
-		end
-	end)
-
-	-- the layout editor moves and resizes the card
-	editor.register("Target HUD", {
-		Frame = card,
-		Title = "Target HUD",
-		Show = function()
-			local was = card.Visible
-			card.Visible = true
-			return function() card.Visible = was end
-		end,
-	})
-	setEnabled(true)
-    end
-end
-end)({ Menu = Menu, StarUI = StarUI, uid = uid, log = log, isMethodName = isMethodName, Makers = Makers, newControl = newControl, subclass = subclass })
-end
-
---==========================================================================
---  Targeting circle that follows the muzzle (LY.lua): with "Follow Muzzle" on, the circle of the Aimbot / Silent Aim
---  is drawn at the muzzle of your gun, the "within the circle" test measures from the muzzle, and the aimbot moves
---  from the muzzle. K.FovCenter / K.FovMeasure are used by those modules.
---==========================================================================
-;(function()
-    local localPlayer = game:GetService("Players").LocalPlayer
-    local cached = { at = -1, screen = nil }
-
-    -- where the muzzle of your own gun is on the screen (nil when there is none): cached for a short while, the
-    -- measure asks for it once per hitbox
-    function K.MuzzleScreen()
-        local now = os.clock()
-        if now - cached.at < 0.008 then return cached.screen end
-        cached.at, cached.screen = now, nil
-        pcall(function()
-            local camera = workspace.CurrentCamera
-            local models = workspace:FindFirstChild("ViewModels")
-            local firstPerson = models and models:FindFirstChild("FirstPerson")
-            if camera == nil or firstPerson == nil then return end
-            local name = localPlayer.Name
-            for _, model in ipairs(firstPerson:GetChildren()) do
-                if model:IsA("Model") and model.Name:sub(1, #name) == name then
-                    local visual = model:FindFirstChild("ItemVisual")
-                    local body = visual and visual:FindFirstChild("Body")
-                    local primary = body and body:FindFirstChild("BodyPrimary")
-                    local muzzle = primary and primary:FindFirstChild("_muzzle")
-                    if muzzle ~= nil and muzzle:IsA("Attachment") then
-                        local point, onScreen = camera:WorldToViewportPoint(muzzle.WorldPosition)
-                        if onScreen and point.Z > 0 then
-                            cached.screen = Vector2.new(point.X, point.Y)
-                        end
-                        return
-                    end
-                end
-            end
-        end)
-        return cached.screen
-    end
-
-    local function follows(root)
-        local ok, on = pcall(function() return tbl17.bG().Data[root].Fov.FollowMuzzle end)
-        return ok and on == true
-    end
-
-    function K.FovCenter(root, default)
-        if follows(root) then
-            local screen = K.MuzzleScreen()
-            if screen ~= nil then return screen end
-        end
-        return default
-    end
-
-    -- the target check of the circle: the angle is measured from the muzzle ray instead of the view direction
-    function K.FovMeasure(root, base)
-        if type(base) ~= "function" then return base end
-        return function(camera, point)
-            if follows(root) then
-                local screen = K.MuzzleScreen()
-                if screen ~= nil then
-                    local ray = camera:ViewportPointToRay(screen.X, screen.Y)
-                    local from = camera.CFrame.Position
-                    return base({
-                        ViewportSize = camera.ViewportSize,
-                        FieldOfView = camera.FieldOfView,
-                        CFrame = CFrame.lookAt(from, from + ray.Direction),
-                    }, point)
-                end
-            end
-            return base(camera, point)
-        end
-    end
-end)()
-
---==========================================================================
---  Weapon Visuals from LY.lua: the first-person weapon motion switch, the arm and gun chams
---  (material, colour, transparency, wireframe) and the muzzle flash switch run on the code of LY.lua; the options
---  of the Weapon Visuals page are what drives it (kh's own versions of these are switched off).
---  The LY code is used as it is: it makes its elements on a small stand-in section (no window), and each element
---  that has a counterpart in the script's settings is linked to that setting.
---==========================================================================
-;(function()
-local function setup()
-    local cfg = tbl17.bG()
-    local data = cfg.Data
-    local RunService = game:GetService("RunService")
-    local LocalPlayer = game:GetService("Players").LocalPlayer
-    local PREFIX = "LxYWeapon_"
-    local unloaders = {}
-    local function track(item)
-        unloaders[#unloaders + 1] = item
-        return item
-    end
-    local owned = setmetatable({}, { __mode = "k" })
-    local function camera()
-        return workspace.CurrentCamera
-    end
-    -- where first-person viewmodels live: RIVALS keeps them in Workspace.ViewModels.FirstPerson
-    local function viewmodelFolders()
-        local folders = {}
-        local root = workspace:FindFirstChild("ViewModels")
-        local firstPerson = root and root:FindFirstChild("FirstPerson")
-        if firstPerson then
-            table.insert(folders, firstPerson)
-        end
-        if camera() then
-            table.insert(folders, camera())
-        end
-        return folders
-    end
-    local function snapshot(instance, properties)
-        local saved = {}
-        for _, property in properties do
-            local ok, value = pcall(function()
-                return instance[property]
-            end)
-            if ok then
-                saved[property] = value
-            end
-        end
-        return function()
-            for property, value in saved do
-                pcall(function()
-                    instance[property] = value
-                end)
-            end
-        end
-    end
-    -- the elements LY makes: a value and the callback that applies it
-    local virtual = {}
-    local function element(options)
-        local e = { Flag = options.Flag, Value = options.Default, Callback = options.Callback }
-        function e:Set(value, silent)
-            self.Value = value
-            if not silent and self.Callback ~= nil then self.Callback(value) end
-        end
-        function e:SetVisible() end
-        if options.Flag ~= nil then virtual[options.Flag] = e end
-        return e
-    end
-    local Section = setmetatable({}, { __index = function() return function(_, options) return element(options or {}) end end })
-    local CameraTab = { AddSection = function() return Section end }
-    local Window = {
-        Notify = function(_, options)
-            pcall(function() tbl17.aB().get():Notify(tostring(options.Title) .. ": " .. tostring(options.Content)) end)
-        end,
-    }
-    local function patchToggle(section, options)
-        local toggle
-        toggle = section:AddToggle({
-            Title = options.Title,
-            Default = false,
-            Flag = options.Flag,
-            Callback = function(on)
-                if not options.Set(on) and on then
-                    Window:Notify({ Title = options.Title, Content = options.Failure })
-                    task.defer(function()
-                        toggle:Set(false, true)
-                    end)
-                end
-            end,
-        })
-        track(function()
-            options.Set(false)
-        end)
-        return toggle
-    end
-
-	local function noop() end
-
-	local function writeField(tbl, key, value)
-		local frozen = type(isreadonly) == "function" and isreadonly(tbl)
-		if frozen and type(setreadonly) == "function" then
-			setreadonly(tbl, false)
-		end
-		local ok = pcall(rawset, tbl, key, value)
-		if frozen and type(setreadonly) == "function" then
-			setreadonly(tbl, true)
-		end
-		return ok
-	end
-
-	local function requireGameModule(name)
-		local roots = { LocalPlayer:FindFirstChild("PlayerScripts"), cloneref(game:GetService("ReplicatedStorage")) }
-		for _, root in roots do
-			local module = root and root:FindFirstChild(name, true)
-			if module and module:IsA("ModuleScript") then
-				local ok, result = pcall(require, module)
-				if ok then
-					return result
-				end
-			end
-		end
-		return nil
-	end
-
-	-- The table that actually holds `method`: the module itself or its class
-	-- (metatable / __index). Falls back to the Lua heap when the module isn't
-	-- where we expect it.
-	local function findClass(moduleName, method)
-		local function holder(value)
-			if type(value) ~= "table" then
-				return nil
-			end
-			if type(rawget(value, method)) == "function" then
-				return value
-			end
-			local meta = getmetatable(value)
-			if type(meta) == "table" then
-				if type(rawget(meta, method)) == "function" then
-					return meta
-				end
-				local index = rawget(meta, "__index")
-				if type(index) == "table" and type(rawget(index, method)) == "function" then
-					return index
-				end
-			end
-			return nil
-		end
-		local found = holder(requireGameModule(moduleName))
-		if found or type(getgc) ~= "function" then
-			return found
-		end
-		local ok, objects = pcall(getgc, true)
-		if ok then
-			for _, object in objects do
-				if type(object) == "table" and type(rawget(object, method)) == "function" then
-					return object
-				end
-			end
-		end
-		return nil
-	end
-	local WeaponSection = CameraTab:AddSection("Weapon")
-	local MOTION_SPRINGS = {
-		_sliding_spring = 0,
-		_sprinting_spring = 0,
-		_bobbing_speed_spring = 0,
-		_bobbing_value_spring = Vector2.zero,
-		_landing_spring = 0,
-		_jump_spring = 0,
-		_tilt_spring = Vector2.zero,
-		_impulse_position_spring = Vector3.zero,
-		_recoil_spring = Vector3.zero,
-		_unrecoil_spring = Vector3.zero,
-	}
-	local motion = { Enabled = false, Connections = {} }
-	local frozenSprings = setmetatable({}, { __mode = "k" })
-
-	local function isLocalItem(viewModel)
-		local ok, isLocal = pcall(function()
-			return viewModel.ClientItem.ClientFighter.IsLocalPlayer
-		end)
-		return ok and isLocal == true
-	end
-
-	local function freezeViewModel(viewModel)
-		for field, rest in MOTION_SPRINGS do
-			local spring = rawget(viewModel, field)
-			if type(spring) == "table" and writeField(spring, "Value", rest) then
-				frozenSprings[spring] = true
-			end
-		end
-	end
-
-	local function freezeViewModels()
-		if type(getgc) ~= "function" then
-			return false
-		end
-		local ok, objects = pcall(getgc, true)
-		if not ok then
-			return false
-		end
-		local found = false
-		for _, object in objects do
-			-- CameraController has bobbing / sliding springs too; only viewmodels have
-			-- a recoil spring and a ClientItem. Other players' items have viewmodels
-			-- as well, so only your own are touched.
-			if type(object) == "table" and type(rawget(object, "_recoil_spring")) == "table"
-				and rawget(object, "ClientItem") ~= nil and isLocalItem(object)
-			then
-				freezeViewModel(object)
-				found = true
-			end
-		end
-		return found
-	end
-
-	local function restoreViewModels()
-		for spring in frozenSprings do
-			writeField(spring, "Value", nil)
-			frozenSprings[spring] = nil
-		end
-	end
-
-	local function watchViewModels()
-		for _, connection in motion.Connections do
-			connection:Disconnect()
-		end
-		table.clear(motion.Connections)
-		if not motion.Enabled then
-			return
-		end
-		for _, folder in viewmodelFolders() do
-			table.insert(motion.Connections, folder.ChildAdded:Connect(function(child)
-				if child:IsA("Model") and not owned[child] then
-					task.defer(freezeViewModels)
-				end
-			end))
-		end
-	end
-	track(workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(watchViewModels))
-
-	local function setNoMotion(on)
-		motion.Enabled = on
-		watchViewModels()
-		if not on then
-			restoreViewModels()
-			return true
-		end
-		if type(getgc) ~= "function" then
-			motion.Enabled = false
-			watchViewModels()
-			return false
-		end
-		freezeViewModels() -- nothing yet is fine: the next equip gets caught
-		return true
-	end
-
-	patchToggle(WeaponSection, {
-		Title = "No weapon motion",
-		Description = "Removes gun bob, tilt, landing and recoil motion from your viewmodel",
-		Flag = "NoMotion",
-		Set = setNoMotion,
-		Failure = "Your executor doesn't support getgc",
-	})
-
-	-- Viewmodel animations --------------------------------------------------------
-	-- Shoot / sprint / equip / reload: like LY-broken, ViewModelAnimator:
-	-- PlayAnimation(key, ...) is hooked (equip and sprint are played by the
-	-- animator itself, so the ClientViewModel wrapper would miss them). For a
-	-- suppressed key on your own viewmodel the track in _animation_tracks is
-	-- swapped for one whose Play / Stop do nothing, the original still runs (so
-	-- the game's state updates), then the real track goes back.
-	-- Idle / crouch / aim, and the four above when the hook can't be installed,
-	-- fall back to stopping matching tracks on the viewmodel's Animators each
-	-- frame (matched by track / animation name and id).
-
-	local animations = { Sprint = false, Shoot = false, Equip = false, Reload = false }
-	local animationPatch = nil
-	local silentTrack = { Play = noop, Stop = noop }
-
-	local function shouldSuppress(animator, key)
-		if type(key) ~= "string" then
-			return false
-		end
-		return (animations.Sprint and key == rawget(animator, "_sprint_animation"))
-			or (animations.Equip and key == rawget(animator, "_equip_animation"))
-			or (animations.Shoot and (key:find("Shoot", 1, true) ~= nil or key == "QuickShot"))
-			or (animations.Reload and key:find("Reload", 1, true) ~= nil)
-	end
-
-	local function isLocalAnimator(animator)
-		local ok, isLocal = pcall(function()
-			return animator.ClientViewModel.ClientItem.ClientFighter.IsLocalPlayer
-		end)
-		return ok and isLocal == true
-	end
-
-	local function installAnimationPatch()
-		if animationPatch then
-			return true
-		end
-		local class = findClass("ViewModelAnimator", "PlayAnimation")
-		local original = class and rawget(class, "PlayAnimation")
-		if type(original) ~= "function" then
-			return false
-		end
-		local function playAnimation(animator, key, ...)
-			local tracks = type(animator) == "table" and rawget(animator, "_animation_tracks")
-			if type(tracks) ~= "table" or rawget(tracks, key) == nil
-				or not shouldSuppress(animator, key) or not isLocalAnimator(animator)
-			then
-				return original(animator, key, ...)
-			end
-			local realTrack = rawget(tracks, key)
-			rawset(tracks, key, silentTrack)
-			local results = table.pack(pcall(original, animator, key, ...))
-			rawset(tracks, key, realTrack)
-			if not results[1] then
-				error(results[2], 0)
-			end
-			return table.unpack(results, 2, results.n)
-		end
-		if not writeField(class, "PlayAnimation", playAnimation) then
-			return false
-		end
-		animationPatch = { Class = class, Original = original }
-		return true
-	end
-
-	local function removeAnimationPatch()
-		if animationPatch then
-			writeField(animationPatch.Class, "PlayAnimation", animationPatch.Original)
-			animationPatch = nil
-		end
-	end
-
-	local TRACK_PATTERNS = {
-		Shoot = { "shoot", "fire", "shot" },
-		Sprint = { "sprint" },
-		Equip = { "equip" },
-		Reload = { "reload" },
-		Idle = { "idle" },
-		Crouch = { "crouch" },
-		Aim = { "aim", "ads", "scope" },
-	}
-	local stoppedKinds = {} -- kind -> true while handled by stopping tracks
-	local trackStopper = nil
-
-	local function trackLabel(animTrack)
-		local label = animTrack.Name
-		local anim = animTrack.Animation
-		if anim then
-			label ..= " " .. anim.Name .. " " .. anim.AnimationId
-		end
-		return label:lower()
-	end
-
-	local function shouldStopTrack(animTrack)
-		local ok, label = pcall(trackLabel, animTrack)
-		if not ok then
-			return false
-		end
-		for kind in stoppedKinds do
-			for _, pattern in TRACK_PATTERNS[kind] do
-				if label:find(pattern, 1, true) then
-					return true
-				end
-			end
-		end
-		return false
-	end
-
-	local function updateTrackStopper()
-		if next(stoppedKinds) == nil then
-			if trackStopper then
-				trackStopper:Disconnect()
-				trackStopper = nil
-			end
-			return
-		end
-		if trackStopper then
-			return
-		end
-		trackStopper = RunService.RenderStepped:Connect(function()
-			for _, folder in viewmodelFolders() do
-				for _, descendant in folder:GetDescendants() do
-					if descendant:IsA("Animator") and not owned[descendant] then
-						for _, animTrack in descendant:GetPlayingAnimationTracks() do
-							if shouldStopTrack(animTrack) then
-								pcall(animTrack.Stop, animTrack, 0)
-							end
-						end
-					end
-				end
-			end
-		end)
-	end
-
-	local function setAnimationDisabled(kind, on)
-		stoppedKinds[kind] = nil
-		if animations[kind] ~= nil then
-			animations[kind] = on
-			local any = animations.Sprint or animations.Shoot or animations.Equip or animations.Reload
-			if not any then
-				removeAnimationPatch()
-			elseif not installAnimationPatch() then
-				-- No hook available: stop the tracks instead.
-				animations[kind] = false
-				stoppedKinds[kind] = on or nil
-			end
-		else
-			stoppedKinds[kind] = on or nil
-		end
-		updateTrackStopper()
-		return true
-	end
-
-	for _, entry in {
-		{ Kind = "Shoot", Title = "No shoot animation", Description = "Your gun doesn't play its firing animation" },
-		{ Kind = "Sprint", Title = "No sprint animation", Description = "Your viewmodel doesn't play the sprint animation" },
-		{ Kind = "Equip", Title = "No equip animation", Description = "Skip the draw animation when you switch weapons" },
-		{ Kind = "Reload", Title = "No reload animation", Description = "Your viewmodel doesn't play the reload animation" },
-		{ Kind = "Idle", Title = "No idle animation", Description = "Your viewmodel stays still while idle" },
-		{ Kind = "Crouch", Title = "No crouch animation", Description = "Your viewmodel doesn't play the crouch animation" },
-		{ Kind = "Aim", Title = "No aim animation", Description = "Your viewmodel doesn't play the aim-down-sights animation" },
-	} do
-		patchToggle(WeaponSection, {
-			Title = entry.Title,
-			Description = entry.Description,
-			Flag = "No" .. entry.Kind .. "Animation",
-			Set = function(on)
-				return setAnimationDisabled(entry.Kind, on)
-			end,
-		})
-	end
-local viewmodel, muzzle
-do
-local ViewmodelSection = CameraTab:AddSection("Viewmodel")
-local MATERIAL_NAMES = { "ForceField", "Neon", "Glass", "SmoothPlastic", "Plastic", "Metal", "Foil" }
-viewmodel = {
-	Offset = false, X = 0, Y = 0, Z = 0,
-	-- Arms and gun are chammed separately.
-	Arm = {
-		Enabled = false, Material = "ForceField", Color = Color3.fromRGB(120, 170, 255), Transparency = 0,
-		Wireframe = false, WireWidth = 0.02, WireAngle = 0, WireMaterial = "Neon",
-	},
-	Gun = {
-		Enabled = false, Material = "Neon", Color = Color3.fromRGB(255, 255, 255), Transparency = 0,
-		Wireframe = false, WireWidth = 0.02, WireAngle = 0, WireMaterial = "Neon",
-	},
-}
-local chamRestores = setmetatable({}, { __mode = "k" }) -- part -> restore function
-local chamKinds = setmetatable({}, { __mode = "k" }) -- part -> "Arm" | "Gun" | false
-
--- Arm / gun detection: arm models are named like "<Weapon> - Arms"; inside a
--- gun model, arm parts are found by name or by an arm-ish ancestor folder.
-local CHAM_EXCLUDED_PARTS = {
-	ChamOutlineShell = true, ChamOutlineGlow = true, ChamOutlineBloom = true,
-	WeaponWireframeCore = true, WeaponWireframeGlow = true, WeaponWireframeBloom = true,
-	GunChamNeonGlow = true,
-	ChamMeshProxy = true,
-}
-local ARM_PART_SKIP = { "hitbox", "collision", "trigger", "proxy", "handguard", "handle", "foregrip", "charm", "armor" }
-local ARM_PART_WORDS = {
-	"leftarm", "rightarm", "left arm", "right arm", "forearm", "upperarm", "lowerarm",
-	"glove", "sleeve", "finger", "wrist", "palm", "thumb", "hand",
-}
-
-local function isHelperPart(part)
-	local name = part.Name:lower()
-	return name:find("hitbox", 1, true) or name:find("collision", 1, true)
-		or name:find("trigger", 1, true) or name:find("proxy", 1, true)
-end
-
-local function isArmViewModel(model)
-	local segments = {}
-	for segment in model.Name:gmatch("[^-]+") do
-		table.insert(segments, segment:match("^%s*(.-)%s*$"):lower())
-	end
-	if #segments >= 2 then
-		local tag = segments[2]
-		if tag:find("glove", 1, true) then
-			return true
-		end
-		return tag:find("arm", 1, true) ~= nil and not tag:find("charm", 1, true) and not tag:find("armor", 1, true)
-	end
-	local name = model.Name:lower()
-	return name:find("arms", 1, true) ~= nil or name:find("glove", 1, true) ~= nil
-end
-
-local function isArmNamedPart(partName)
-	local name = partName:lower()
-	for _, skip in ARM_PART_SKIP do
-		if name:find(skip, 1, true) then
-			return false
-		end
-	end
-	if name == "larm" or name == "rarm" then
-		return true
-	end
-	for _, word in ARM_PART_WORDS do
-		if name:find(word, 1, true) then
-			return true
-		end
-	end
-	return false
-end
-
-local function hasArmAncestor(part, model)
-	local node = part.Parent
-	while node and node ~= model do
-		local name = node.Name:lower()
-		if name == "hands" or name:find("glove", 1, true) or name:find("sleeve", 1, true) then
-			return true
-		end
-		if name:find("arm", 1, true) and not name:find("armor", 1, true) and not name:find("charm", 1, true)
-			and not name:find("handguard", 1, true) and not name:find("foregrip", 1, true) then
-			return true
-		end
-		node = node.Parent
-	end
-	return false
-end
-
--- "Arm", "Gun", or false for parts that are never chammed.
-local function chamKind(part, model)
-	local kind = chamKinds[part]
-	if kind ~= nil then
-		return kind
-	end
-	if CHAM_EXCLUDED_PARTS[part.Name] or part.Transparency >= 0.99 or isHelperPart(part) then
-		kind = false
-	elseif isArmViewModel(model) or hasArmAncestor(part, model) or isArmNamedPart(part.Name) then
-		kind = "Arm"
-	else
-		kind = "Gun"
-	end
-	-- A hidden part may be shown later, so don't remember that answer.
-	if part.Transparency < 0.99 then
-		chamKinds[part] = kind
-	end
-	return kind
-end
-
-local function viewmodels()
-	local list = {}
-	for _, folder in viewmodelFolders() do
-		for _, child in folder:GetChildren() do
-			if child:IsA("Model") and not owned[child] then
-				table.insert(list, child)
-			end
-		end
-	end
-	return list
-end
-
--- Proxies: a MeshPart welded over a viewmodel part that shows the cham while
--- the original is hidden.
---  * Materials don't render on a Part shaped by a SpecialMesh (the arms), so
---    those get a MeshPart copy of their mesh; otherwise only the color showed.
---  * Wireframe: every edge of the mesh is rebuilt as a thin two-sided strip
---    (an EditableMesh), so the part's material and color land on the lines.
-local chamMesh = {
-	Proxies = setmetatable({}, { __mode = "k" }), -- part -> proxy MeshPart
-	Keys = setmetatable({}, { __mode = "k" }), -- part -> template key of its proxy
-	Templates = {}, -- key -> MeshPart, or false while loading / if it failed
-	WireGeneration = 0, -- bumped when a line width changes; stale builds are dropped
-}
-
--- MeshId, scale from mesh units to studs, and offset of what a part draws.
-local function meshSource(part)
-	if part:IsA("MeshPart") then
-		local ok, size = pcall(function()
-			return part.MeshSize
-		end)
-		if part.MeshId == "" or not ok or size.X <= 0 or size.Y <= 0 or size.Z <= 0 then
-			return nil
-		end
-		return part.MeshId, part.Size / size, CFrame.new()
-	end
-	local mesh = part:FindFirstChildOfClass("SpecialMesh")
-	if mesh and mesh.MeshType == Enum.MeshType.FileMesh and mesh.MeshId ~= "" then
-		return mesh.MeshId, mesh.Scale, CFrame.new(mesh.Offset)
-	end
-	return nil
-end
-
--- Reading a mesh's triangles needs the Roblox-only UGCValidationService calls.
-local function asRobloxScript(fn)
-	local get, set = getthreadidentity, setthreadidentity
-	if type(get) ~= "function" or type(set) ~= "function" then
-		return fn()
-	end
-	local previous = get()
-	set(8)
-	local ok, result = pcall(fn)
-	set(previous)
-	if not ok then
-		error(result, 0)
-	end
-	return result
-end
-
-local function buildWireMesh(meshId, width, minAngle)
-	local ugc = cloneref(game:GetService("UGCValidationService"))
-	local mesh = ugc:CreateEditableMeshFromBinaryStringRobloxOnly(ugc:GetMeshDataBinaryString(meshId))
-	local faces, original = {}, mesh:GetFaces()
-	for _, face in original do
-		local verts = mesh:GetFaceVertices(face)
-		if #verts >= 3 then
-			local points = {}
-			for index, vertex in verts do
-				points[index] = mesh:GetPosition(vertex)
-			end
-			local normal = (points[2] - points[1]):Cross(points[3] - points[1])
-			if normal.Magnitude > 1e-6 then
-				table.insert(faces, { Verts = verts, Points = points, Normal = normal.Unit })
-			end
-		end
-	end
-	for _, face in original do
-		mesh:RemoveFace(face)
-	end
-	mesh:RemoveUnused()
-
-	-- A mesh may not be wider than 2048 in any direction (some models are modelled huge and
-	-- shown tiny, e.g. Blast X): shrink the lines to fit; the caller scales the part back up.
-	local low, high = Vector3.one * math.huge, Vector3.one * -math.huge
-	for _, face in faces do
-		for _, point in face.Points do
-			low, high = low:Min(point), high:Max(point)
-		end
-	end
-	local span = math.max((high - low).X, (high - low).Y, (high - low).Z)
-	local factor = if span > 1800 then 1800 / span else 1
-	if factor ~= 1 then
-		for _, face in faces do
-			for index, point in face.Points do
-				face.Points[index] = point * factor
-			end
-		end
-		width *= factor
-	end
-
-	-- Edges keyed by position: meshes split vertices along UV / normal seams,
-	-- which would draw a seam edge twice and hide its neighbouring face.
-	local function pointKey(point)
-		return string.format("%.4f,%.4f,%.4f", point.X, point.Y, point.Z)
-	end
-	local edges, order = {}, {}
-	for _, face in faces do
-		local count = #face.Points
-		for i = 1, count do
-			local p, q = face.Points[i], face.Points[i % count + 1]
-			local kp, kq = pointKey(p), pointKey(q)
-			local key = if kp < kq then kp .. "|" .. kq else kq .. "|" .. kp
-			local edge = edges[key]
-			if edge then
-				table.insert(edge.Normals, face.Normal)
-			elseif (q - p).Magnitude > 1e-6 then
-				edge = { P = p, Q = q, Normals = { face.Normal } }
-				edges[key] = edge
-				table.insert(order, edge)
-			end
-		end
-	end
-
-	-- minAngle > 0 keeps only edges whose faces meet at least that sharply
-	-- (open edges always stay), so flat surfaces lose their triangle lines.
-	-- A mesh can't hold more than 20000 triangles and every line costs four, so a model with more
-	-- edges than that keeps its sharpest ones (this is why the detailed guns had no wireframe).
-	local MAX_LINES = 4900
-	local kept = {}
-	for _, edge in order do
-		local sharp = 180 -- an open edge counts as the sharpest
-		if #edge.Normals > 1 then
-			sharp = 0
-			for a = 1, #edge.Normals - 1 do
-				for b = a + 1, #edge.Normals do
-					sharp = math.max(sharp, math.deg(math.acos(math.clamp(edge.Normals[a]:Dot(edge.Normals[b]), -1, 1))))
-				end
-			end
-		end
-		edge.Sharp = sharp
-		if minAngle <= 0 or sharp >= minAngle then
-			table.insert(kept, edge)
-		end
-	end
-	if #kept > MAX_LINES then
-		table.sort(kept, function(left, right)
-			return left.Sharp > right.Sharp
-		end)
-		kept = table.move(kept, 1, MAX_LINES, 1, {})
-	end
-
-	local white = mesh:AddColor(Color3.new(1, 1, 1), 1)
-	local half = width / 2
-	for _, edge in kept do
-		local normal = edge.Normals[1]
-		local side = normal:Cross(edge.Q - edge.P)
-		if side.Magnitude > 1e-6 then
-			local p, q = edge.P, edge.Q
-			local lift = normal * 0.001 -- just off the surface
-			side = side.Unit * half
-			local v1 = mesh:AddVertex(p - side + lift)
-			local v2 = mesh:AddVertex(p + side + lift)
-			local v3 = mesh:AddVertex(q + side + lift)
-			local v4 = mesh:AddVertex(q - side + lift)
-			local up, down = mesh:AddNormal(normal), mesh:AddNormal(-normal)
-			-- Both windings, so the lines show from either side.
-			for _, tri in { { v1, v2, v3, up }, { v1, v3, v4, up }, { v3, v2, v1, down }, { v4, v3, v1, down } } do
-				local triangle = mesh:AddTriangle(tri[1], tri[2], tri[3])
-				mesh:SetFaceNormals(triangle, { tri[4], tri[4], tri[4] })
-				mesh:SetFaceColors(triangle, { white, white, white })
-			end
-		end
-	end
-	return mesh, factor
-end
-
--- Template MeshPart for a key, built in the background (it yields); nil until ready.
-local function templateFor(key, create, generation)
-	local template = chamMesh.Templates[key]
-	if template ~= nil then
-		return template or nil
-	end
-	chamMesh.Templates[key] = false
-	task.spawn(function()
-		local ok, created = pcall(create)
-		if generation and generation ~= chamMesh.WireGeneration then
-			if ok and created then
-				created:Destroy()
-			end
-			chamMesh.Templates[key] = nil
-			return
-		end
-		chamMesh.Templates[key] = ok and created or false
-	end)
-	return nil
-end
-
-local function dropProxy(part)
-	local proxy = chamMesh.Proxies[part]
-	if proxy then
-		proxy:Destroy()
-	end
-	chamMesh.Proxies[part] = nil
-	chamMesh.Keys[part] = nil
-end
-
--- The part's proxy for `key`; keeps showing the previous one until it's built.
-local function proxyFor(part, key, create, scale, offset, generation)
-	local current = chamMesh.Proxies[part]
-	if current and not current.Parent then
-		current = nil
-	end
-	if current and chamMesh.Keys[part] == key then
-		return current
-	end
-	local template = templateFor(key, create, generation)
-	if not template then
-		return current
-	end
-	local proxy = template:Clone()
-	proxy.Name = "ChamMeshProxy"
-	proxy.Anchored = false
-	proxy.Massless = true
-	proxy.CanCollide = false
-	proxy.CanQuery = false
-	proxy.CanTouch = false
-	proxy.CastShadow = false
-	proxy.Size = template.MeshSize * scale / (template:GetAttribute("WireFactor") or 1)
-	local weld = Instance.new("Weld")
-	weld.Part0 = part
-	weld.Part1 = proxy
-	weld.C0 = offset
-	weld.Parent = proxy
-	proxy.CFrame = part.CFrame * offset
-	proxy.Parent = part
-	dropProxy(part)
-	chamMesh.Proxies[part] = proxy
-	chamMesh.Keys[part] = key
-	return proxy
-end
-
-local function applyCham(part, settings)
-	if not chamRestores[part] then
-		-- Viewmodel arms wear a ShirtTexture decal over the whole mesh, which
-		-- hid most materials and the color; the decals are hidden while chammed.
-		-- (The game resets a decal's Transparency every frame, not its
-		-- LocalTransparencyModifier.)
-		local restores = { snapshot(part, { "Material", "Color", "Transparency", "LocalTransparencyModifier" }) }
-		for _, child in part:GetChildren() do
-			if child:IsA("Decal") then -- Texture is a Decal too
-				table.insert(restores, snapshot(child, { "LocalTransparencyModifier" }))
-			end
-		end
-		chamRestores[part] = function()
-			for _, restore in restores do
-				restore()
-			end
-		end
-	end
-	for _, child in part:GetChildren() do
-		if child:IsA("Decal") then
-			child.LocalTransparencyModifier = 1
-		end
-	end
-
-	local wire = settings.Wireframe
-	local meshId, scale, offset = meshSource(part)
-	local proxy = nil
-	if wire and meshId then
-		local width = settings.WireWidth / ((scale.X + scale.Y + scale.Z) / 3) -- studs -> mesh units
-		local generation = chamMesh.WireGeneration
-		local angle = settings.WireAngle
-		proxy = proxyFor(part, string.format("wire|%s|%.5f|%d", meshId, width, angle), function()
-			return asRobloxScript(function()
-				local mesh, factor = buildWireMesh(meshId, width, angle)
-				local template = game:GetService("AssetService"):CreateMeshPartAsync(Content.fromObject(mesh))
-				template:SetAttribute("WireFactor", factor)
-				return template
-			end)
-		end, scale, offset, generation)
-	elseif not wire and meshId and not part:IsA("MeshPart") then
-		proxy = proxyFor(part, "cham|" .. meshId, function()
-			return game:GetService("AssetService"):CreateMeshPartAsync(meshId)
-		end, scale, offset)
-	else
-		dropProxy(part)
-	end
-
-	local material = Enum.Material[if wire then settings.WireMaterial else settings.Material]
-	local color = settings.Color -- the lines use the arm / gun color too
-	local transparency = if wire then 0 else settings.Transparency
-	if proxy then
-		part.LocalTransparencyModifier = 1
-		proxy.Material = material
-		proxy.Color = color
-		proxy.Transparency = transparency
-	elseif not wire then
-		part.LocalTransparencyModifier = 0
-		part.Material = material
-		part.Color = color
-		part.Transparency = transparency
-	end
-end
-
-local function restoreCham(part)
-	dropProxy(part)
-	local restore = chamRestores[part]
-	if restore then
-		restore()
-		chamRestores[part] = nil
-	end
-end
-
-local function clearChams()
-	for part in chamRestores do
-		restoreCham(part)
-	end
-end
-
-local function chamsActive()
-	return viewmodel.Arm.Enabled or viewmodel.Gun.Enabled or viewmodel.Arm.Wireframe or viewmodel.Gun.Wireframe
-end
-
-local function refreshChams()
-	if not chamsActive() then
-		clearChams()
-		return
-	end
-	for _, model in viewmodels() do
-		for _, descendant in model:GetDescendants() do
-			if descendant:IsA("BasePart") then
-				local kind = chamKind(descendant, model)
-				local settings = kind and viewmodel[kind]
-				if settings and (settings.Enabled or settings.Wireframe) then
-					applyCham(descendant, settings)
-				else
-					restoreCham(descendant)
-				end
-			end
-		end
-	end
-end
-
-ViewmodelSection:AddToggle({
-	Title = "Viewmodel offset",
-	Description = "Move your first-person arms and gun",
-	Default = false,
-	Flag = "ViewmodelOffset",
-	Callback = function(on)
-		viewmodel.Offset = on
-	end,
-})
-for _, axis in { "X", "Y", "Z" } do
-	ViewmodelSection:AddSlider({
-		Title = axis .. " offset",
-		Min = -3, Max = 3, Step = 0.05, Default = 0,
-		Flag = "Viewmodel" .. axis,
-		Callback = function(value)
-			viewmodel[axis] = value
-		end,
-	})
-end
--- Lines are baked into the mesh: drop the old builds, they get rebuilt.
-local function rebuildWires()
-	chamMesh.WireGeneration += 1
-	for key, template in chamMesh.Templates do
-		if key:sub(1, 5) == "wire|" then
-			if template then
-				template:Destroy()
-			end
-			chamMesh.Templates[key] = nil
-		end
-	end
-	refreshChams()
-end
-
-for _, kind in { "Arm", "Gun" } do
-	local settings = viewmodel[kind]
-	ViewmodelSection:AddToggle({
-		Title = kind .. " chams",
-		Description = kind == "Arm" and "Change the look of your first-person arms / hands"
-			or "Change the look of your first-person gun",
-		Default = false,
-		Flag = "Viewmodel" .. kind .. "Chams",
-		Callback = function(on)
-			settings.Enabled = on
-			refreshChams()
-		end,
-	})
-	ViewmodelSection:AddDropdown({
-		Title = kind .. " material",
-		Options = MATERIAL_NAMES,
-		Default = settings.Material,
-		Flag = "Viewmodel" .. kind .. "Material",
-		Callback = function(name)
-			settings.Material = name
-			refreshChams()
-		end,
-	})
-	ViewmodelSection:AddColorPicker({
-		Title = kind .. " color",
-		Default = settings.Color,
-		Flag = "Viewmodel" .. kind .. "Color",
-		Callback = function(color)
-			settings.Color = color
-			refreshChams()
-		end,
-	})
-	ViewmodelSection:AddSlider({
-		Title = kind .. " transparency",
-		Min = 0, Max = 0.95, Step = 0.05, Default = 0,
-		Flag = "Viewmodel" .. kind .. "Transparency",
-		Callback = function(value)
-			settings.Transparency = value
-			refreshChams()
-		end,
-	})
-	ViewmodelSection:AddToggle({
-		Title = kind .. " wireframe",
-		Description = kind == "Arm" and "Draw your first-person arms as lines along their mesh edges"
-			or "Draw your first-person gun as lines along its mesh edges",
-		Default = false,
-		Flag = "Viewmodel" .. kind .. "Wireframe",
-		Callback = function(on)
-			settings.Wireframe = on
-			refreshChams()
-		end,
-	})
-	ViewmodelSection:AddSlider({
-		Title = kind .. " line thickness",
-		Min = 0.005, Max = 0.15, Step = 0.005, Default = settings.WireWidth, Suffix = " studs",
-		Flag = "Viewmodel" .. kind .. "WireWidth",
-		Callback = function(value)
-			settings.WireWidth = value
-			rebuildWires()
-		end,
-	})
-	ViewmodelSection:AddSlider({
-		Title = kind .. " line reduction",
-		Min = 0, Max = 90, Step = 1, Default = settings.WireAngle, Suffix = "°",
-		Flag = "Viewmodel" .. kind .. "WireAngle",
-		Callback = function(value)
-			-- 0 draws every edge; higher keeps only edges this sharp, so fewer lines.
-			settings.WireAngle = value
-			rebuildWires()
-		end,
-	})
-	ViewmodelSection:AddDropdown({
-		Title = kind .. " line material",
-		Options = MATERIAL_NAMES,
-		Default = settings.WireMaterial,
-		Flag = "Viewmodel" .. kind .. "WireMaterial",
-		Callback = function(name)
-			settings.WireMaterial = name
-			refreshChams()
-		end,
-	})
-end
-
--- No muzzle flash: hides flash effects on your own viewmodel. Emitters are made
--- invisible (Emit() ignores Enabled), lights / beams are switched off.
-muzzle = { Enabled = false, AllEffects = false }
-local muzzleRestores = setmetatable({}, { __mode = "k" }) -- effect -> restore function
-local INVISIBLE = NumberSequence.new(1)
-local EFFECT_CLASSES = { "ParticleEmitter", "PointLight", "SpotLight", "SurfaceLight", "Beam", "Trail", "Fire", "Smoke", "Sparkles" }
-
-local function isEffect(instance)
-	for _, className in EFFECT_CLASSES do
-		if instance:IsA(className) then
-			return true
-		end
-	end
-	return false
-end
-
-local function inViewmodel(instance)
-	local folders = viewmodelFolders()
-	local node = instance
-	while node and not table.find(folders, node.Parent) do
-		node = node.Parent
-	end
-	return node ~= nil and node:IsA("Model") and not owned[node]
-end
-
-local function looksLikeMuzzle(instance)
-	local node = instance
-	for _ = 1, 4 do
-		if not node then
-			break
-		end
-		local name = node.Name:lower()
-		if name:find("muzzle") or name:find("flash") then
-			return true
-		end
-		node = node.Parent
-	end
-	return false
-end
-
-local function hideEffect(effect)
-	if muzzleRestores[effect] or not (muzzle.AllEffects or looksLikeMuzzle(effect)) then
-		return
-	end
-	if effect:IsA("ParticleEmitter") then
-		muzzleRestores[effect] = snapshot(effect, { "Transparency" })
-		effect.Transparency = INVISIBLE
-	else
-		muzzleRestores[effect] = snapshot(effect, { "Enabled" })
-		effect.Enabled = false
-	end
-end
-
-local function restoreEffects()
-	for effect, restore in muzzleRestores do
-		restore()
-		muzzleRestores[effect] = nil
-	end
-end
-
-local function hideAllEffects()
-	for _, model in viewmodels() do
-		for _, descendant in model:GetDescendants() do
-			if isEffect(descendant) then
-				hideEffect(descendant)
-			end
-		end
-	end
-end
-
-local function setNoMuzzleFlash(on)
-	muzzle.Enabled = on
-	restoreEffects()
-	if on then
-		hideAllEffects()
-	end
-end
-
--- Flashes are often cloned in per shot, so catch them the moment they appear.
-local muzzleConnections = {}
-local function watchViewmodelEffects()
-	for _, connection in muzzleConnections do
-		connection:Disconnect()
-	end
-	table.clear(muzzleConnections)
-	for _, folder in viewmodelFolders() do
-		table.insert(muzzleConnections, folder.DescendantAdded:Connect(function(descendant)
-			if muzzle.Enabled and isEffect(descendant) and inViewmodel(descendant) then
-				hideEffect(descendant)
-			end
-		end))
-	end
-end
-watchViewmodelEffects()
-track(workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(watchViewmodelEffects))
-track(function()
-	for _, connection in muzzleConnections do
-		connection:Disconnect()
-	end
-	restoreEffects()
-end)
-
-ViewmodelSection:AddToggle({
-	Title = "No muzzle flash",
-	Description = "Hide the flash on your own gun",
-	Default = false,
-	Flag = "NoMuzzleFlash",
-	Callback = setNoMuzzleFlash,
-})
-ViewmodelSection:AddToggle({
-	Title = "Hide all viewmodel effects",
-	Description = "Also hide effects that aren't named muzzle / flash",
-	Default = false,
-	Flag = "HideViewmodelEffects",
-	Callback = function(on)
-		muzzle.AllEffects = on
-		if muzzle.Enabled then
-			setNoMuzzleFlash(true)
-		end
-	end,
-})
-
-local VIEWMODEL_STEP = PREFIX .. "Viewmodel"
-local lastChamScan = 0
-local offsetPivots = setmetatable({}, { __mode = "k" }) -- model -> pivot we last set
-RunService:BindToRenderStep(VIEWMODEL_STEP, Enum.RenderPriority.Last.Value, function()
-	if viewmodel.Offset then
-		local offset = CFrame.new(viewmodel.X, viewmodel.Y, viewmodel.Z)
-		for _, model in viewmodels() do
-			local pivot = model:GetPivot()
-			-- Only offset once per game update, so a frame the game skips can't drift it.
-			if offsetPivots[model] ~= pivot then
-				local moved = pivot * offset
-				model:PivotTo(moved)
-				offsetPivots[model] = moved
-			end
-		end
-	end
-	-- Weapon swaps bring in new parts; pick them up a few times a second.
-	local now = os.clock()
-	if chamsActive() and now - lastChamScan > 0.25 then
-		lastChamScan = now
-		refreshChams()
-	end
-end)
-track(function()
-	RunService:UnbindFromRenderStep(VIEWMODEL_STEP)
-	clearChams()
-end)
-end
-
-    ---------------------------------------------------------------------------------------------- the link
-    local connections = {}
-    local function read(path)
-        local v = data
-        for _, key in ipairs(path) do
-            if type(v) ~= "table" then return nil end
-            v = v[key]
-        end
-        return v
-    end
-    local function link(flag, path, convert)
-        local el = virtual[flag]
-        if el == nil then return end
-        local function push()
-            local v = read(path)
-            if convert ~= nil then v = convert(v) end
-            if v ~= nil then el:Set(v) end
-        end
-        connections[#connections + 1] = cfg:GetPropertyChangedSignal(path):Connect(push)
-        push()
-    end
-    -- the script's material names are LY's materials
-    local MATERIAL = { Ghost = "ForceField", Flat = "Neon", Foil = "Foil", Custom = "SmoothPlastic", Reflective = "Glass", Original = "Plastic" }
-    local function material(name) return MATERIAL[name] or "ForceField" end
-    local function clampTransparency(v) return type(v) == "number" and math.clamp(v, 0, 0.95) or nil end
-
-    for _, flag in ipairs({ "NoMotion" }) do
-        link(flag, { "ItemModifiers", flag })
-    end
-    link("NoMuzzleFlash", { "Removables", "NoMuzzleFlash" })
-    for _, pair in ipairs({ { "Arm", "Arms" }, { "Gun", "Item" } }) do
-        local ly, kh = pair[1], pair[2]
-        link("Viewmodel" .. ly .. "Chams", { "Chams", kh, "Enabled" })
-        link("Viewmodel" .. ly .. "Material", { "Chams", kh, "Material" }, material)
-        link("Viewmodel" .. ly .. "Color", { "Chams", kh, "Color" })
-        link("Viewmodel" .. ly .. "Transparency", { "Chams", kh, "Transparency" }, clampTransparency)
-        link("Viewmodel" .. ly .. "Wireframe", { "ViewModelWireframe", kh, "Enabled" })
-        link("Viewmodel" .. ly .. "WireWidth", { "ViewModelWireframe", kh, "Width" })
-        -- the lines of LY wear the cham colour: with only the wireframe on, they take the wireframe colour
-        local colorEl = virtual["Viewmodel" .. ly .. "Color"]
-        local function pushColor()
-            local wireOn = read({ "ViewModelWireframe", kh, "Enabled" }) == true
-            local chamOn = read({ "Chams", kh, "Enabled" }) == true
-            local c = (wireOn and not chamOn) and read({ "ViewModelWireframe", kh, "Color" }) or read({ "Chams", kh, "Color" })
-            if colorEl ~= nil and typeof(c) == "Color3" then colorEl:Set(c) end
-        end
-        for _, path in ipairs({ { "ViewModelWireframe", kh, "Enabled" }, { "ViewModelWireframe", kh, "Color" }, { "Chams", kh, "Enabled" }, { "Chams", kh, "Color" } }) do
-            connections[#connections + 1] = cfg:GetPropertyChangedSignal(path):Connect(pushColor)
-        end
-        pushColor()
-    end
-
-    K.onUnload(function()
-        for _, c in ipairs(connections) do pcall(function() c:Disconnect() end) end
-        for index = #unloaders, 1, -1 do
-            local item = unloaders[index]
-            if typeof(item) == "RBXScriptConnection" then
-                pcall(item.Disconnect, item)
-            elseif type(item) == "function" then
-                pcall(item)
-            elseif typeof(item) == "Instance" then
-                pcall(item.Destroy, item)
-            end
-        end
-    end)
-end
-task.defer(function()
-    local ok, err = pcall(setup)
-    if not ok then warn("[LxYHook] weapon visuals of LY failed: " .. tostring(err)) end
-end)
-end)()
 
 --==========================================================================
 --  LY custom skins (ported from LYHub): extra Contraband-style skins built on stock
@@ -96509,7 +90876,11 @@ do
 		K.Skins = result
 		local t0 = tick()
 		local registered = false
-		local function finish()
+		repeat
+			local okReg, done = pcall(result.RegisterAll)
+			if okReg and done then registered = true break end
+			task.wait(0.25)
+		until tick() - t0 > 30
 		-- Summary in the console: proves which build is running and which skins did not register.
 		local library = result.LYRequire and result.LYRequire("CosmeticLibrary")
 		local cosmetics = library and library.Cosmetics
@@ -96534,24 +90905,6 @@ do
 			total - #missing, total, tostring(registered),
 			tostring(type(sample) == "table" and sample.ItemName), tostring(type(sample) == "table" and sample.Rarity),
 			#missing > 0 and (" missing: " .. table.concat(missing, ", ")) or ""))
-		end
-		repeat
-			local okReg, done = pcall(result.RegisterAll)
-			if okReg and done then registered = true break end
-			task.wait(0.25)
-		until tick() - t0 > 3
-		if registered then
-			finish()
-		else
-			task.spawn(function()
-				repeat
-					local okReg, done = pcall(result.RegisterAll)
-					if okReg and done then registered = true break end
-					task.wait(0.25)
-				until tick() - t0 > 30
-				finish()
-			end)
-		end
 	end
 end
 
@@ -97390,7 +91743,7 @@ local boot = (function()
         -- What the queued loader runs. getgenv().KiciaRerunFile (a workspace file) wins if set;
         -- otherwise the script is downloaded from the public GitHub repo kkbisnyu-sys/12 (branch main, kh.lua),
         -- so Re-run works without a local copy of the script. A raw.githubusercontent.com address is sent with
-        -- a GitHub token when one exists (workspace file LxYHook/github_token.txt, or
+        -- a GitHub token when one exists (workspace file kiciarebuild/github_token.txt, or
         -- getgenv().KiciaGithubToken), which is only needed for a private repo; with no token it is a plain
         -- game:HttpGet. The token is never written into this script. getgenv().KiciaRerunUrl overrides the
         -- address (e.g. the private repo kkbisnyu-sys/23 together with a token).
@@ -97403,10 +91756,10 @@ local _job = tostring(game.JobId)
 if _job ~= "" and _env.__KiciaRerunJob == _job then return end
 _env.__KiciaRerunJob = _job
 _env.SILENT = isfile("LOAD_SILENTLY")
--- trace of what the loader did, kept in LxYHook/logs/rerun_loader.log (survives crashes)
+-- trace of what the loader did, kept in kiciarebuild/logs/rerun_loader.log (survives crashes)
 local function _log(m)
     pcall(function()
-        appendfile("LxYHook/logs/rerun_loader.log", os.date("%%H:%%M:%%S") .. " job=" .. _job .. " " .. m .. "\n")
+        appendfile("kiciarebuild/logs/rerun_loader.log", os.date("%%H:%%M:%%S") .. " job=" .. _job .. " " .. m .. "\n")
     end)
 end
 _log("loader started")
@@ -97416,7 +91769,7 @@ _log("loader started")
 do
     local _q = queue_on_teleport or queueonteleport
         or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
-    local _self = "LxYHook/rerun_loader.lua"
+    local _self = "kiciarebuild/rerun_loader.lua"
     if _q and isfile(_self) then pcall(function() _q(readfile(_self)) end) end
 end
 local function waitFor(cond, timeout)
@@ -97451,17 +91804,17 @@ local _url = %q
 -- the cached copy is kept per address, so a copy fetched from an old loader URL is never run for a new one
 local _h = 0
 for _i = 1, #_url do _h = (_h * 31 + string.byte(_url, _i)) %% 4294967296 end
-local _cache = "LxYHook/rerun_cache_" .. _h .. ".lua"
+local _cache = "kiciarebuild/rerun_cache_" .. _h .. ".lua"
 local function _fetch()
     local ok, res
     if _file ~= "" then
         ok, res = pcall(readfile, _file)
     elseif string.find(_url, "raw.githubusercontent.com", 1, true) then
-        -- GitHub raw address: with a token (LxYHook/github_token.txt) the request carries it, which a
+        -- GitHub raw address: with a token (kiciarebuild/github_token.txt) the request carries it, which a
         -- private repo needs; without one, or if that request fails, a plain HttpGet (public repos)
         local _tok = _env.KiciaGithubToken
-        if (not _tok or _tok == "") and isfile("LxYHook/github_token.txt") then
-            local okT, t = pcall(readfile, "LxYHook/github_token.txt")
+        if (not _tok or _tok == "") and isfile("kiciarebuild/github_token.txt") then
+            local okT, t = pcall(readfile, "kiciarebuild/github_token.txt")
             if okT and type(t) == "string" then _tok = string.gsub(t, "[\r\n\t ]", "") end
         end
         local _req = request or http_request or (syn and syn.request) or (fluxus and fluxus.request)
@@ -97589,7 +91942,7 @@ _env.__KiciaRerunJob = nil
                     src = string.format("script_key=%q; ", key) .. src
                 end
                 -- the loader re-queues itself from this file as soon as it starts (see RERUN_LOADER)
-                pcall(wrf, "LxYHook/rerun_loader.lua", src)
+                pcall(wrf, "kiciarebuild/rerun_loader.lua", src)
                 for attempt = 1, 3 do
                     if pcall(queueFn, src) then
                         queuedJob = job
