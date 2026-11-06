@@ -92836,15 +92836,17 @@ do -- DH
             return nil
         end
 
-        local ammoNow, reserveNow, muzzleNow
+        local ammoNow, reserveNow, muzzleNow, aimingNow
         local function readAmmo()
-            ammoNow, reserveNow, muzzleNow = nil, nil, nil
+            ammoNow, reserveNow, muzzleNow, aimingNow = nil, nil, nil, false
             local fc = K.Controller("FighterController")
             local lf = fc and fc.LocalFighter
             local item = lf and lf.EquippedItem
             if item and item.Get then
                 ammoNow = item:Get("Ammo")
                 reserveNow = item:Get("AmmoReserve")
+                --  aiming down the sight / scope (the item's own IsAiming state, as read by the game's IsFullyAiming)
+                aimingNow = item:Get("IsAiming") == true
             end
         end
         --  world position of the muzzle of the held weapon (nil for melee / no weapon); a separate pcall so a
@@ -92869,6 +92871,17 @@ do -- DH
             local character = LocalPlayer.Character
             local humanoid = character and character:FindFirstChildOfClass("Humanoid")
             if humanoid == nil or humanoid.Health <= 0 then
+                put(root, "Visible", false)
+                return
+            end
+
+            --  hidden in the lobby (no match environment, same test as the ragebot) and while aiming down the sight
+            if LocalPlayer:GetAttribute("EnvironmentID") == nil then
+                put(root, "Visible", false)
+                return
+            end
+            local okAmmo = pcall(readAmmo)
+            if okAmmo and aimingNow then
                 put(root, "Visible", false)
                 return
             end
@@ -92941,8 +92954,7 @@ do -- DH
             local accent = typeof(s.Color) == "Color3" and s.Color or DEFAULT_ACCENT
 
             --  ammo
-            local okAmmo = pcall(readAmmo)
-            local showAmmo = s.ShowAmmo ~= false and okAmmo and type(ammoNow) == "number"
+            local showAmmo =s.ShowAmmo ~= false and okAmmo and type(ammoNow) == "number"
             put(ammoGroup, "Visible", showAmmo and true or false)
             if showAmmo then
                 put(ammoLabel, "Text", tostring(math.floor(ammoNow)))
