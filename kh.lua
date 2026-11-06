@@ -11843,10 +11843,13 @@ return Starlight
 end
 -- The Ragebot Style as the code should see it.
 function K.RagebotStyle(picked)
-    -- Solix and Sleepy were removed: configs that still pick them play as KH
-    if picked == "SOLIX" or picked == "SLEEPY" then
+    -- Solix, Sleepy and Lilac were removed: configs that still pick them play as KH
+    if picked == "SOLIX" or picked == "SLEEPY" or picked == "Lilac" then
         return "Original"
     end
+    -- "gugugaga" is picked in the dropdown like the others. No UE / Careful / FW UE branch matches it, so every
+    -- check falls through to the KH path; its own behaviour sits behind == "gugugaga" checks.
+    -- "Pigeon" falls through the same way; only its hide points differ, behind ueS.IsPigeon() checks.
     return picked
 end
 -- build marker: shows in the F9 console so you can tell which copy of the script is running
@@ -71826,7 +71829,7 @@ return ie.c
 end
 end
 do -- ih
-local function fn35() tbl17 .aE();local cfgd= tbl17 .bG();local I= tbl17 .h6();local function l(W)I(W,"Enable Ragebot",{"Always","Toggle","Hold"},{"Ragebot"},true);local style=W:AddDropdown({Label="Ragebot Style",Tooltip="KH: Kicia's own ragebot. UE: the Unnamed Enhancements ragebot (void spam, backstab, gun and light attack). Picking UE hides the KH settings. Auto: plays as KH until the Hacker Detector flags an enemy, then switches this dropdown to FW UE and stays there. Careful: the LY hub's own ragebot in its Careful mode (its own targeting, teleport attack, evasion and reloads). Careful Settings, Weapon Strategy and Target HUD apply to it.",Options={"Original","UE","Careful","FWUE"},Labels={Original="KH",UE="UE",Careful="Careful",FWUE="FW UE trash kh"},Config={"Ragebot","KnifeMode"}});W:AddToggle({Label="Round Start Delay",Tooltip="At the start of a round, hide in the void for a random 1-6 s first, then start attacking. Applies to every Ragebot Style.",Config={"Ragebot","StartDelay"}});W:AddToggle({Label="Prioritize Hackers",Config={"Ragebot","PrioritizeHackers"}});W:AddToggle({Label="Evade When Target Hacking",Config={"Ragebot","EvadeWhenHacking"}});W:AddButton({Label="Clear Hacker Tags",OnClick=function()local d=K.HackerDetector;local ok,n=pcall(function()return d and d:ClearTags() or nil;end);local text=(not ok or n==nil) and "Hacker detector is not ready" or string.format("Cleared %d hacker tag(s)",n);pcall(function()tbl17.aB().get():Notify(text);end);end});return style;end;local function kf(W)W:AddToggle({Label="Detect Knife",Config={"Ragebot","DetectKnife"}});W:AddSlider({Label="Stability",Min=0,Max=1.5,Step=0.001,Config={"Ragebot","Stability"}});W:AddSlider({Label="Shoot Frames",Min=1,Max=5,Config={"Ragebot","ShootFrames"}});end;local function cf(W)W:AddToggle({Label="Evade Between Shots",Tooltip="Slow weapons (shotgun, sniper, knife): evade in the gaps instead of standing on the target",Config={"Ragebot","Careful","EvadeBetweenShots"}});W:AddToggle({Label="Attack After Enemy",Tooltip="Only shoot an enemy in the gap right after it fired or swung, or while its weapon cools down or reloads",Config={"Ragebot","Careful","RetaliateOnly"}});W:AddSlider({Label="Gap Window",Tooltip="How long after its shot or swing an enemy can still be shot (its weapon cooldown or reload also counts)",Min=0.5,Max=5,Step=0.1,Suffix="s",Config={"Ragebot","Careful","RetaliateWindow"}});end;local function uf(W)W:AddToggle({Label="Never Void",Tooltip="Never hide in the void (UE style): no hide phase, and none while reloading, swapping, without a target or between knife stabs. You stay where you are.",Config={"Ragebot","UE","NoVoid"}});W:AddToggle({Label="Backstab Cooldown 0.8",Tooltip="On: the time between two backstabs is HeavyAttackCooldown x 0.8. Off: UE's own x 0.75.",Config={"Ragebot","UE","KnifeCooldown08"}});W:AddToggle({Label="Void Spam",Tooltip="Hide in the void between attack bursts (UE void spam). Used by the gun and the light attack, not by the backstab.",Config={"Ragebot","UE","VoidSpam"}});W:AddSlider({Label="Void Spam Attack",Tooltip="the amount of time attacking before hiding again (UE adds 0.1 s on top)",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","AttackTime"}});W:AddSlider({Label="Void Spam Hide",Tooltip="how long it stays in void for",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","HideTime"}});W:AddSlider({Label="Shoot Attempts",Tooltip="how many times it will try to fire your weapon (UE: ragebot_shoot_attempts)",Min=1,Max=2,Step=1,Config={"Ragebot","UE","ShootAttempts"}});W:AddDropdown({Label="Knife Attack",Tooltip="Heavy Backstab = UE attack mode knife. Light Attack = UE attack mode melee (fast light attacks with the knife).",Options={"Heavy","Light"},Labels={Heavy="Heavy Backstab",Light="Light Attack"},Config={"Ragebot","UE","KnifeAttack"}});end;local function I(W)local N={"Primary","Secondary","Melee"};for P,P in N,nil,nil do W:AddToggle({Label=string.format("%s Enabled",tostring(P)),Config={"Ragebot","Weapons","Enabled",P}});end;W:AddOrderedList({Label="Weapon Priority",Items=N,Default=N,Config={"Ragebot","Weapons","Priority"}});W:AddDropdown({Label="On Empty",Options={"Reload","Swap","SwapOrReload"},Labels={SwapOrReload="Swap or Reload"},Config={"Ragebot","Weapons","OnEmpty"}});end;local function W(N,P)local a=N:AddGroup({Source=P,Option="ProjectileBreaker"});a:AddRangeSlider({Label="Forward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForward"}});a:AddSlider({Label="Forward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForwardFrequency"}});a:AddRangeSlider({Label="Upward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUp"}});a:AddSlider({Label="Upward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUpFrequency"}});a:AddSlider({Label="Reposition Interval (s)",Min=0.05,Max=2,Step=0.01,Config={"Ragebot","Evasion","ProjectileBreaker","RepositionInterval"}});a:AddToggle({Label="Fallback Character Origin",Config={"Ragebot","Evasion","ProjectileBreaker","FallbackAnchorFromCharacter"}});a:AddSlider({Label="Fallback Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackBaseRadius"}});a:AddSlider({Label="Fallback Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackRadiusRandomFactor"}});end;local function N(P)local a=P:AddDropdown({Label="Evasion Mode",Options={"Off","Random","Translocate","ProjectileBreaker"},Labels={ProjectileBreaker="Projectile Breaker"},Config={"Ragebot","Evasion","Mode"}});local e=P:AddGroup({Source=a,Option="Random"});e:AddToggle({Label="Character Origin",Config={"Ragebot","Evasion","Random","AnchorFromCharacter"}});e:AddSlider({Label="Base Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","Random","BaseRadius"}});e:AddSlider({Label="Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","Random","RadiusRandomFactor"}});P:AddGroup({Source=a,Option="Translocate"}):AddSlider({Label="Offset",Min=-5,Max=5,Step=0.1,Config={"Ragebot","Evasion","Translocate","Offset"}});W(P,a);end;local function H(P)P:AddToggle({Label="Target HUD",Config={"Ragebot","TargetHud","Enabled"}});P:AddSlider({Label="Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","Scale"}});P:AddSlider({Label="Item Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","ItemScale"}});P:AddSlider({Label="Offset X (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosX"}});P:AddSlider({Label="Offset Y (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosY"}});end;return function(W)local style=l(W:AddSection({Title="Activation",Side="left"}));local khSection=W:AddSection({Title="KH Settings",Side="left"});kf(khSection);local carefulSection=W:AddSection({Title="Careful Settings",Side="left"});cf(carefulSection);local ueSection=W:AddSection({Title="UE Settings",Side="left"});uf(ueSection);local weaponSection=W:AddSection({Title="Weapon Strategy",Side="left"});I(weaponSection);local evasionSection=W:AddSection({Title="Evasion",Side="right"});N(evasionSection);local hudSection=W:AddSection({Title="Target HUD",Side="right"});H(hudSection);local fwSection=W:AddSection({Title="FW UE Settings",Side="left"});fwSection:AddToggle({Label="FW Weapon Check",Tooltip="Hide only while the weapon window is open. Slow weapons: the shot / swing cooldown must have at least 0.6 s left. Fast weapons (cooldown up to 0.3 s): the magazine must be nearly empty. Nobody may be reloading, and an enemy starting to reload sends you back to the void. No time limit on the wait.",Config={"Ragebot","FWWeaponCheck"}});local function applyStyle()local picked=style.Value;local isUE=picked=="UE";local isCareful=picked=="Careful";local isEmpty=picked=="FWUE";khSection:SetVisible(not isUE and not isCareful and not isEmpty);evasionSection:SetVisible(not isUE and not isCareful and not isEmpty);ueSection:SetVisible(isUE);carefulSection:SetVisible(isCareful);weaponSection:SetVisible(not isEmpty);hudSection:SetVisible(not isEmpty);fwSection:SetVisible(picked=="FWUE");end;applyStyle();pcall(function()style.ValueChanged:Connect(applyStyle);end);end;end
+local function fn35() tbl17 .aE();local cfgd= tbl17 .bG();local I= tbl17 .h6();local function l(W)I(W,"Enable Ragebot",{"Always","Toggle","Hold"},{"Ragebot"},true);local style=W:AddDropdown({Label="Ragebot Style",Tooltip="KH: Kicia's own ragebot. UE: the Unnamed Enhancements ragebot (void spam, backstab, gun and light attack). Picking UE hides the KH settings. Auto: plays as KH until the Hacker Detector flags an enemy, then switches this dropdown to FW UE and stays there. Careful: the LY hub's own ragebot in its Careful mode (its own targeting, teleport attack, evasion and reloads). Careful Settings, Weapon Strategy and Target HUD apply to it. Pigeon: attacks as KH, always hides in the void 2147483647 studs straight up and ignores the Evasion settings.",Options={"Original","UE","Careful","FWUE","gugugaga","Pigeon"},Labels={Original="KH",UE="UE",Careful="Careful",FWUE="FW UE trash kh",gugugaga="gugugaga",Pigeon="Pigeon"},Config={"Ragebot","KnifeMode"}});W:AddToggle({Label="Round Start Delay",Tooltip="At the start of a round, hide in the void for a random 1-6 s first, then start attacking. Applies to every Ragebot Style.",Config={"Ragebot","StartDelay"}});W:AddToggle({Label="Prioritize Hackers",Config={"Ragebot","PrioritizeHackers"}});W:AddToggle({Label="Evade When Target Hacking",Config={"Ragebot","EvadeWhenHacking"}});W:AddButton({Label="Clear Hacker Tags",OnClick=function()local d=K.HackerDetector;local ok,n=pcall(function()return d and d:ClearTags() or nil;end);local text=(not ok or n==nil) and "Hacker detector is not ready" or string.format("Cleared %d hacker tag(s)",n);pcall(function()tbl17.aB().get():Notify(text);end);end});return style;end;local function kf(W)W:AddToggle({Label="Detect Knife",Config={"Ragebot","DetectKnife"}});W:AddSlider({Label="Stability",Min=0,Max=1.5,Step=0.001,Config={"Ragebot","Stability"}});W:AddSlider({Label="Shoot Frames",Min=1,Max=5,Config={"Ragebot","ShootFrames"}});end;local function cf(W)W:AddToggle({Label="Evade Between Shots",Tooltip="Slow weapons (shotgun, sniper, knife): evade in the gaps instead of standing on the target",Config={"Ragebot","Careful","EvadeBetweenShots"}});W:AddToggle({Label="Attack After Enemy",Tooltip="Only shoot an enemy in the gap right after it fired or swung, or while its weapon cools down or reloads",Config={"Ragebot","Careful","RetaliateOnly"}});W:AddSlider({Label="Gap Window",Tooltip="How long after its shot or swing an enemy can still be shot (its weapon cooldown or reload also counts)",Min=0.5,Max=5,Step=0.1,Suffix="s",Config={"Ragebot","Careful","RetaliateWindow"}});end;local function uf(W)W:AddToggle({Label="Never Void",Tooltip="Never hide in the void (UE style): no hide phase, and none while reloading, swapping, without a target or between knife stabs. You stay where you are.",Config={"Ragebot","UE","NoVoid"}});W:AddToggle({Label="Backstab Cooldown 0.8",Tooltip="On: the time between two backstabs is HeavyAttackCooldown x 0.8. Off: UE's own x 0.75.",Config={"Ragebot","UE","KnifeCooldown08"}});W:AddToggle({Label="Void Spam",Tooltip="Hide in the void between attack bursts (UE void spam). Used by the gun and the light attack, not by the backstab.",Config={"Ragebot","UE","VoidSpam"}});W:AddSlider({Label="Void Spam Attack",Tooltip="the amount of time attacking before hiding again (UE adds 0.1 s on top)",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","AttackTime"}});W:AddSlider({Label="Void Spam Hide",Tooltip="how long it stays in void for",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","HideTime"}});W:AddSlider({Label="Shoot Attempts",Tooltip="how many times it will try to fire your weapon (UE: ragebot_shoot_attempts)",Min=1,Max=2,Step=1,Config={"Ragebot","UE","ShootAttempts"}});W:AddDropdown({Label="Knife Attack",Tooltip="Heavy Backstab = UE attack mode knife. Light Attack = UE attack mode melee (fast light attacks with the knife).",Options={"Heavy","Light"},Labels={Heavy="Heavy Backstab",Light="Light Attack"},Config={"Ragebot","UE","KnifeAttack"}});end;local function I(W)local N={"Primary","Secondary","Melee"};for P,P in N,nil,nil do W:AddToggle({Label=string.format("%s Enabled",tostring(P)),Config={"Ragebot","Weapons","Enabled",P}});end;W:AddOrderedList({Label="Weapon Priority",Items=N,Default=N,Config={"Ragebot","Weapons","Priority"}});W:AddDropdown({Label="On Empty",Options={"Reload","Swap","SwapOrReload"},Labels={SwapOrReload="Swap or Reload"},Config={"Ragebot","Weapons","OnEmpty"}});end;local function W(N,P)local a=N:AddGroup({Source=P,Option="ProjectileBreaker"});a:AddRangeSlider({Label="Forward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForward"}});a:AddSlider({Label="Forward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForwardFrequency"}});a:AddRangeSlider({Label="Upward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUp"}});a:AddSlider({Label="Upward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUpFrequency"}});a:AddSlider({Label="Reposition Interval (s)",Min=0.05,Max=2,Step=0.01,Config={"Ragebot","Evasion","ProjectileBreaker","RepositionInterval"}});a:AddToggle({Label="Fallback Character Origin",Config={"Ragebot","Evasion","ProjectileBreaker","FallbackAnchorFromCharacter"}});a:AddSlider({Label="Fallback Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackBaseRadius"}});a:AddSlider({Label="Fallback Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackRadiusRandomFactor"}});end;local function N(P)local a=P:AddDropdown({Label="Evasion Mode",Options={"Off","Random","Translocate","ProjectileBreaker"},Labels={ProjectileBreaker="Projectile Breaker"},Config={"Ragebot","Evasion","Mode"}});local e=P:AddGroup({Source=a,Option="Random"});e:AddToggle({Label="Character Origin",Config={"Ragebot","Evasion","Random","AnchorFromCharacter"}});e:AddSlider({Label="Base Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","Random","BaseRadius"}});e:AddSlider({Label="Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","Random","RadiusRandomFactor"}});P:AddGroup({Source=a,Option="Translocate"}):AddSlider({Label="Offset",Min=-5,Max=5,Step=0.1,Config={"Ragebot","Evasion","Translocate","Offset"}});W(P,a);end;local function H(P)P:AddToggle({Label="Target HUD",Config={"Ragebot","TargetHud","Enabled"}});P:AddSlider({Label="Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","Scale"}});P:AddSlider({Label="Item Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","ItemScale"}});P:AddSlider({Label="Offset X (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosX"}});P:AddSlider({Label="Offset Y (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosY"}});end;return function(W)local style=l(W:AddSection({Title="Activation",Side="left"}));local khSection=W:AddSection({Title="KH Settings",Side="left"});kf(khSection);local carefulSection=W:AddSection({Title="Careful Settings",Side="left"});cf(carefulSection);local ueSection=W:AddSection({Title="UE Settings",Side="left"});uf(ueSection);local weaponSection=W:AddSection({Title="Weapon Strategy",Side="left"});I(weaponSection);local evasionSection=W:AddSection({Title="Evasion",Side="right"});N(evasionSection);local hudSection=W:AddSection({Title="Target HUD",Side="right"});H(hudSection);local fwSection=W:AddSection({Title="FW UE Settings",Side="left"});fwSection:AddToggle({Label="FW Weapon Check",Tooltip="Hide only while the weapon window is open. Slow weapons: the shot / swing cooldown must have at least 0.6 s left. Fast weapons (cooldown up to 0.3 s): the magazine must be nearly empty. Nobody may be reloading, and an enemy starting to reload sends you back to the void. No time limit on the wait.",Config={"Ragebot","FWWeaponCheck"}});local function applyStyle()local picked=style.Value;local isGugugaga=picked=="gugugaga";local isUE=picked=="UE";local isCareful=picked=="Careful";local isEmpty=picked=="FWUE";khSection:SetVisible(not isUE and not isCareful and not isEmpty and not isGugugaga);evasionSection:SetVisible(not isUE and not isCareful and not isEmpty and not isGugugaga and picked~="Pigeon");ueSection:SetVisible(isUE);carefulSection:SetVisible(isCareful);weaponSection:SetVisible(not isEmpty);hudSection:SetVisible(not isEmpty and not isGugugaga);fwSection:SetVisible(picked=="FWUE");end;applyStyle();pcall(function()style.ValueChanged:Connect(applyStyle);end);end;end
 
 tbl17.ih = function()
 local ih = tbl17.cache.ih
@@ -75498,6 +75501,11 @@ function M.IsUE()
 return K.RagebotStyle(config.Data.Ragebot.KnifeMode) == "UE"
 end
 
+-- Pigeon ragebot style: attacks as KH, but every hide point is M.Void (2147483647 studs out)
+function M.IsPigeon()
+return K.RagebotStyle(config.Data.Ragebot.KnifeMode) == "Pigeon"
+end
+
 -- UE-style settings (menu section "UE Settings"); the defaults are UE's own values
 local function ueSettings()
 return config.Data.Ragebot.UE
@@ -75513,6 +75521,10 @@ local UE_VOID_DISTANCE = 2147483647
 -- swap, round not started, knife between stabs) then returns nil, i.e. no server CFrame override, and the
 -- character stays where it really is.
 function M.NoVoid()
+-- Pigeon always hides in the void, whatever a saved config has in the UE settings
+if M.IsPigeon() then
+return false
+end
 local settings = ueSettings()
 return settings ~= nil and settings.NoVoid == true
 end
@@ -75520,6 +75532,14 @@ end
 function M.Void()
 if M.NoVoid() then
 return nil
+end
+-- Pigeon hides straight up instead of in a random direction. UE's unit vector is uniform over the
+-- sphere, so it only pins the DISTANCE: a near-horizontal pick leaves you 2147483647 studs OUT at
+-- roughly ground height, with abs(v.Y) * distance as the actual height anywhere from ~0 upward.
+-- Pigeon is meant to sit 2147483647 studs ABOVE, so it takes the whole distance on Y. Gated on
+-- IsPigeon so UE and FW UE keep their own random hide point untouched.
+if M.IsPigeon() then
+return CFrame.new(0, UE_VOID_DISTANCE, 0)
 end
 local distance = UE_VOID_DISTANCE
 local v = random:NextUnitVector()
@@ -75531,6 +75551,116 @@ local v = random:NextUnitVector()
 -- kh.lua:51192, y = +5000..10000 at 62650 and 62809), so mirror a downward pick upward: same
 -- direction spread, same exact distance, never below the world.
 return CFrame.new(Vector3.new(v.X, math.abs(v.Y), v.Z) * distance)
+end
+
+-- Pigeon's attack pose, shared by its gun and its melee path so the numbers cannot drift apart.
+--  * our own server CFrame sits PIGEON_ROOT_DROP studs straight down from the target's RootPart;
+--  * the shot comes from THAT SAME point, aimed up at the target's head hitbox. Careful's rule 2
+--    (grep "The origin is our own position as the server knows it") wants the origin to be the
+--    position the server believes we occupy, so the origin follows the stand point instead of
+--    sitting above her head. The ray then crosses her body, which costs nothing: Careful itself
+--    shoots the head from 0.7 studs under it (-2 for an underground target, -3 for a crouching one,
+--    grep "RAGE_UNDERGROUND_HEIGHT") and the hit hitbox is decided by the packet's target part, not
+--    by the shot direction;
+--  * the body lies flat (pitch 90, the same pose UE's own PlanUE sets) and spins clockwise at
+--    PIGEON_SPIN_TURNS turns a second: fan speed. The server CFrame is written once per Heartbeat, so
+--    at 10 turns a second the body already moves 60 degrees between frames; much past that the spin
+--    aliases and starts to look slow or reversed instead of faster.
+-- Returns the server CFrame and the origin CFrame to encode into the packet.
+-- How far down we park, measured from the target's RootPart: the one point on her we can actually read.
+-- Her feet are somewhere under the root (nothing in this file records how far), so this is the whole
+-- offset, not a distance below her feet.
+local PIGEON_ROOT_DROP = 6
+-- Height of the head hitbox above the root, used only when the target has no RootPart to measure from.
+local PIGEON_HEAD_TO_ROOT = 1.75
+local PIGEON_SPIN_TURNS = 10
+
+function M.PigeonPose(hitboxHead, rootPart)
+local headPosition = hitboxHead.Position
+local rootPosition = rootPart ~= nil and rootPart.Position or (headPosition - Vector3.new(0, PIGEON_HEAD_TO_ROOT, 0))
+local standPosition = rootPosition - Vector3.new(0, PIGEON_ROOT_DROP, 0)
+-- Rule 2: shoot from where the server thinks we are. standPosition is that point, so the origin is
+-- built from it and looks up at the head hitbox.
+local origin = CFrame.new(standPosition, headPosition)
+-- A negative yaw turns clockwise seen from above. The yaw is the OUTER rotation, so the lying body
+-- spins about the world Y axis (like a clock hand on the floor) instead of rolling along its own axis.
+local tau = 6.2831853071795862
+local spin = -(os.clock() * PIGEON_SPIN_TURNS * tau) % tau
+local stand = CFrame.new(standPosition) * CFrame.Angles(0, spin, 0) * CFrame.Angles(1.5707963267948966, 0, 0)
+return stand, origin
+end
+
+-- Pigeon's attack gate: the three things Careful's own in-game measurements argue for, with no void-spam
+-- timer. Pigeon is either at the attack spot or parked in the void; nothing alternates on a clock.
+--  * Move in only while the target CANNOT hit back: its held item is still on a shoot / swing / reload
+--    cooldown. Careful's version (rage.retaliateOk) also wants the target to have attacked us first, which
+--    costs a scan of every player every 0.05 s; Pigeon keeps the "cannot hit back" half only, which is a
+--    plain read of the target we already have in hand.
+--  * There is NO hold before the first packet: the user asked on 2026-11-05 for the shot to go out as
+--    soon as Pigeon is in place. This goes against the one measurement we have (grep "70 ms landed
+--    1/3": 70 ms of hold landed 1 shot in 3, 200 ms landed 3 of 3, which is why Careful runs
+--    AttackPrep = 0.2), so if hits stop registering this is the first thing to put back -- a
+--    PIGEON_PREP constant and one `now - start < PIGEON_PREP` branch in PigeonAttackState.
+--  * Then pace the packets at PIGEON_SHOTS_PER_SECOND. KH sends one a frame and its own diagnostics
+--    recorded 50-75 requests per 5 s with almost no hits (grep "diagnostics log showed"); 20 is
+--    Careful's rate for every weapon slot.
+local PIGEON_SHOTS_PER_SECOND = 20
+
+-- How early Pigeon returns to the target before its next shot is due; rule 4 (grep "26 of 28 hits")
+-- is why it leaves at all and this is how much of the gap it hands back. It was PIGEON_PREP + 0.15 so
+-- the hold could finish before the cooldown ended; the hold is gone but the lead keeps that same
+-- 0.35 s, so the retreat behaves exactly as it did.
+local PIGEON_RETURN_LEAD = 0.35
+
+function M.PigeonReturnLead()
+return PIGEON_RETURN_LEAD
+end
+
+-- True while the target's held item cannot be used against us. The three cooldowns are tick() timestamps
+-- the game keeps up to date for other players too, which is how Careful (rage.retaliateOk) and the FW UE
+-- window both read them.
+function M.PigeonTargetBusy(target)
+local ok, busy = pcall(function()
+local controller = K.Controller("FighterController")
+local fighter = controller ~= nil and controller:GetFighter(target.FighterState.Player) or nil
+if fighter == nil then
+-- nothing to judge by: attack rather than freeze the style on a lookup that never works
+return true
+end
+local item = fighter.EquippedItem
+if item == nil then
+-- empty hands: it cannot hit back at all
+return true
+end
+local now = tick()
+for _, key in { "_shoot_cooldown", "_attack_cooldown", "_reload_cooldown" } do
+local value = item[key]
+if type(value) == "number" and value > now then
+return true
+end
+end
+return false
+end)
+if not ok then
+-- fail open, but leave the reason where F9 can see it instead of silently never gating
+K.PigeonGateError = tostring(busy)
+return true
+end
+return busy
+end
+
+-- "void" (park at 2147483647 studs), "hold" (stand at the spot, send nothing) or "fire". `state` is the
+-- caller's own table; the next packet time lives on it. "hold" is now only the gap between two packets
+-- at the 20/s pace -- arriving at the spot no longer costs a wait.
+function M.PigeonAttackState(state, target, now)
+if not M.PigeonTargetBusy(target) then
+return "void"
+end
+if now < (state._pigeonNextShot or 0) then
+return "hold"
+end
+state._pigeonNextShot = now + 1 / PIGEON_SHOTS_PER_SECOND
+return "fire"
 end
 
 -- true when the knife should stand exactly behind the victim along the victim's facing (not UE's random sphere)
@@ -75818,7 +75948,57 @@ index2.new = function(arg)
 return setmetatable({ _partGlue = arg, _shootLock = v116.new(), _ueNextShot = 0 }, index2)
 end
 
+-- Pigeon gun path: park under the target's feet, lying flat and spinning clockwise, and ask for the shot
+-- from that same park point, aimed up at her head hitbox. Like the UE gun path it releases KH's glue
+-- and points the rep root at workspace.Terrain, so the server CFrame below is read as an absolute
+-- world position rather than an offset from the glued hitbox.
+index2._PlanPigeon = function(arg, dt, target, gun, ourPart, allowed)
+arg._partGlue:Free(ourPart)
+-- _ueOurPart is what ResetState reads to put the rep root back on our own part when the ragebot lets
+-- go; without it the root would stay bound to Terrain after Pigeon stops.
+arg._ueOurPart = ourPart
+arg._partGlue:SetRepRoot(ourPart, workspace.Terrain)
+
+local aliveState = target.AliveState
+local hitboxHead = aliveState.HitboxHead
+-- Rule 4, the gun half (the melee path already had it): leave whenever the next shot is further off
+-- than PIGEON_RETURN_LEAD. Careful does the same (grep "Skip the teleport until the next shot") on its
+-- own measurement that 26 of the 28 hits it took landed while the attack cycle held it at the enemy.
+-- GetShootTimeRemaining is max(_shoot_cooldown - tick(), 0) on our OWN gun, so the test self-limits to
+-- slow weapons: a handgun (0.13 s) never exceeds the window and so never leaves, while a shotgun
+-- (0.7 s) and a sniper (1.5 s) spend their gap in the void. No timer and nothing alternating on a
+-- clock: the attack spot and the void are the only two places Pigeon is ever at.
+if gun:GetShootTimeRemaining() > ueS.PigeonReturnLead() then
+return ueS.Void(), nil
+end
+-- `allowed` is false while the TARGET itself sits at extreme coordinates (the SpatialLimitGate that
+-- sends KH to a far position). Pigeon treats that like any other gap and parks in the void.
+local state = (hitboxHead ~= nil and allowed) and ueS.PigeonAttackState(arg, target, os.clock()) or "void"
+
+if state == "void" then
+return ueS.Void(), nil
+end
+
+local stand, origin = ueS.PigeonPose(hitboxHead, aliveState.RootPart)
+if state == "hold" then
+return stand, nil
+end
+
+return stand, function()
+local rnd = math.random
+gun:ShootEncoded(
+ueEncode.encode(origin),
+ueEncode.encode(origin),
+hitboxHead,
+ueEncode.encode(CFrame.new(rnd() * 0.1, rnd() * 0.1, rnd() * 0.1))
+)
+end
+end
+
 index2.Plan = function(arg, arg2, arg3, arg4, arg5, arg6)
+if ueS.IsPigeon() then
+return arg:_PlanPigeon(arg2, arg3, arg4, arg5, arg6)
+end
 local hitboxHead = arg3.AliveState.HitboxHead
 local flag19 = v117(arg3.FighterState) ~= "Below"
 local ragebot = v115.Data.Ragebot
@@ -75938,6 +76118,8 @@ end
 -- Give our PhysicsRepRootPart back to our own root once the ragebot lets go (UE never did this explicitly).
 index2.ResetState = function(arg)
 arg._ueNextShot = 0
+-- a stale shot timer would let the next engagement fire ahead of Pigeon's 20/s pace
+arg._pigeonNextShot = nil
 local ourPart = arg._ueOurPart
 if ourPart ~= nil then
 arg._ueOurPart = nil
@@ -76156,7 +76338,74 @@ index2.new = function(arg)
 return setmetatable({ _partGlue = arg, _shootLock = v116.new(), _hitboxWindowUntil = -1, _attackCooldown = -1, _ueReadyAt = -1, _ueNextSwing = 0 }, index2)
 end
 
+-- Pigeon melee path: the same pose and the same stand-point origin as the gun (ueS.PigeonPose), sent with
+-- Careful's melee payload. The glue is released and the rep root goes to workspace.Terrain, so the pose
+-- below is an absolute world position.
+index2._PlanPigeon = function(arg, dt, target, item, gluedOurPart, allowed)
+local glued = arg._gluedOurPart
+if glued ~= nil then
+arg._partGlue:Free(glued)
+arg._gluedOurPart = nil
+end
+arg._partGlue:Free(gluedOurPart)
+local aliveState = target.AliveState
+local hitboxHead = aliveState.HitboxHead
+local rootPart = aliveState.RootPart
+if hitboxHead == nil or rootPart == nil then
+return ueS.Void(), nil, nil
+end
+-- ResetState puts this back on our own part when the ragebot lets go (the UE melee path never set a
+-- rep root, so this strategy had nothing to restore before Pigeon).
+arg._pigeonRepPart = gluedOurPart
+arg._partGlue:SetRepRoot(gluedOurPart, workspace.Terrain)
+
+local now2 = os.clock()
+-- Careful comes back to the target PIGEON_RETURN_LEAD before the next swing is due and spends the rest
+-- of the gap away (grep "Skip the teleport until the next shot"). Standing on her for the whole
+-- cooldown is what its own measurement punishes: 26 of the 28 hits it took landed while the attack
+-- cycle held it at the enemy.
+if not allowed or now2 < arg._attackCooldown - ueS.PigeonReturnLead() then
+return ueS.Void(), nil, nil
+end
+
+local state = ueS.PigeonAttackState(arg, target, now2)
+if state == "void" then
+return ueS.Void(), nil, nil
+end
+
+local stand, origin = ueS.PigeonPose(hitboxHead, rootPart)
+
+-- KH's backstab view angles are kept: the crit is judged on the view yaw matching the victim's facing,
+-- and that is a separate packet from the spinning body, which is the server CFrame.
+local pitch, yaw = rootPart.CFrame:ToOrientation()
+local viewAngles = fn37(pitch, yaw)
+
+if state == "hold" or now2 < arg._attackCooldown then
+return stand, viewAngles, nil
+end
+
+local heavy = item.Name == "Knife"
+if heavy then
+arg:_RecordBackstab()
+end
+
+return stand, viewAngles, function()
+local rnd = math.random
+local enc1 = ueEncode.encode(origin)
+local enc2 = ueEncode.encode(origin + Vector3.one * 0.01)
+local enc3 = ueEncode.encode(CFrame.new(rnd() * 0.1, rnd() * 0.1, rnd() * 0.1))
+if heavy then
+item:HeavyAttackEncoded(enc1, enc2, hitboxHead, enc3)
+else
+item:AttackEncoded(enc1, enc2, hitboxHead, enc3)
+end
+end
+end
+
 index2.Plan = function(arg, arg2, arg3, arg4, gluedOurPart, arg5)
+if ueS.IsPigeon() then
+return arg:_PlanPigeon(arg2, arg3, arg4, gluedOurPart, arg5)
+end
 if K.RagebotStyle(v115.Data.Ragebot.KnifeMode) == "UE" then
 arg._partGlue:Free(gluedOurPart)
 if arg4.Name == "Knife" and not ueS.KnifeLight() then
@@ -76361,6 +76610,69 @@ ueSendLight(weapon, targetPart, stand)
 end
 end
 
+-- gugugaga: Careful's melee attack (rageFire, the isMelee path) sent from `point`, the fixed point where we stay:
+--  * the view yaw sent is the victim's own yaw (pitch 0), every frame;
+--  * the packet is the game's own melee packet: c0 = the eye (the point + 1.75 up) looking at the head, c1 = c0
+--    moved 0.1 along the look, part = the head hitbox, c3 = Angles(0, pi / 2, 0); StartShooting, no animation key;
+--  * GUGUGAGA_PACKETS identical packets on every frame there is a target (no pace lock).
+-- Returns the view angles and the packet, or nil when the target has no hitbox / root.
+local GUGUGAGA_PACKETS = 1
+
+-- Same UE-shaped payload as ueSendHeavy / ueSendLight, but handed to the weapon object's own HeavyAttackEncoded /
+-- AttackEncoded instead of a raw fireServer, so it goes through the game's item code and Melee Cooldown Override
+-- (which only rewrites the item's own AttackCooldown) applies to it.
+local function gugugagaSend(item, targetPart, cf, heavy)
+local rnd = math.random
+local enc1 = ueEncode.encode(cf)
+local enc2 = ueEncode.encode(cf + Vector3.one * 0.01)
+local enc3 = ueEncode.encode(CFrame.new(rnd() * 0.1, rnd() * 0.1, rnd() * 0.1))
+if heavy then
+item:HeavyAttackEncoded(enc1, enc2, targetPart, enc3)
+else
+item:AttackEncoded(enc1, enc2, targetPart, enc3)
+end
+end
+
+index2.PlanGugugaga = function(arg, target, weapon, point, fallbackPart)
+local hitbox, root
+if target ~= nil then
+local aliveState = target.AliveState
+hitbox = aliveState.HitboxHead
+root = aliveState.RootPart
+else
+-- no enemy on the field at all: the packet still goes out, aimed at our own root part
+hitbox, root = fallbackPart, fallbackPart
+end
+if hitbox == nil or root == nil then
+return nil
+end
+local targetPos = hitbox.Position
+local now2 = os.clock()
+
+-- UE's own packets, sent from `point` (where we are): the knife gets UE's heavy backstab (StartAiming + the
+-- rotating HeavyAttackN key, aim point 3 studs behind the head, view taken from that aim CFrame, one stab per
+-- HeavyAttackCooldown x factor), every other melee (or the knife with Knife Attack = Light) gets UE's light attack
+-- (StartShooting + AttackN, at most once per 1/60 s).
+if weapon.Name == "Knife" and not ueS.KnifeLight() then
+local aim = hitbox.CFrame * CFrame.new(0, 0, 3)
+local rx, ry = aim:ToOrientation()
+local viewAngles = fn37(rx, ry)
+ueS.SetStatus("backstabbing " .. ueTargetName(target) .. "...")
+-- no cooldown gate: a packet goes out on every frame
+return viewAngles, function()
+gugugagaSend(weapon, hitbox, aim, true)
+end
+end
+
+ueS.SetStatus("attacking " .. ueTargetName(target) .. "...")
+local stand = CFrame.new(point.Position, targetPos)
+local lightView = fn37(0, select(2, root.CFrame:ToOrientation()))
+-- no rate gate: a packet goes out on every frame
+return lightView, function()
+gugugagaSend(weapon, hitbox, stand, false)
+end
+end
+
 index2._RecordBackstab = function(arg)
 local now2 = os.clock()
 arg._hitboxWindowUntil = now2 + 0.625
@@ -76375,11 +76687,20 @@ arg._ueNextSwing = 0
 arg._ueLocked = nil
 arg._ueViewAngles = nil
 arg._shootLock:Reset()
+-- a stale shot timer would let the next engagement fire ahead of Pigeon's 20/s pace
+arg._pigeonNextShot = nil
 local gluedOurPart = arg._gluedOurPart
 
 if gluedOurPart ~= nil then
 arg._partGlue:Free(gluedOurPart)
 arg._gluedOurPart = nil
+end
+
+local pigeonRepPart = arg._pigeonRepPart
+
+if pigeonRepPart ~= nil then
+arg._pigeonRepPart = nil
+arg._partGlue:SetRepRoot(pigeonRepPart, pigeonRepPart)
 end
 end
 
@@ -77006,6 +77327,15 @@ end
 return { compute = function(arg, arg2)
 if not arg2 then
 return v116(arg.Position, 10000, 1e9)
+end
+if K.RagebotStyle(v115.Data.Ragebot.KnifeMode) == "gugugaga" then
+-- gugugaga: the same spot as FW UE (under the lowest killing OOB part), but 1 stud below it instead of 0.1.
+-- nil when the map has no such part: the caller then stays at its fixed point.
+local cf = fwueTranslocate()
+if cf ~= nil then
+return cf - Vector3.new(0, 0.9, 0), 0
+end
+return nil
 end
 if K.RagebotStyle(v115.Data.Ragebot.KnifeMode) == "FWUE" then
 local cf, radius = fwueTranslocate()
@@ -80803,8 +81133,13 @@ targetHud.Update({ FighterState = fighterState, AliveState = aliveState })
 end
 local fallenPartsDestroyHeight = workspace.FallenPartsDestroyHeight
 
+-- The immune ring ends at 2^30 studs, short of Pigeon's void, so Pigeon takes the void instead
+local function hidePoint()
+return ueS.IsPigeon() and ueS.Void() or v127.getImmune()
+end
+
 local function fn36()
-return { CFrame = v127.getImmune(), ShouldSkipDefense = true }
+return { CFrame = hidePoint(), ShouldSkipDefense = true }
 end
 
 -- UE ragebot style (Ragebot.KnifeMode == "UE", dropdown "Ragebot Style"): not equipped, no target, reloading
@@ -80906,10 +81241,29 @@ end
 -- values used while the ragebot is off.
 index2._ApplyHistoryFlags = function(arg, enabled)
 local khStyle = K.RagebotStyle(v115.Data.Ragebot.KnifeMode)
-local khHistory = enabled and not isUE() and khStyle ~= "Careful"
+local khHistory = enabled and not isUE() and khStyle ~= "Careful" and khStyle ~= "gugugaga"
 v107(v108, "DFIntAssemblyHistoryBufferSize", khHistory and "2147483648" or "15")
 v107(v108, "DFIntAssemblyHistorySkipSize", khHistory and v86[18] or "8")
 arg._historyStyle = K.RagebotStyle(v115.Data.Ragebot.KnifeMode)
+-- gugugaga: melee attack speed at its maximum while the ragebot is on with this style (Melee Cooldown Override at
+-- 0 %, the lowest cooldown). A live override, so the saved config is not touched: turning the ragebot off or
+-- picking another style puts back what the menu says. Runs on every toggle and every style change.
+local gugugagaOn = enabled and khStyle == "gugugaga"
+if gugugagaOn or arg._gugugagaSpeed then
+local enabledPath = { "ItemModifiers", "MeleeCooldown", "Enabled" }
+local percentagePath = { "ItemModifiers", "MeleeCooldown", "Percentage" }
+pcall(function()
+if gugugagaOn then
+v115:SetLiveOverride(enabledPath, true)
+v115:SetLiveOverride(percentagePath, 0)
+arg._gugugagaSpeed = true
+else
+v115:ClearLiveOverride(enabledPath)
+v115:ClearLiveOverride(percentagePath)
+arg._gugugagaSpeed = nil
+end
+end)
+end
 end
 
 -- Diagnostics: every 5 s one line in the session log (K.Log) saying what the ragebot did with its frames, so
@@ -81151,6 +81505,16 @@ end
 end
 local characterController = innerContext.CharacterController
 local clientCFrame = characterController:GetClientCFrame()
+-- gugugaga: Careful's melee attack (see _PlanGugugaga) from one fixed point GUGUGAGA_HEIGHT studs straight above
+-- where the client was on the first frame, where the server position stays (kept until _Reset: key off, death, new
+-- match). The camera needs no hook of its own: SetServerCFrame is KH's CharacterController, which writes the
+-- server CFrame on Heartbeat and puts the real one back at RenderPriority.First, before the camera.
+local gugugaga = K.RagebotStyle(v115.Data.Ragebot.KnifeMode) == "gugugaga"
+if gugugaga and arg._gugugagaPoint == nil then
+local GUGUGAGA_HEIGHT = 100000
+arg._gugugagaPoint = clientCFrame + Vector3.new(0, GUGUGAGA_HEIGHT, 0)
+arg._gugugagaFloorY = clientCFrame.Position.Y
+end
 -- FW UE style: never attacks. Sits in the void for FW_VOID_SECONDS, then under the InstakillOOB
 -- (Translocate, point computed in the Translocate compute) for FW_TRANSLOCATE_SECONDS, then straight
 -- back to the void. Both times are fixed (no menu), the same for every enemy: there is no UE / KH
@@ -81369,7 +81733,7 @@ arg._fwPhase = nil
 end
 local v130 = v128.getAction(innerContext)
 
-if fwue or (mode == "Translocate" and not isUE() and arg._reloadGun == nil and (v130 == nil or v130.Type ~= "Reload")) then
+if fwue or (mode == "Translocate" and not isUE() and not gugugaga and not ueS.IsPigeon() and arg._reloadGun == nil and (v130 == nil or v130.Type ~= "Reload")) then
 arg:_ApplyForcedCrouch(v86[153])
 targetHud.Hide()
 -- FW UE void phase: UE's void (random direction at 2147483647 studs, kept above the map), the furthest
@@ -81429,7 +81793,7 @@ if isUE() then
 -- not "isUE() and x or y": with Never Void on, ueVoidPlan's CFrame is nil and that idiom would fall through
 innerContext.CharacterController:SetServerCFrame(ueVoidPlan(arg, v132, state.RootPart).CFrame)
 else
-innerContext.CharacterController:SetServerCFrame(v127.getImmune())
+innerContext.CharacterController:SetServerCFrame(hidePoint())
 end
 local now2 = os.clock()
 arg._reloadGun = v132
@@ -81476,7 +81840,98 @@ end
 return arg:_EvadePlan(arg6, arg7)
 end
 
+-- gugugaga: the fixed point above the map (arg._gugugagaPoint) is where we PARK, and from there we hit KH's target
+-- with Careful's melee packet, GUGUGAGA_PACKETS of them per frame (see PlanGugugaga in the melee strategy). Melee
+-- only, no gun is ever fired. The weapon swap / reload the Weapon Strategy asks for is done there too.
+index2._PlanGugugaga = function(arg, dt, action, target, rootPart)
+local point = arg._gugugagaPoint
+local stand = CFrame.new(point.Position) * CFrame.Angles(math.pi / 2, 0, 0)
+-- Two phases: GUGUGAGA_POINT_SECONDS at the fixed point (attacking from there), then GUGUGAGA_OOB_SECONDS 1 stud
+-- below the lowest killing OOB part (FW UE's hide spot), attacking from both, then back to the point.
+local GUGUGAGA_POINT_SECONDS = 1
+local GUGUGAGA_OOB_SECONDS = 0.85
+local nowPhase = os.clock()
+if arg._gugugagaPhase == nil then
+arg._gugugagaPhase = "point"
+arg._gugugagaPhaseUntil = nowPhase + GUGUGAGA_POINT_SECONDS
+elseif nowPhase >= arg._gugugagaPhaseUntil then
+if arg._gugugagaPhase == "point" then
+arg._gugugagaPhase = "oob"
+arg._gugugagaPhaseUntil = nowPhase + GUGUGAGA_OOB_SECONDS
+else
+arg._gugugagaPhase = "point"
+arg._gugugagaPhaseUntil = nowPhase + GUGUGAGA_POINT_SECONDS
+end
+end
+if arg._gugugagaPhase == "oob" then
+local oob = v125.compute(point, true)
+if oob ~= nil then
+-- attacks from here too: the packet's eye position is taken from `stand`
+stand = oob
+end
+end
+local hide = { CFrame = stand, ShouldSkipDefense = v86[34] }
+if not ueRoundActive(arg) or ragebotStartDelayActive(arg) or action == nil then
+return hide
+end
+local item = action.Item
+if action.Type == "Swap" then
+hide.WeaponAction = function()
+item:Equip()
+end
+return hide
+end
+if action.Type == "Reload" then
+if not item:IsReloading() then
+hide.WeaponAction = function()
+item:Reload()
+end
+end
+return hide
+end
+if item.__type ~= "Melee" then
+return hide
+end
+if target == nil then
+-- No target passed the normal checks (deflecting, invincible, ...): swing at any living enemy that has a
+-- head hitbox anyway, the packet is sent regardless.
+pcall(function()
+for _, enemyState in arg._targetSelection._fighters.EnemyByPlayer, nil, nil do
+local alive = enemyState.Character.State
+if alive ~= nil and alive.Alive and alive.HitboxHead ~= nil and alive.RootPart ~= nil then
+target = { FighterState = enemyState, AliveState = alive }
+break
+end
+end
+end)
+end
+-- The swing goes through the game's own item input (LocalFighterState:Input -> ClientFighter.Input, the same call
+-- a mouse press ends in; knife heavy = "StartAiming", everything else "StartShooting"), not a hand-built packet.
+-- The game's item code then checks and sets its own cooldown, which is what Melee Cooldown Override rewrites, and
+-- the packet it sends is the game's own. No target is needed for it.
+local viewAngles = nil
+if target ~= nil then
+viewAngles = arg._meleeStrategy:PlanGugugaga(target, item, stand, rootPart)
+end
+local fighterState = arg._innerContext ~= nil and arg._innerContext.FighterState or nil
+if fighterState == nil then
+return hide
+end
+local inputType = (item.Name == "Knife" and not ueS.KnifeLight()) and "StartAiming" or "StartShooting"
+return {
+CFrame = stand,
+ViewAngles = viewAngles,
+WeaponAction = function()
+pcall(fighterState.Input, fighterState, inputType)
+end,
+ShouldSkipDefense = v86[34],
+}
+end
+
 index2._Plan = function(arg, arg2, arg3, arg4, arg5, arg6, arg7)
+if K.RagebotStyle(v115.Data.Ragebot.KnifeMode) == "gugugaga" then
+return arg:_PlanGugugaga(arg2, arg3, arg4, arg5)
+end
 if isUE() and not ueRoundActive(arg) then
 return ueVoidPlan(arg, nil, arg5)
 end
@@ -81538,6 +81993,11 @@ local v131, v132 = arg._hitscanStrategy:PlanUE(arg2, arg4, item, arg5, localFigh
 return { CFrame = v131, WeaponAction = v132, ShouldSkipDefense = v86[34] }
 end
 local v131, v132 = arg._hitscanStrategy:Plan(arg2, arg4, item, arg5, flag19)
+-- Pigeon's pose IS the plan: getDefensiveCFrame would rewrite it to face the target and
+-- throw away the lying pitch and the spin, so the defensive pass is skipped for it.
+if ueS.IsPigeon() then
+return { CFrame = v131, WeaponAction = v132, ShouldForceCrouch = true, IsAimPose = v132 ~= nil, ShouldSkipDefense = v86[34] }
+end
 return { CFrame = v131, WeaponAction = v132, ShouldForceCrouch = true, IsAimPose = v132 ~= nil }
 end
 
@@ -81641,6 +82101,11 @@ return fn36()
 end
 
 index2._EvadePlan = function(arg, arg2, arg3)
+-- Pigeon ignores the Evasion settings (the menu hides them): it always waits in the void
+if ueS.IsPigeon() then
+return { CFrame = ueS.Void(), ShouldSkipDefense = v86[34] }
+end
+
 if arg3 == "Off" then
 return {}
 end
@@ -81687,6 +82152,8 @@ end
 
 index2._Reset = function(arg)
 arg._entryDelayArmed = false
+arg._gugugagaPoint = nil
+arg._gugugagaPhase = nil
 ueS.SetStatus(nil)
 targetHud.Hide()
 arg:_ClearReloadTransport()
