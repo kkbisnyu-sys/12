@@ -11916,6 +11916,78 @@ local function hudParent()
 end
 K.hudParent = hudParent
 
+--  Muzzle of the local first-person viewmodel (same source as LY.lua: the "_muzzle" attachment inside
+--  workspace.ViewModels.FirstPerson.<UserName> ...). Shared by the Division HUD and the FOV "Follow Muzzle".
+--  The attachment is cached and searched again (4 times a second at most) when the weapon changes.
+do
+    local muzzleAtt, searchAt = nil, 0
+    function K.MuzzleWorldPosition()
+        --  a viewmodel that was put away may keep its parts (just not in the workspace any more): its attachment
+        --  would give a stale position, so the cached one must still be inside the workspace
+        if muzzleAtt ~= nil and not muzzleAtt:IsDescendantOf(workspace) then muzzleAtt = nil end
+        if muzzleAtt == nil then
+            local now = os.clock()
+            if now - searchAt < 0.25 then return nil end
+            searchAt = now
+            local viewModels = workspace:FindFirstChild("ViewModels")
+            local firstPerson = viewModels and viewModels:FindFirstChild("FirstPerson")
+            if firstPerson == nil then return nil end
+            local prefix = game:GetService("Players").LocalPlayer.Name
+            for _, model in firstPerson:GetChildren() do
+                if model:IsA("Model") and string.sub(model.Name, 1, #prefix) == prefix then
+                    local att = model:FindFirstChild("_muzzle", true)
+                    if att ~= nil and att:IsA("Attachment") then
+                        muzzleAtt = att
+                        break
+                    end
+                end
+            end
+            if muzzleAtt == nil then return nil end
+        end
+        return muzzleAtt.WorldPosition
+    end
+
+    --  muzzle in viewport pixels, nil when there is none or it is off screen / behind the camera
+    function K.MuzzleScreenPosition(camera)
+        local world = K.MuzzleWorldPosition()
+        if world == nil then return nil end
+        local size = camera.ViewportSize
+        local vp = camera:WorldToViewportPoint(world)
+        if vp.Z <= 0 or vp.X <= 0 or vp.X >= size.X or vp.Y <= 0 or vp.Y >= size.Y then return nil end
+        return Vector2.new(vp.X, vp.Y)
+    end
+
+    --  centre of a FOV circle: the muzzle when circle.FollowMuzzle is on (and there is one), else `default()`
+    function K.FovCenter(circle, default)
+        if circle ~= nil and circle.FollowMuzzle then
+            local camera = workspace.CurrentCamera
+            local pos = camera and K.MuzzleScreenPosition(camera)
+            if pos ~= nil then return pos end
+        end
+        return default()
+    end
+
+    --  stand-in camera for the FOV measures: same lens, looking along the ray through the muzzle
+    local lastAt, lastCamera, lastResult = 0, nil, nil
+    function K.FovMuzzleCamera(camera)
+        local now = os.clock()
+        if lastCamera == camera and now - lastAt < 0.003 then return lastResult end
+        lastAt, lastCamera = now, camera
+        local pos = K.MuzzleScreenPosition(camera)
+        if pos == nil then
+            lastResult = nil
+        else
+            local cf = camera.CFrame
+            lastResult = {
+                ViewportSize = camera.ViewportSize,
+                FieldOfView = camera.FieldOfView,
+                CFrame = { Position = cf.Position, LookVector = camera:ViewportPointToRay(pos.X, pos.Y).Direction },
+            }
+        end
+        return lastResult
+    end
+end
+
 function K.track(c) K.connections[#K.connections + 1] = c return c end
 function K.onUnload(f) K.cleanups[#K.cleanups + 1] = f end
 
@@ -13029,6 +13101,26 @@ tbl17.iQ = function()
         end
         side("Enemies", "Enemy", "left")
         side("Teammates", "Team", "right")
+
+        --  Division HUD: the self HUD under the crosshair (see the DH block near the end of the script)
+        local dh = grid:AddSection({ Title = "Division HUD", Side = "right" })
+        local function D(...) return { "DivisionHud", ... } end
+        local dhOn = dh:AddToggle({ Label = "Division HUD", Tooltip = "Ammo, health, shield, WASD keys and speed under the crosshair", Config = D("Enabled") })
+        dh:AddColor({ Row = dhOn.Row, Config = D("Color") })
+        local dhFollow = dh:AddToggle({ Label = "Follow Muzzle", Tooltip = "Tracks the gun muzzle on screen (like the FOV circle follows its target); without a gun it stays at the screen centre", Config = D("FollowMuzzle") })
+        dh:AddGroup({ Source = dhFollow }):AddSlider({ Label = "Smoothing", Min = 0, Max = 100, Config = D("Smoothing") })
+        local dh3d = dh:AddToggle({ Label = "3D Mode", Tooltip = "Draw the HUD as a hologram in the world (perspective, tilt, parallax) instead of a flat overlay", Config = D("Mode3D") })
+        local dh3dGroup = dh:AddGroup({ Source = dh3d })
+        dh3dGroup:AddSlider({ Label = "Tilt Yaw", Min = -60, Max = 60, Config = D("TiltYaw") })
+        dh3dGroup:AddSlider({ Label = "Tilt Pitch", Min = -60, Max = 60, Config = D("TiltPitch") })
+        dh:AddToggle({ Label = "Ammo", Config = D("ShowAmmo") })
+        dh:AddToggle({ Label = "Health", Config = D("ShowHealth") })
+        dh:AddToggle({ Label = "Shield", Tooltip = "Shown only when the game exposes a shield / armor value", Config = D("ShowShield") })
+        dh:AddToggle({ Label = "WASD Keys", Config = D("ShowKeys") })
+        dh:AddToggle({ Label = "Speed", Config = D("ShowSpeed") })
+        dh:AddSlider({ Label = "Scale (%)", Min = 50, Max = 200, Config = D("Scale") })
+        dh:AddSlider({ Label = "Offset X", Min = -300, Max = 300, Config = D("PosX") })
+        dh:AddSlider({ Label = "Offset Y", Min = -300, Max = 300, Config = D("PosY") })
     end
 end
 
@@ -20045,7 +20137,7 @@ local function fn43(arg, arg2, arg3)
 local menu = arg._menu
 local instance = Instance.new(v86[128])
 instance.LayoutOrder = -1
-instance.Size = UDim2.fromOffset(v86[157], v86[144])
+instance.Size = UDim2.new(1, 0, 0, 24) --  full width search box (the decompile had it as a 20 x 20 square)
 instance.ClipsDescendants = true
 instance.BorderSizePixel = 0
 arg3.Batch:Bind(instance, "BackgroundColor3", "Background")
@@ -29923,7 +30015,7 @@ return {}
 end
 
 local v123 = fn39()
-local v124 = v120:AddTextBox({ Label = "Config Name" })
+local v124 = v120:AddTextBox({ Label = "Config Name", Placeholder = "Name..." })
 local v125 = v120:AddButton({ Label = "Create Config" })
 local v126 = v120:AddList({ Label = "Configs", Options = v123, Height = 140, Search = true })
 
@@ -31274,6 +31366,7 @@ fill.Transparency = 0.15
 circle.Fill = fill
 circle.Animated = { Enabled = false, Speed = 90 }
 circle.FollowTarget = { Enabled = false, Speed = 20, Damper = 1, SnapDistance = 5 }
+circle.FollowMuzzle = false
 fov.Circle = circle
 tbl18.Fov = fov
 tbl18.ActivationConditions = atomic(table.clone(arg.ActivationConditions.Options))
@@ -31686,6 +31779,7 @@ fill.Transparency = v86[126]
 circle.Fill = fill
 circle.Animated = { Enabled = false, Speed = v86[45] }
 circle.FollowTarget = { Enabled = false, Speed = 20, Damper = v86[63], SnapDistance = v86[175] }
+circle.FollowMuzzle = false
 fov.Circle = circle
 tbl18.Fov = fov
 tbl18.ActivationConditions = atomic(table.clone(arg.ActivationConditions.Options))
@@ -31992,7 +32086,7 @@ return a7.c
 end
 end
 do -- a8
-local function fn35()local I,W,N= tbl17 .a6(), tbl17 .a7(),{Ghost=Enum.Material.ForceField,Flat=Enum.Material.Neon,Foil=Enum.Material.Foil,Custom=Enum.Material.SmoothPlastic,Reflective=Enum.Material.Glass};local l=W(N);return{List=I({"Original"},l),Names=l,Map=N};end
+local function fn35()local I,W,N= tbl17 .a6(), tbl17 .a7(),{Ghost=Enum.Material.ForceField,Flat=Enum.Material.Neon,Neon=Enum.Material.Neon,Foil=Enum.Material.Foil,Custom=Enum.Material.SmoothPlastic,Reflective=Enum.Material.Glass};local l=W(N);return{List=I({"Original"},l),Names=l,Map=N};end
 
 tbl17.a8 = function()
 local a8 = tbl17.cache.a8
@@ -32233,6 +32327,26 @@ assert(tbl19[k] == nil, string.format("Duplicate default configuration key '%s'"
 tbl19[k] = v123
 end
 end
+
+--  Division HUD (the self HUD around the crosshair: ammo, health, shield, WASD keys, speed)
+assert(tbl19.DivisionHud == nil, "Duplicate default configuration key 'DivisionHud'")
+tbl19.DivisionHud = {
+Enabled = false,
+Scale = 100,
+PosX = 0,
+PosY = 0,
+FollowMuzzle = true,
+Smoothing = 40,
+Mode3D = true,
+TiltYaw = -20,
+TiltPitch = 6,
+Color = Color3.fromRGB(255, 150, 30),
+ShowAmmo = true,
+ShowHealth = true,
+ShowShield = true,
+ShowKeys = true,
+ShowSpeed = true,
+}
 
 return (table.freeze(tbl19))
 end
@@ -37334,7 +37448,20 @@ local v117 = tbl17.cl()
 local v118 = tbl17.cm()
 
 return {
-buildMeasure = function(I,W)return W and( v116 (I))or  v118 ;end,
+buildMeasure = function(I,W,key)
+local base = W and( v116 (I))or  v118
+if key == nil then return base end
+--  Follow Muzzle: with Fov.Circle.FollowMuzzle on, the FOV is measured around the ray through the muzzle on
+--  screen instead of the screen centre (the measures only read ViewportSize.Y, FieldOfView and CFrame).
+return function(camera, position, ...)
+local ok, circle = pcall(function() return tbl17.bG().Data[key].Fov.Circle end)
+if ok and circle ~= nil and circle.FollowMuzzle then
+local origin = K.FovMuzzleCamera(camera)
+if origin ~= nil then return base(origin, position, ...) end
+end
+return base(camera, position, ...)
+end
+end,
 buildTargetPoint = function(I)if I.Type=="Center"then return  v117 ({Kind="Center"});end;local W=I.Surface;return  v117 ({Kind="Surface",SizeReductionPercentage=W.SizeReductionPercentage,PreserveDepth=W.PreserveDepth});end,
 buildHitboxSelectionMode = function(I)if I.Type=="Random"then return{Kind="Random",Prefer= v115 (I.Random.Head/100)};end;return{Kind="ClosestToCrosshair"};end,
 }
@@ -42085,7 +42212,7 @@ local v134 = v128.new()
 local aimbot = data.Aimbot
 local fov = aimbot.Fov
 local v135 = v126.new(arg2, arg, aimbot.TargetConditions, aimbot.TargetHitboxes[v129.DefaultProfile.Class], function(origin, part) return not data.Aimbot.TargetConditions.Visible or arg3:Check(origin, part, part.Parent) end)
-local v136 = v127.new(v135, v116.buildMeasure(fov.Radius, aimbot.TargetConditions.WithinFov), v132)
+local v136 = v127.new(v135, v116.buildMeasure(fov.Radius, aimbot.TargetConditions.WithinFov, "Aimbot"), v132)
 local followTarget = fov.Circle.FollowTarget
 local speed = followTarget.Speed
 local damper = followTarget.Damper
@@ -42135,7 +42262,7 @@ local v141 = v131(arg2, v134, "features.Aimbot", v135, function() return data.Ai
 local function fn39(selection) v136:SetHitboxSelectionMode(v116.buildHitboxSelectionMode(selection)) end
 v134:Connect(v120:GetPropertyChangedSignal({ "Aimbot", "HitboxPoint" }), function(point) tbl18._computeTargetPoint = v116.buildTargetPoint(point) end)
 v134:Connect(v120:GetPropertyChangedSignal({ "Aimbot", "Fov" }), function(f)
-v136:SetMeasure(v116.buildMeasure(f.Radius, data.Aimbot.TargetConditions.WithinFov))
+v136:SetMeasure(v116.buildMeasure(f.Radius, data.Aimbot.TargetConditions.WithinFov, "Aimbot"))
 v140:SetRadius(f.Radius)
 v140:SetProperties(f.Circle)
 local ft = f.Circle.FollowTarget
@@ -42143,7 +42270,7 @@ v137:SetProperties(ft.Speed, ft.Damper, ft.SnapDistance)
 end)
 v134:Connect(v120:GetPropertyChangedSignal({ "Aimbot", "TargetConditions" }), function(c)
 v135:SetConditions(c)
-v136:SetMeasure(v116.buildMeasure(data.Aimbot.Fov.Radius, c.WithinFov))
+v136:SetMeasure(v116.buildMeasure(data.Aimbot.Fov.Radius, c.WithinFov, "Aimbot"))
 end)
 v134:Connect(v120:GetPropertyChangedSignal({ "Aimbot", "TargetHitboxes" }), v141)
 v134:Connect(v120:GetPropertyChangedSignal({ "Aimbot", "HitboxSelection" }), fn39)
@@ -42170,7 +42297,7 @@ local flag19 = arg4.Enabled and circle.Visible and arg3 ~= nil
 local fovRender = arg._fovRender
 local fovFollower = arg._fovFollower
 fovRender:SetVisible(flag19)
-local v134 = v133()
+local v134 = K.FovCenter(circle, v133)
 fovFollower:SetInitial(v134)
 local followTarget = circle.FollowTarget
 fovFollower:SetTarget(flag19 and followTarget.Enabled and arg._targetScreenPosition or nil)
@@ -65935,7 +66062,7 @@ _trove = silentAim,
 _playerContext = arg2,
 _inputBinding = arg4,
 _textIndicatorList = arg5,
-_targetSelection = v125.new(v137, v115.buildMeasure(silentAim2.Fov.Radius, silentAim2.TargetConditions.WithinFov), v130),
+_targetSelection = v125.new(v137, v115.buildMeasure(silentAim2.Fov.Radius, silentAim2.TargetConditions.WithinFov, "SilentAim"), v130),
 _targetAcquisition = v123.new(),
 _computeTargetPoint = v115.buildTargetPoint(silentAim2.HitboxPoint),
 _fovRender = v135,
@@ -65966,7 +66093,7 @@ v137:UseBestFirstConditionCheck(m.Enabled and m.Mode == "OnBestTarget")
 end
 silentAim:Connect(v118:GetPropertyChangedSignal({ "SilentAim", "HitboxPoint" }), function(point) tbl18._computeTargetPoint = v115.buildTargetPoint(point) end)
 silentAim:Connect(v118:GetPropertyChangedSignal({ "SilentAim", "Fov" }), function(f)
-tbl18._targetSelection:SetMeasure(v115.buildMeasure(f.Radius, targetConditions.WithinFov))
+tbl18._targetSelection:SetMeasure(v115.buildMeasure(f.Radius, targetConditions.WithinFov, "SilentAim"))
 v135:SetRadius(f.Radius)
 v135:SetProperties(f.Circle)
 local ft = f.Circle.FollowTarget
@@ -65975,7 +66102,7 @@ end)
 silentAim:Connect(v118:GetPropertyChangedSignal({ "SilentAim", "TargetConditions" }), function(c)
 targetConditions = c
 v137:SetConditions(c)
-tbl18._targetSelection:SetMeasure(v115.buildMeasure(data.SilentAim.Fov.Radius, c.WithinFov))
+tbl18._targetSelection:SetMeasure(v115.buildMeasure(data.SilentAim.Fov.Radius, c.WithinFov, "SilentAim"))
 end)
 silentAim:Connect(v118:GetPropertyChangedSignal({ "SilentAim", "TargetHitboxes" }), v138)
 silentAim:Connect(v118:GetPropertyChangedSignal({ "SilentAim", "HitboxSelection" }), fn37)
@@ -66009,7 +66136,7 @@ local flag19 = arg4.Enabled and circle.Visible and arg3 ~= nil
 local fovRender = arg._fovRender
 local fovFollower = arg._fovFollower
 fovRender:SetVisible(flag19)
-local v134 = v133()
+local v134 = K.FovCenter(circle, v133)
 fovFollower:SetInitial(v134)
 local followTarget = circle.FollowTarget
 fovFollower:SetTarget(flag19 and followTarget.Enabled and arg._targetScreenPosition or nil)
@@ -71614,7 +71741,7 @@ return h0.c
 end
 end
 do -- h1
-local function fn35() tbl17 .aE();return function(l,I)local function W(...)return{I,"Fov",...};end;l:AddColor({Row=l:AddToggle({Label="Show Targeting Circle",Config=W("Circle","Visible")}).Row,Gradient="editable",Alpha=true,Config=W("Circle","Stroke","Gradient"),Transparency=W("Circle","Stroke","Transparency")});l:AddSlider({Label="Radius (px)",Min=1,Max=600,Config=W("Radius")});l:AddSlider({Label="Thickness",Min=0,Max=25,Config=W("Circle","Stroke","Thickness")});l:AddColor({Row=l:AddToggle({Label="Filled",Config=W("Circle","Fill","Enabled")}).Row,Gradient="editable",Alpha=true,Config=W("Circle","Fill","Gradient"),Transparency=W("Circle","Fill","Transparency")});l:AddGroup({Source=l:AddToggle({Label="Animated",Config=W("Circle","Animated","Enabled")})}):AddSlider({Label="Animation Speed (deg/s)",Min=0,Max=360,Config=W("Circle","Animated","Speed")});local I=l:AddGroup({Source=l:AddToggle({Label="Follow Target",Config=W("Circle","FollowTarget","Enabled")})});I:AddSlider({Label="Follow Speed",Default=20,Min=1,Max=50,Config=W("Circle","FollowTarget","Speed")});I:AddSlider({Label="Follow Damper",Default=1,Min=0,Max=30,Config=W("Circle","FollowTarget","Damper")});I:AddSlider({Label="Snap Distance",Default=5,Min=0,Max=10,Config=W("Circle","FollowTarget","SnapDistance")});end;end
+local function fn35() tbl17 .aE();return function(l,I)local function W(...)return{I,"Fov",...};end;l:AddColor({Row=l:AddToggle({Label="Show Targeting Circle",Config=W("Circle","Visible")}).Row,Gradient="editable",Alpha=true,Config=W("Circle","Stroke","Gradient"),Transparency=W("Circle","Stroke","Transparency")});l:AddSlider({Label="Radius (px)",Min=1,Max=600,Config=W("Radius")});l:AddSlider({Label="Thickness",Min=0,Max=25,Config=W("Circle","Stroke","Thickness")});l:AddColor({Row=l:AddToggle({Label="Filled",Config=W("Circle","Fill","Enabled")}).Row,Gradient="editable",Alpha=true,Config=W("Circle","Fill","Gradient"),Transparency=W("Circle","Fill","Transparency")});l:AddGroup({Source=l:AddToggle({Label="Animated",Config=W("Circle","Animated","Enabled")})}):AddSlider({Label="Animation Speed (deg/s)",Min=0,Max=360,Config=W("Circle","Animated","Speed")});local I=l:AddGroup({Source=l:AddToggle({Label="Follow Target",Config=W("Circle","FollowTarget","Enabled")})});I:AddSlider({Label="Follow Speed",Default=20,Min=1,Max=50,Config=W("Circle","FollowTarget","Speed")});I:AddSlider({Label="Follow Damper",Default=1,Min=0,Max=30,Config=W("Circle","FollowTarget","Damper")});I:AddSlider({Label="Snap Distance",Default=5,Min=0,Max=10,Config=W("Circle","FollowTarget","SnapDistance")});l:AddToggle({Label="Follow Muzzle",Tooltip="Centre the FOV circle (and the FOV check) on the gun muzzle instead of the screen centre",Config=W("Circle","FollowMuzzle")});end;end
 
 tbl17.h1 = function()
 local h1 = tbl17.cache.h1
@@ -74752,7 +74879,7 @@ local v129 = v121.new(arg2, arg, aimbot.TargetConditions, aimbot.TargetHitboxes[
 local tbl18 = {
 _trove = flickbot,
 _playerContext = arg2,
-_targetSelection = v122.new(v129, v115.buildMeasure(aimbot.Fov.Radius, aimbot.TargetConditions.WithinFov), v126),
+_targetSelection = v122.new(v129, v115.buildMeasure(aimbot.Fov.Radius, aimbot.TargetConditions.WithinFov, "Aimbot"), v126),
 _state = "Idle",
 _selected = nil,
 _trajectory = nil,
@@ -74772,10 +74899,10 @@ end))
 
 local v130 = v125(arg2, flickbot, "features.Aimbot", v129, function() return data.Aimbot.TargetHitboxes end)
 local function fn37(selection) tbl18._targetSelection:SetHitboxSelectionMode(v115.buildHitboxSelectionMode(selection)) end
-flickbot:Connect(v118:GetPropertyChangedSignal({ "Aimbot", "Fov" }), function(f) tbl18._targetSelection:SetMeasure(v115.buildMeasure(f.Radius, data.Aimbot.TargetConditions.WithinFov)) end)
+flickbot:Connect(v118:GetPropertyChangedSignal({ "Aimbot", "Fov" }), function(f) tbl18._targetSelection:SetMeasure(v115.buildMeasure(f.Radius, data.Aimbot.TargetConditions.WithinFov, "Aimbot")) end)
 flickbot:Connect(v118:GetPropertyChangedSignal({ "Aimbot", "TargetConditions" }), function(c)
 v129:SetConditions(c)
-tbl18._targetSelection:SetMeasure(v115.buildMeasure(data.Aimbot.Fov.Radius, c.WithinFov))
+tbl18._targetSelection:SetMeasure(v115.buildMeasure(data.Aimbot.Fov.Radius, c.WithinFov, "Aimbot"))
 end)
 flickbot:Connect(v118:GetPropertyChangedSignal({ "Aimbot", "TargetHitboxes" }), v130)
 flickbot:Connect(v118:GetPropertyChangedSignal({ "Aimbot", "HitboxSelection" }), fn37)
@@ -92494,5 +92621,399 @@ function K.Unload()
     pcall(function() GlobalTrove:Destroy() end)
     if getgenv().KiciaRebuild == K then getgenv().KiciaRebuild = nil end
 end
+
+--==========================================================================
+--  Division HUD (DH): the self HUD of The Division, drawn around the crosshair. Ammo / reserve above the
+--  crosshair, health and shield under it with a thin health line, the WASD keys (accent colour while held, white
+--  colour while idle) and the horizontal speed. Everything is read from the LOCAL player only: the Humanoid
+--  (health), FighterController.LocalFighter.EquippedItem (ammo), UserInputService (keys), the root part
+--  velocity (speed). Shield is shown only when the game puts a numeric Shield / Armor attribute on the
+--  character or the player (Rivals has none, so the shield cell stays hidden there).
+--  3D Mode (default): drawn on a SurfaceGui in the world, tilted, with parallax; off: flat ScreenGui overlay.
+--  Settings: config.Data.DivisionHud, menu: Visuals > Player ESP > Division HUD.
+--==========================================================================
+do -- DH
+    local started = false
+    K.StartDivisionHud = function()
+        if started then return end
+        started = true
+
+        local Players = game:GetService("Players")
+        local RunService = game:GetService("RunService")
+        local UserInputService = game:GetService("UserInputService")
+        local HttpService = game:GetService("HttpService")
+        local LocalPlayer = Players.LocalPlayer
+        local config = tbl17.bG()
+
+        local WHITE = Color3.new(1, 1, 1)
+        local DARK = Color3.fromRGB(20, 20, 20)
+        local DEFAULT_ACCENT = Color3.fromRGB(255, 150, 30)
+        local FONT = Enum.Font.GothamMedium
+
+        local function create(className, props)
+            local instance = Instance.new(className)
+            for k, v in props do
+                if k ~= "Parent" then instance[k] = v end
+            end
+            instance.Parent = props.Parent
+            return instance
+        end
+
+        --  a text label anchored by `align` ("L" / "R" / "C") at an offset from the crosshair
+        local function label(parent, text, x, y, size, color, align)
+            local ax = align == "R" and 1 or (align == "C" and 0.5 or 0)
+            return create("TextLabel", {
+                BackgroundTransparency = 1,
+                BorderSizePixel = 0,
+                AnchorPoint = Vector2.new(ax, 0.5),
+                Position = UDim2.fromOffset(x, y),
+                Size = UDim2.fromOffset(60, size + 4),
+                Font = FONT,
+                Text = text,
+                TextSize = size,
+                TextColor3 = color,
+                TextStrokeTransparency = 0.3,
+                TextStrokeColor3 = Color3.new(0, 0, 0),
+                TextXAlignment = align == "R" and Enum.TextXAlignment.Right or (align == "C" and Enum.TextXAlignment.Center or Enum.TextXAlignment.Left),
+                TextYAlignment = Enum.TextYAlignment.Center,
+                ZIndex = 2,
+                Parent = parent,
+            })
+        end
+
+        local function box(parent, x, y, w, h, color, radius)
+            local f = create("Frame", {
+                BackgroundColor3 = color,
+                BorderSizePixel = 0,
+                AnchorPoint = Vector2.new(0.5, 0.5),
+                Position = UDim2.fromOffset(x, y),
+                Size = UDim2.fromOffset(w, h),
+                ZIndex = 2,
+                Parent = parent,
+            })
+            if radius then create("UICorner", { CornerRadius = UDim.new(0, radius), Parent = f }) end
+            return f
+        end
+
+        local gui = create("ScreenGui", {
+            Name = HttpService:GenerateGUID(false),
+            ResetOnSpawn = false,
+            IgnoreGuiInset = true,
+            DisplayOrder = 84,
+            ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+            Parent = K.hudParent(),
+        })
+        local root = create("Frame", {
+            Name = "DivisionHud",
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.fromScale(0.5, 0.5),
+            Size = UDim2.fromOffset(0, 0),
+            Visible = false,
+            Parent = gui,
+        })
+        local scale = create("UIScale", { Parent = root })
+
+        --  3D mode: the same root frame lives on a SurfaceGui (always on top, no lighting) that is adorned to an
+        --  invisible part kept in front of the camera, along the ray through the muzzle. The part always faces the
+        --  camera, then gets a fixed tilt; its direction is smoothed in world space, so turning the camera makes
+        --  the panel lag a little and swing back (parallax) while moving the player does not drag it.
+        local CANVAS = Vector2.new(640, 480)
+        local DEPTH = 4
+        local panel = create("Part", {
+            Name = HttpService:GenerateGUID(false),
+            Anchored = true,
+            CanCollide = false,
+            CanQuery = false,
+            CanTouch = false,
+            CastShadow = false,
+            Transparency = 1,
+            Size = Vector3.new(1, 1, 0.05),
+        })
+        local surface = create("SurfaceGui", {
+            Name = HttpService:GenerateGUID(false),
+            Adornee = panel,
+            Face = Enum.NormalId.Front,
+            SizingMode = Enum.SurfaceGuiSizingMode.FixedSize,
+            CanvasSize = CANVAS,
+            AlwaysOnTop = true,
+            LightInfluence = 0,
+            ResetOnSpawn = false,
+            ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+            Enabled = false,
+            Parent = K.hudParent(),
+        })
+        local in3D = false
+        local function setMode(want3D)
+            in3D = want3D
+            root.Parent = want3D and surface or gui
+            surface.Enabled = want3D
+            if want3D then
+                root.Position = UDim2.fromScale(0.5, 0.5)
+            else
+                panel.Parent = nil
+            end
+        end
+        local smoothDir
+
+        local function group(name)
+            return create("Frame", { Name = name, BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.fromOffset(0, 0), Parent = root })
+        end
+
+        --  ammo block, above-left / right of the crosshair
+        local ammoGroup = group("Ammo")
+        local ammoLabel = label(ammoGroup, "", -48, -2, 28, WHITE, "R")
+        ammoLabel.Size = UDim2.fromOffset(80, 32)
+        local reserveLabel = label(ammoGroup, "", 38, 6, 13, WHITE, "L")
+
+        --  health: medkit icon, number, thin line under both cells
+        local healthGroup = group("Health")
+        local kit = box(healthGroup, -58, 28, 12, 12, WHITE, 2)
+        box(kit, 6, 6, 8, 2, DARK)
+        box(kit, 6, 6, 2, 8, DARK)
+        kit.AnchorPoint = Vector2.new(0.5, 0.5)
+        for _, c in kit:GetChildren() do
+            if c:IsA("Frame") then c.Position = UDim2.fromScale(0.5, 0.5) end
+        end
+        local healthLabel = label(healthGroup, "", -43, 28, 15, WHITE, "L")
+        local track = box(healthGroup, -9, 48, 68, 2, WHITE)
+        track.BackgroundTransparency = 0.7
+        local fill = create("Frame", {
+            BackgroundColor3 = WHITE,
+            BorderSizePixel = 0,
+            Size = UDim2.fromScale(1, 1),
+            ZIndex = 3,
+            Parent = track,
+        })
+
+        --  shield: shield icon + number (only when the game has a value)
+        local shieldGroup = group("Shield")
+        local shield = box(shieldGroup, 45, 28, 11, 13, WHITE, 3)
+        local shieldDot = box(shield, 5, 5, 3, 3, DARK, 2)
+        shieldDot.Position = UDim2.fromScale(0.5, 0.45)
+        local shieldLabel = label(shieldGroup, "", 60, 28, 15, WHITE, "L")
+
+        --  WASD keys: W above, A S D below
+        local keysGroup = group("Keys")
+        local keyLabels = {
+            W = label(keysGroup, "W", -27, 62, 11, WHITE, "C"),
+            A = label(keysGroup, "A", -47, 78, 11, WHITE, "C"),
+            S = label(keysGroup, "S", -27, 78, 11, WHITE, "C"),
+            D = label(keysGroup, "D", -8, 78, 11, WHITE, "C"),
+        }
+        for _, l in keyLabels do l.Size = UDim2.fromOffset(16, 14) end
+        local keyCodes = { W = Enum.KeyCode.W, A = Enum.KeyCode.A, S = Enum.KeyCode.S, D = Enum.KeyCode.D }
+
+        --  speed
+        local speedGroup = group("Speed")
+        local speedLabel = label(speedGroup, "", 37, 70, 12, DEFAULT_ACCENT, "L")
+        speedLabel.Size = UDim2.fromOffset(80, 16)
+
+        --  write a property only when it changed (each write is a call into the engine)
+        local written = setmetatable({}, { __mode = "k" })
+        local function put(instance, property, value)
+            local row = written[instance]
+            if row == nil then
+                row = {}
+                written[instance] = row
+            end
+            if row[property] ~= value then
+                row[property] = value
+                instance[property] = value
+            end
+        end
+
+        --  numeric Shield / Armor value from the character, humanoid or player (nil when the game has none)
+        local SHIELD_NAMES = { "Shield", "Armor", "Armour", "Overshield" }
+        local function readShield(character, humanoid)
+            for _, holder in { character, humanoid, LocalPlayer } do
+                for _, name in SHIELD_NAMES do
+                    local v = holder:GetAttribute(name)
+                    if type(v) == "number" then return v end
+                end
+            end
+            return nil
+        end
+
+        local ammoNow, reserveNow, muzzleNow
+        local function readAmmo()
+            ammoNow, reserveNow, muzzleNow = nil, nil, nil
+            local fc = K.Controller("FighterController")
+            local lf = fc and fc.LocalFighter
+            local item = lf and lf.EquippedItem
+            if item and item.Get then
+                ammoNow = item:Get("Ammo")
+                reserveNow = item:Get("AmmoReserve")
+            end
+        end
+        --  world position of the muzzle of the held weapon (nil for melee / no weapon); a separate pcall so a
+        --  failure here never hides the ammo
+        --  Same source as LY.lua: the "_muzzle" attachment inside the first-person viewmodel of the local player
+        --  (workspace.ViewModels.FirstPerson.<UserName> ...). The game's own GetMuzzlePosition() does not return
+        --  the barrel tip, it stays near the middle of the screen. The attachment is cached and searched again
+        --  (4 times a second at most) when the weapon changes.
+        local function readMuzzle()
+            muzzleNow = K.MuzzleWorldPosition()
+        end
+
+        --  smoothed screen position of the HUD origin (px); starts at the first target
+        local posX, posY
+
+        local function updateFrame(dt)
+            local s = config.Data and config.Data.DivisionHud
+            if type(s) ~= "table" or not s.Enabled then
+                put(root, "Visible", false)
+                return
+            end
+            local character = LocalPlayer.Character
+            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+            if humanoid == nil or humanoid.Health <= 0 then
+                put(root, "Visible", false)
+                return
+            end
+
+            put(root, "Visible", true)
+            put(scale, "Scale", (s.Scale or 100) / 100)
+
+            --  origin: the muzzle on screen (smoothed like the FOV circle follower). With no muzzle (fists / melee,
+            --  or the muzzle is behind the camera) or Follow Muzzle off, the origin is the crosshair (screen
+            --  centre), the layout of the reference HUD: ammo left of it, health / keys / speed below it.
+            --  The X / Y offset is added here and the result is kept inside the window (the whole cluster stays
+            --  visible): a muzzle that leaves the screen pushes the HUD against the edge instead of throwing it
+            --  back to the centre.
+            local camera = workspace.CurrentCamera
+            local size = camera.ViewportSize
+            local targetX, targetY = size.X * 0.5, size.Y * 0.5
+            if s.FollowMuzzle ~= false and pcall(readMuzzle) and typeof(muzzleNow) == "Vector3" then
+                local vp = camera:WorldToViewportPoint(muzzleNow)
+                if vp.Z > 0 then
+                    targetX, targetY = vp.X, vp.Y
+                end
+            end
+            local hudScale = (s.Scale or 100) / 100
+            targetX = math.clamp(targetX + (s.PosX or 0), math.min(130 * hudScale, size.X * 0.5), math.max(size.X - 130 * hudScale, size.X * 0.5))
+            targetY = math.clamp(targetY + (s.PosY or 0), math.min(24 * hudScale, size.Y * 0.5), math.max(size.Y - 90 * hudScale, size.Y * 0.5))
+            local smoothing = math.clamp(s.Smoothing or 0, 0, 100)
+            local alpha = smoothing <= 0 and 1 or (1 - math.exp(-(dt or 0.016) * (60 - smoothing * 0.55)))
+            local want3D = s.Mode3D ~= false
+            if want3D ~= in3D then setMode(want3D) end
+            if want3D then
+                --  direction through the muzzle (plus the X / Y offset in pixels), smoothed in world space
+                local ray = camera:ViewportPointToRay(targetX, targetY)
+                local cf = camera.CFrame
+                if smoothDir == nil then
+                    smoothDir = ray.Direction
+                else
+                    local blended = smoothDir:Lerp(ray.Direction, alpha)
+                    if blended.Magnitude > 0.001 then smoothDir = blended.Unit end
+                end
+                --  the lag behind a fast camera turn is limited, so a flick never throws the panel out of the window
+                local lagMax = 110 * hudScale
+                local sp = camera:WorldToViewportPoint(cf.Position + smoothDir)
+                if sp.Z <= 0 then
+                    smoothDir = ray.Direction
+                else
+                    local dx, dy = sp.X - targetX, sp.Y - targetY
+                    local dist = math.sqrt(dx * dx + dy * dy)
+                    if dist > lagMax then
+                        local k = lagMax / dist
+                        smoothDir = camera:ViewportPointToRay(targetX + dx * k, targetY + dy * k).Direction
+                    end
+                end
+                local planar = math.max(smoothDir:Dot(cf.LookVector), 0.2)
+                local worldPos = cf.Position + smoothDir * (DEPTH / planar)
+                --  1 canvas pixel = 1 screen pixel at DEPTH, so the 3D panel has the size of the flat one
+                local pixelsPerStud = size.Y / (2 * DEPTH * math.tan(math.rad(camera.FieldOfView) * 0.5))
+                put(panel, "Size", Vector3.new(CANVAS.X / pixelsPerStud, CANVAS.Y / pixelsPerStud, 0.05))
+                panel.CFrame = CFrame.lookAt(worldPos, cf.Position)
+                    * CFrame.Angles(math.rad(s.TiltPitch or 0), math.rad(s.TiltYaw or 0), 0)
+                if panel.Parent ~= camera then panel.Parent = camera end
+            else
+                if posX == nil or smoothing <= 0 then
+                    posX, posY = targetX, targetY
+                else
+                    posX = posX + (targetX - posX) * alpha
+                    posY = posY + (targetY - posY) * alpha
+                end
+                root.Position = UDim2.fromOffset(math.floor(posX + 0.5), math.floor(posY + 0.5))
+            end
+            local accent = typeof(s.Color) == "Color3" and s.Color or DEFAULT_ACCENT
+
+            --  ammo
+            local okAmmo = pcall(readAmmo)
+            local showAmmo = s.ShowAmmo ~= false and okAmmo and type(ammoNow) == "number"
+            put(ammoGroup, "Visible", showAmmo and true or false)
+            if showAmmo then
+                put(ammoLabel, "Text", tostring(math.floor(ammoNow)))
+                put(ammoLabel, "TextColor3", ammoNow <= 0 and accent or WHITE)
+                local hasReserve = type(reserveNow) == "number" and reserveNow < 1e6
+                put(reserveLabel, "Text", hasReserve and ("/ " .. math.floor(reserveNow)) or "")
+            end
+
+            --  health
+            local showHealth = s.ShowHealth ~= false
+            put(healthGroup, "Visible", showHealth and true or false)
+            if showHealth then
+                local maxHealth = math.max(humanoid.MaxHealth, 1)
+                local ratio = math.clamp(humanoid.Health / maxHealth, 0, 1)
+                put(healthLabel, "Text", tostring(math.ceil(humanoid.Health)))
+                local low = ratio < 0.3
+                put(healthLabel, "TextColor3", low and accent or WHITE)
+                put(fill, "BackgroundColor3", low and accent or WHITE)
+                put(fill, "Size", UDim2.fromScale(ratio, 1))
+            end
+
+            --  shield
+            local shieldValue = s.ShowShield ~= false and readShield(character, humanoid) or nil
+            put(shieldGroup, "Visible", shieldValue ~= nil and true or false)
+            if shieldValue ~= nil then
+                put(shieldLabel, "Text", tostring(math.ceil(shieldValue)))
+            end
+
+            --  keys: accent colour while held, white while idle
+            local showKeys = s.ShowKeys ~= false
+            put(keysGroup, "Visible", showKeys and true or false)
+            if showKeys then
+                for key, l in keyLabels do
+                    put(l, "TextColor3", UserInputService:IsKeyDown(keyCodes[key]) and accent or WHITE)
+                end
+            end
+
+            --  speed (horizontal, studs per second)
+            local showSpeed = s.ShowSpeed ~= false
+            put(speedGroup, "Visible", showSpeed and true or false)
+            if showSpeed then
+                local hrp = character:FindFirstChild("HumanoidRootPart")
+                local speed = 0
+                if hrp then
+                    local v = hrp.AssemblyLinearVelocity
+                    speed = math.sqrt(v.X * v.X + v.Z * v.Z)
+                end
+                put(speedLabel, "Text", string.format("%d u/s", math.floor(speed + 0.5)))
+                put(speedLabel, "TextColor3", accent)
+            end
+        end
+
+        local conn = K.track(RunService.RenderStepped:Connect(function(dt)
+            local ok, err = pcall(updateFrame, dt)
+            if not ok and not K.__dhWarned then
+                K.__dhWarned = true
+                warn("[Kicia DivisionHud] " .. tostring(err))
+            end
+        end))
+        K.onUnload(function()
+            started = false
+            pcall(function() conn:Disconnect() end)
+            gui:Destroy()
+            surface:Destroy()
+            panel:Destroy()
+        end)
+    end
+end
+task.defer(function()
+    local ok, err = pcall(K.StartDivisionHud)
+    if not ok then warn("[Kicia DivisionHud] could not start: " .. tostring(err)) end
+end)
 
 tbl17.j1()(boot)
