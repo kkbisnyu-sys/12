@@ -11844,12 +11844,9 @@ end
 -- The Ragebot Style as the code should see it.
 function K.RagebotStyle(picked)
     -- Solix, Sleepy and Lilac were removed: configs that still pick them play as KH
-    if picked == "SOLIX" or picked == "SLEEPY" or picked == "Lilac" then
+    if picked == "SOLIX" or picked == "SLEEPY" or picked == "Lilac" or picked == "gugugaga" then
         return "Original"
     end
-    -- "gugugaga" is picked in the dropdown like the others. No UE / Careful / FW UE branch matches it, so every
-    -- check falls through to the KH path; its own behaviour sits behind == "gugugaga" checks.
-    -- "Pigeon" falls through the same way; only its hide points differ, behind ueS.IsPigeon() checks.
     return picked
 end
 -- build marker: shows in the F9 console so you can tell which copy of the script is running
@@ -12865,7 +12862,7 @@ do
         local debounce = opts ~= nil and opts.Debounce == true
         local writeBack = opts ~= nil and opts.WriteBack or nil
         control:Set(config:Get(path), true)
-        trove:Connect(config:Changed(path), function(v) control:Set(v, true) end)
+        trove:Connect(config:Changed(path, opts ~= nil and opts.Persistent == true), function(v) control:Set(v, true) end)
         local pending, scheduled = nil, false
         local function write(v)
             if writeBack then writeBack(v) else config:Set(path, v) end
@@ -32193,7 +32190,7 @@ return bd.c
 end
 end
 do -- be
-local function fn35()local I= tbl17 .i().atomic; tbl17 .aZ();local W,N,P= tbl17 .aU(), tbl17 .aW(), tbl17 .aY();return{Aimbot=W.buildConfig(),SilentAim=N.buildConfig(),Triggerbot=P.buildConfig(),Ragebot={Enabled=false,Keybind={State=false,Kind="Always",Bind=nil,ShowInList=true,Invisible=false},Stability=0.15,ShootFrames=1,Careful={EvadeBetweenShots=true,RetaliateOnly=true,RetaliateWindow=1.5},PrioritizeHackers=false,EvadeWhenHacking=false,StartDelay=false,FWWeaponCheck=false,DetectKnife=true,KnifeMode="Original",TargetHud={Enabled=false,Scale=100,ItemScale=100,PosX=50,PosY=15},UE={VoidSpam=true,NoVoid=false,KnifeCooldown08=false,AttackTime=0.1,HideTime=0.25,ShootAttempts=1,VoidDistance=2147483647,KnifeAttack="Heavy",KnifeLead=0,KnifeStand="Sphere"},Weapons={Priority=I({"Primary","Secondary","Melee"}),Enabled={Primary=true,Secondary=true,Melee=true},OnEmpty="SwapOrReload"},Evasion={Mode="Random",Random={AnchorFromCharacter=false,BaseRadius=100,RadiusRandomFactor=0.5},ProjectileBreaker={DepthForward={Min=0,Max=4},DepthForwardFrequency=5,DepthUp={Min=0,Max=5.5},DepthUpFrequency=5,RepositionInterval=0.3,FallbackAnchorFromCharacter=false,FallbackBaseRadius=100,FallbackRadiusRandomFactor=0.5},Translocate={Offset=-5}},UtilizeHealthLead=false},Flickbot={Enabled=false,Keybind={State=false,Kind="Hold",Bind=nil,ShowInList=true,Invisible=false},Shoot=false,ShotDelay=0,Cooldown=250,FlickDuration=110,Curvature=12,Humanness=30}};end
+local function fn35()local I= tbl17 .i().atomic; tbl17 .aZ();local W,N,P= tbl17 .aU(), tbl17 .aW(), tbl17 .aY();return{Aimbot=W.buildConfig(),SilentAim=N.buildConfig(),Triggerbot=P.buildConfig(),Ragebot={Enabled=false,Keybind={State=false,Kind="Always",Bind=nil,ShowInList=true,Invisible=false},Stability=0.15,ShootFrames=1,CustomAttackHeight=false,AttackHeight=-0.7,Careful={EvadeBetweenShots=true,RetaliateOnly=true,RetaliateWindow=1.5},PrioritizeHackers=false,EvadeWhenHacking=false,StartDelay=false,FWWeaponCheck=false,DetectKnife=true,KnifeMode="Original",TargetHud={Enabled=false,AlwaysShow=true,Scale=100,ItemScale=100,PosX=50,PosY=15},UE={VoidSpam=true,NoVoid=false,KnifeCooldown08=false,AttackTime=0.1,HideTime=0.25,ShootAttempts=1,VoidDistance=2147483647,KnifeAttack="Heavy",KnifeLead=0,KnifeStand="Sphere"},Weapons={Priority=I({"Primary","Secondary","Melee"}),Enabled={Primary=true,Secondary=true,Melee=true},OnEmpty="SwapOrReload"},Evasion={Mode="Random",Random={AnchorFromCharacter=false,BaseRadius=100,RadiusRandomFactor=0.5},ProjectileBreaker={DepthForward={Min=0,Max=4},DepthForwardFrequency=5,DepthUp={Min=0,Max=5.5},DepthUpFrequency=5,RepositionInterval=0.3,FallbackAnchorFromCharacter=false,FallbackBaseRadius=100,FallbackRadiusRandomFactor=0.5},Translocate={Offset=-5}},UtilizeHealthLead=false},Flickbot={Enabled=false,Keybind={State=false,Kind="Hold",Bind=nil,ShowInList=true,Invisible=false},Shoot=false,ShotDelay=0,Cooldown=250,FlickDuration=110,Curvature=12,Humanness=30}};end
 
 tbl17.be = function()
 local be = tbl17.cache.be
@@ -62828,7 +62825,7 @@ end
 
 index2._SetupMotionDisabler = function(arg, arg2)
 local function fn36()
-arg._motionDisabler:SetMotionDisabled(v118.Data.ItemModifiers.NoMotion)
+arg._motionDisabler:SetMotionDisabled(false)
 end
 
 arg2:Connect(v118:GetPropertyChangedSignal({ "ItemModifiers", "NoMotion" }), fn36)
@@ -67745,7 +67742,7 @@ for _, v122 in groups, nil, nil do
 local v123 = configGroupMap[v122]
 
 v121:Connect(v116:GetPropertyChangedSignal({ "Chams", v123, "Enabled" }), function(arg2)
-tbl18:_SetEnabled(v122, arg2)
+tbl18:_SetEnabled(v122, false)
 end)
 
 local function fn37()
@@ -67758,7 +67755,7 @@ end
 
 v121:Connect(v116:GetPropertyChangedSignal({ "Chams", v123, "Color" }), function(I) tbl18 :_ApplyColor( v122 ,I);end)
 v121:Connect(v116:GetPropertyChangedSignal({ "Chams", v123, "Transparency" }), function(I) tbl18 :_ApplyTransparency( v122 ,I);end)
-tbl18:_SetEnabled(v122, data.Chams[v123].Enabled)
+tbl18:_SetEnabled(v122, false)
 end
 
 return tbl18
@@ -68421,7 +68418,7 @@ for _, v121 in groups, nil, nil do
 local v122 = configGroupMap[v121]
 
 v120:Connect(v117:GetPropertyChangedSignal({ "ViewModelWireframe", v122, v86[44] }), function(arg2)
-tbl18:_SetEnabled(v121, arg2)
+tbl18:_SetEnabled(v121, false)
 end)
 
 v120:Connect(v117:GetPropertyChangedSignal({ "ViewModelWireframe", v122, "Width" }), function(arg2)
@@ -68429,7 +68426,7 @@ tbl18:_ApplyWidth(v121, arg2)
 end)
 
 v120:Connect(v117:GetPropertyChangedSignal({ "ViewModelWireframe", v122, "Color" }), function(I) tbl18 :_ApplyColor( v121 ,I);end)
-tbl18:_SetEnabled(v121, fn36(v121).Enabled)
+tbl18:_SetEnabled(v121, false)
 end
 
 return tbl18
@@ -71956,7 +71953,7 @@ return ie.c
 end
 end
 do -- ih
-local function fn35() tbl17 .aE();local cfgd= tbl17 .bG();local I= tbl17 .h6();local function l(W)I(W,"Enable Ragebot",{"Always","Toggle","Hold"},{"Ragebot"},true);local style=W:AddDropdown({Label="Ragebot Style",Tooltip="KH: Kicia's own ragebot. UE: the Unnamed Enhancements ragebot (void spam, backstab, gun and light attack). Picking UE hides the KH settings. Auto: plays as KH until the Hacker Detector flags an enemy, then switches this dropdown to FW UE and stays there. Careful: the LY hub's own ragebot in its Careful mode (its own targeting, teleport attack, evasion and reloads). Careful Settings, Weapon Strategy and Target HUD apply to it. Pigeon: attacks as KH, always hides in the void 2147483647 studs straight up and ignores the Evasion settings.",Options={"Original","UE","Careful","FWUE","gugugaga","Pigeon"},Labels={Original="KH",UE="UE",Careful="Careful",FWUE="FW UE trash kh",gugugaga="gugugaga",Pigeon="Pigeon"},Config={"Ragebot","KnifeMode"}});W:AddToggle({Label="Round Start Delay",Tooltip="At the start of a round, hide in the void for a random 1-6 s first, then start attacking. Applies to every Ragebot Style.",Config={"Ragebot","StartDelay"}});W:AddToggle({Label="Prioritize Hackers",Config={"Ragebot","PrioritizeHackers"}});W:AddToggle({Label="Evade When Target Hacking",Config={"Ragebot","EvadeWhenHacking"}});W:AddButton({Label="Clear Hacker Tags",OnClick=function()local d=K.HackerDetector;local ok,n=pcall(function()return d and d:ClearTags() or nil;end);local text=(not ok or n==nil) and "Hacker detector is not ready" or string.format("Cleared %d hacker tag(s)",n);pcall(function()tbl17.aB().get():Notify(text);end);end});return style;end;local function kf(W)W:AddToggle({Label="Detect Knife",Config={"Ragebot","DetectKnife"}});W:AddSlider({Label="Stability",Min=0,Max=1.5,Step=0.001,Config={"Ragebot","Stability"}});W:AddSlider({Label="Shoot Frames",Min=1,Max=5,Config={"Ragebot","ShootFrames"}});end;local function cf(W)W:AddToggle({Label="Evade Between Shots",Tooltip="Slow weapons (shotgun, sniper, knife): evade in the gaps instead of standing on the target",Config={"Ragebot","Careful","EvadeBetweenShots"}});W:AddToggle({Label="Attack After Enemy",Tooltip="Only shoot an enemy in the gap right after it fired or swung, or while its weapon cools down or reloads",Config={"Ragebot","Careful","RetaliateOnly"}});W:AddSlider({Label="Gap Window",Tooltip="How long after its shot or swing an enemy can still be shot (its weapon cooldown or reload also counts)",Min=0.5,Max=5,Step=0.1,Suffix="s",Config={"Ragebot","Careful","RetaliateWindow"}});end;local function uf(W)W:AddToggle({Label="Never Void",Tooltip="Never hide in the void (UE style): no hide phase, and none while reloading, swapping, without a target or between knife stabs. You stay where you are.",Config={"Ragebot","UE","NoVoid"}});W:AddToggle({Label="Backstab Cooldown 0.8",Tooltip="On: the time between two backstabs is HeavyAttackCooldown x 0.8. Off: UE's own x 0.75.",Config={"Ragebot","UE","KnifeCooldown08"}});W:AddToggle({Label="Void Spam",Tooltip="Hide in the void between attack bursts (UE void spam). Used by the gun and the light attack, not by the backstab.",Config={"Ragebot","UE","VoidSpam"}});W:AddSlider({Label="Void Spam Attack",Tooltip="the amount of time attacking before hiding again (UE adds 0.1 s on top)",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","AttackTime"}});W:AddSlider({Label="Void Spam Hide",Tooltip="how long it stays in void for",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","HideTime"}});W:AddSlider({Label="Shoot Attempts",Tooltip="how many times it will try to fire your weapon (UE: ragebot_shoot_attempts)",Min=1,Max=2,Step=1,Config={"Ragebot","UE","ShootAttempts"}});W:AddDropdown({Label="Knife Attack",Tooltip="Heavy Backstab = UE attack mode knife. Light Attack = UE attack mode melee (fast light attacks with the knife).",Options={"Heavy","Light"},Labels={Heavy="Heavy Backstab",Light="Light Attack"},Config={"Ragebot","UE","KnifeAttack"}});end;local function I(W)local N={"Primary","Secondary","Melee"};for P,P in N,nil,nil do W:AddToggle({Label=string.format("%s Enabled",tostring(P)),Config={"Ragebot","Weapons","Enabled",P}});end;W:AddOrderedList({Label="Weapon Priority",Items=N,Default=N,Config={"Ragebot","Weapons","Priority"}});W:AddDropdown({Label="On Empty",Options={"Reload","Swap","SwapOrReload"},Labels={SwapOrReload="Swap or Reload"},Config={"Ragebot","Weapons","OnEmpty"}});end;local function W(N,P)local a=N:AddGroup({Source=P,Option="ProjectileBreaker"});a:AddRangeSlider({Label="Forward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForward"}});a:AddSlider({Label="Forward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForwardFrequency"}});a:AddRangeSlider({Label="Upward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUp"}});a:AddSlider({Label="Upward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUpFrequency"}});a:AddSlider({Label="Reposition Interval (s)",Min=0.05,Max=2,Step=0.01,Config={"Ragebot","Evasion","ProjectileBreaker","RepositionInterval"}});a:AddToggle({Label="Fallback Character Origin",Config={"Ragebot","Evasion","ProjectileBreaker","FallbackAnchorFromCharacter"}});a:AddSlider({Label="Fallback Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackBaseRadius"}});a:AddSlider({Label="Fallback Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackRadiusRandomFactor"}});end;local function N(P)local a=P:AddDropdown({Label="Evasion Mode",Options={"Off","Random","Translocate","ProjectileBreaker"},Labels={ProjectileBreaker="Projectile Breaker"},Config={"Ragebot","Evasion","Mode"}});local e=P:AddGroup({Source=a,Option="Random"});e:AddToggle({Label="Character Origin",Config={"Ragebot","Evasion","Random","AnchorFromCharacter"}});e:AddSlider({Label="Base Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","Random","BaseRadius"}});e:AddSlider({Label="Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","Random","RadiusRandomFactor"}});P:AddGroup({Source=a,Option="Translocate"}):AddSlider({Label="Offset",Min=-5,Max=5,Step=0.1,Config={"Ragebot","Evasion","Translocate","Offset"}});W(P,a);end;local function H(P)P:AddToggle({Label="Target HUD",Config={"Ragebot","TargetHud","Enabled"}});P:AddSlider({Label="Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","Scale"}});P:AddSlider({Label="Item Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","ItemScale"}});P:AddSlider({Label="Offset X (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosX"}});P:AddSlider({Label="Offset Y (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosY"}});end;return function(W)local style=l(W:AddSection({Title="Activation",Side="left"}));local khSection=W:AddSection({Title="KH Settings",Side="left"});kf(khSection);local carefulSection=W:AddSection({Title="Careful Settings",Side="left"});cf(carefulSection);local ueSection=W:AddSection({Title="UE Settings",Side="left"});uf(ueSection);local weaponSection=W:AddSection({Title="Weapon Strategy",Side="left"});I(weaponSection);local evasionSection=W:AddSection({Title="Evasion",Side="right"});N(evasionSection);local hudSection=W:AddSection({Title="Target HUD",Side="right"});H(hudSection);local fwSection=W:AddSection({Title="FW UE Settings",Side="left"});fwSection:AddToggle({Label="FW Weapon Check",Tooltip="Hide only while the weapon window is open. Slow weapons: the shot / swing cooldown must have at least 0.6 s left. Fast weapons (cooldown up to 0.3 s): the magazine must be nearly empty. Nobody may be reloading, and an enemy starting to reload sends you back to the void. No time limit on the wait.",Config={"Ragebot","FWWeaponCheck"}});local function applyStyle()local picked=style.Value;local isGugugaga=picked=="gugugaga";local isUE=picked=="UE";local isCareful=picked=="Careful";local isEmpty=picked=="FWUE";khSection:SetVisible(not isUE and not isCareful and not isEmpty and not isGugugaga);evasionSection:SetVisible(not isUE and not isCareful and not isEmpty and not isGugugaga and picked~="Pigeon");ueSection:SetVisible(isUE);carefulSection:SetVisible(isCareful);weaponSection:SetVisible(not isEmpty);hudSection:SetVisible(not isEmpty and not isGugugaga);fwSection:SetVisible(picked=="FWUE");end;applyStyle();pcall(function()style.ValueChanged:Connect(applyStyle);end);end;end
+local function fn35() tbl17 .aE();local cfgd= tbl17 .bG();local I= tbl17 .h6();local function l(W)I(W,"Enable Ragebot",{"Always","Toggle","Hold"},{"Ragebot"},true);local style=W:AddDropdown({Label="Ragebot Style",Tooltip="KH: Kicia's own ragebot. UE: the Unnamed Enhancements ragebot (void spam, backstab, gun and light attack). Picking UE hides the KH settings. Auto: plays as KH until the Hacker Detector flags an enemy, then switches this dropdown to FW UE and stays there. Careful: the LY hub's own ragebot in its Careful mode (its own targeting, teleport attack, evasion and reloads). Careful Settings, Weapon Strategy and Target HUD apply to it.",Options={"Original","UE","Careful","FWUE"},Labels={Original="KH",UE="UE",Careful="Careful",FWUE="FW UE trash kh"},Config={"Ragebot","KnifeMode"}});W:AddToggle({Label="Round Start Delay",Tooltip="At the start of a round, hide in the void for a random 1-6 s first, then start attacking. Applies to every Ragebot Style.",Config={"Ragebot","StartDelay"}});W:AddToggle({Label="Prioritize Hackers",Config={"Ragebot","PrioritizeHackers"}});W:AddToggle({Label="Evade When Target Hacking",Config={"Ragebot","EvadeWhenHacking"}});W:AddButton({Label="Clear Hacker Tags",OnClick=function()local d=K.HackerDetector;local ok,n=pcall(function()return d and d:ClearTags() or nil;end);local text=(not ok or n==nil) and "Hacker detector is not ready" or string.format("Cleared %d hacker tag(s)",n);pcall(function()tbl17.aB().get():Notify(text);end);end});return style;end;local function kf(W)W:AddToggle({Label="Detect Knife",Config={"Ragebot","DetectKnife"}});W:AddSlider({Label="Stability",Min=0,Max=1.5,Step=0.001,Config={"Ragebot","Stability"}});W:AddSlider({Label="Shoot Frames",Min=1,Max=5,Config={"Ragebot","ShootFrames"}});W:AddToggle({Label="Custom Attack Height",Tooltip="Off: the fixed stand height (0.7 below the head hitbox of the target). On: the Attack Height below is used.",Config={"Ragebot","CustomAttackHeight"}});W:AddSlider({Label="Attack Height",Tooltip="How far above (+) or below (-) the head hitbox of the target you stand. A shield pointing down is 3.15 lower.",Min=-15,Max=15,Step=0.05,Config={"Ragebot","AttackHeight"}});end;local function cf(W)W:AddToggle({Label="Evade Between Shots",Tooltip="Slow weapons (shotgun, sniper, knife): evade in the gaps instead of standing on the target",Config={"Ragebot","Careful","EvadeBetweenShots"}});W:AddToggle({Label="Attack After Enemy",Tooltip="Only shoot an enemy in the gap right after it fired or swung, or while its weapon cools down or reloads",Config={"Ragebot","Careful","RetaliateOnly"}});W:AddSlider({Label="Gap Window",Tooltip="How long after its shot or swing an enemy can still be shot (its weapon cooldown or reload also counts)",Min=0.5,Max=5,Step=0.1,Suffix="s",Config={"Ragebot","Careful","RetaliateWindow"}});W:AddToggle({Label="Custom Attack Height",Tooltip="Off: the fixed stand height (0.7 below the head hitbox of the target). On: the Attack Height below is used.",Config={"Ragebot","CustomAttackHeight"}});W:AddSlider({Label="Attack Height",Tooltip="How far above (+) or below (-) the head hitbox of the target you stand. A shield pointing down is 3.15 lower.",Min=-15,Max=15,Step=0.05,Config={"Ragebot","AttackHeight"}});end;local function uf(W)W:AddToggle({Label="Never Void",Tooltip="Never hide in the void (UE style): no hide phase, and none while reloading, swapping, without a target or between knife stabs. You stay where you are.",Config={"Ragebot","UE","NoVoid"}});W:AddToggle({Label="Backstab Cooldown 0.8",Tooltip="On: the time between two backstabs is HeavyAttackCooldown x 0.8. Off: UE's own x 0.75.",Config={"Ragebot","UE","KnifeCooldown08"}});W:AddToggle({Label="Void Spam",Tooltip="Hide in the void between attack bursts (UE void spam). Used by the gun and the light attack, not by the backstab.",Config={"Ragebot","UE","VoidSpam"}});W:AddSlider({Label="Void Spam Attack",Tooltip="the amount of time attacking before hiding again (UE adds 0.1 s on top)",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","AttackTime"}});W:AddSlider({Label="Void Spam Hide",Tooltip="how long it stays in void for",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","HideTime"}});W:AddSlider({Label="Shoot Attempts",Tooltip="how many times it will try to fire your weapon (UE: ragebot_shoot_attempts)",Min=1,Max=2,Step=1,Config={"Ragebot","UE","ShootAttempts"}});W:AddDropdown({Label="Knife Attack",Tooltip="Heavy Backstab = UE attack mode knife. Light Attack = UE attack mode melee (fast light attacks with the knife).",Options={"Heavy","Light"},Labels={Heavy="Heavy Backstab",Light="Light Attack"},Config={"Ragebot","UE","KnifeAttack"}});end;local function I(W)local N={"Primary","Secondary","Melee"};for P,P in N,nil,nil do W:AddToggle({Label=string.format("%s Enabled",tostring(P)),Config={"Ragebot","Weapons","Enabled",P}});end;W:AddOrderedList({Label="Weapon Priority",Items=N,Default=N,Config={"Ragebot","Weapons","Priority"}});W:AddDropdown({Label="On Empty",Options={"Reload","Swap","SwapOrReload"},Labels={SwapOrReload="Swap or Reload"},Config={"Ragebot","Weapons","OnEmpty"}});end;local function W(N,P)local a=N:AddGroup({Source=P,Option="ProjectileBreaker"});a:AddRangeSlider({Label="Forward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForward"}});a:AddSlider({Label="Forward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForwardFrequency"}});a:AddRangeSlider({Label="Upward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUp"}});a:AddSlider({Label="Upward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUpFrequency"}});a:AddSlider({Label="Reposition Interval (s)",Min=0.05,Max=2,Step=0.01,Config={"Ragebot","Evasion","ProjectileBreaker","RepositionInterval"}});a:AddToggle({Label="Fallback Character Origin",Config={"Ragebot","Evasion","ProjectileBreaker","FallbackAnchorFromCharacter"}});a:AddSlider({Label="Fallback Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackBaseRadius"}});a:AddSlider({Label="Fallback Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackRadiusRandomFactor"}});end;local function N(P)local a=P:AddDropdown({Label="Evasion Mode",Options={"Off","Random","Translocate","ProjectileBreaker"},Labels={ProjectileBreaker="Projectile Breaker"},Config={"Ragebot","Evasion","Mode"}});local e=P:AddGroup({Source=a,Option="Random"});e:AddToggle({Label="Character Origin",Config={"Ragebot","Evasion","Random","AnchorFromCharacter"}});e:AddSlider({Label="Base Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","Random","BaseRadius"}});e:AddSlider({Label="Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","Random","RadiusRandomFactor"}});P:AddGroup({Source=a,Option="Translocate"}):AddSlider({Label="Offset",Min=-5,Max=5,Step=0.1,Config={"Ragebot","Evasion","Translocate","Offset"}});W(P,a);end;local function H(P)P:AddToggle({Label="Target HUD",Config={"Ragebot","TargetHud","Enabled"}});P:AddToggle({Label="Always Show",Tooltip="Keep the card up: without a ragebot target it shows the nearest enemy.",Config={"Ragebot","TargetHud","AlwaysShow"}});P:AddSlider({Label="Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","Scale"}});P:AddSlider({Label="Item Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","ItemScale"}});P:AddSlider({Label="Offset X (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosX"}});P:AddSlider({Label="Offset Y (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosY"}});end;return function(W)local style=l(W:AddSection({Title="Activation",Side="left"}));local khSection=W:AddSection({Title="KH Settings",Side="left"});kf(khSection);local carefulSection=W:AddSection({Title="Careful Settings",Side="left"});cf(carefulSection);local ueSection=W:AddSection({Title="UE Settings",Side="left"});uf(ueSection);local weaponSection=W:AddSection({Title="Weapon Strategy",Side="left"});I(weaponSection);local evasionSection=W:AddSection({Title="Evasion",Side="right"});N(evasionSection);local hudSection=W:AddSection({Title="Target HUD",Side="right"});H(hudSection);local fwSection=W:AddSection({Title="FW UE Settings",Side="left"});fwSection:AddToggle({Label="FW Weapon Check",Tooltip="Hide only while the weapon window is open. Slow weapons: the shot / swing cooldown must have at least 0.6 s left. Fast weapons (cooldown up to 0.3 s): the magazine must be nearly empty. Nobody may be reloading, and an enemy starting to reload sends you back to the void. No time limit on the wait.",Config={"Ragebot","FWWeaponCheck"}});local function applyStyle()local picked=style.Value;local isUE=picked=="UE";local isCareful=picked=="Careful";local isEmpty=picked=="FWUE";khSection:SetVisible(not isUE and not isCareful and not isEmpty);evasionSection:SetVisible(not isUE and not isCareful and not isEmpty);ueSection:SetVisible(isUE);carefulSection:SetVisible(isCareful);weaponSection:SetVisible(not isEmpty);hudSection:SetVisible(not isEmpty);fwSection:SetVisible(picked=="FWUE");end;applyStyle();pcall(function()style.ValueChanged:Connect(applyStyle);end);end;end
 
 tbl17.ih = function()
 local ih = tbl17.cache.ih
@@ -75628,11 +75625,6 @@ function M.IsUE()
 return K.RagebotStyle(config.Data.Ragebot.KnifeMode) == "UE"
 end
 
--- Pigeon ragebot style: attacks as KH, but every hide point is M.Void (2147483647 studs out)
-function M.IsPigeon()
-return K.RagebotStyle(config.Data.Ragebot.KnifeMode) == "Pigeon"
-end
-
 -- UE-style settings (menu section "UE Settings"); the defaults are UE's own values
 local function ueSettings()
 return config.Data.Ragebot.UE
@@ -75648,10 +75640,6 @@ local UE_VOID_DISTANCE = 2147483647
 -- swap, round not started, knife between stabs) then returns nil, i.e. no server CFrame override, and the
 -- character stays where it really is.
 function M.NoVoid()
--- Pigeon always hides in the void, whatever a saved config has in the UE settings
-if M.IsPigeon() then
-return false
-end
 local settings = ueSettings()
 return settings ~= nil and settings.NoVoid == true
 end
@@ -75659,14 +75647,6 @@ end
 function M.Void()
 if M.NoVoid() then
 return nil
-end
--- Pigeon hides straight up instead of in a random direction. UE's unit vector is uniform over the
--- sphere, so it only pins the DISTANCE: a near-horizontal pick leaves you 2147483647 studs OUT at
--- roughly ground height, with abs(v.Y) * distance as the actual height anywhere from ~0 upward.
--- Pigeon is meant to sit 2147483647 studs ABOVE, so it takes the whole distance on Y. Gated on
--- IsPigeon so UE and FW UE keep their own random hide point untouched.
-if M.IsPigeon() then
-return CFrame.new(0, UE_VOID_DISTANCE, 0)
 end
 local distance = UE_VOID_DISTANCE
 local v = random:NextUnitVector()
@@ -75678,116 +75658,6 @@ local v = random:NextUnitVector()
 -- kh.lua:51192, y = +5000..10000 at 62650 and 62809), so mirror a downward pick upward: same
 -- direction spread, same exact distance, never below the world.
 return CFrame.new(Vector3.new(v.X, math.abs(v.Y), v.Z) * distance)
-end
-
--- Pigeon's attack pose, shared by its gun and its melee path so the numbers cannot drift apart.
---  * our own server CFrame sits PIGEON_ROOT_DROP studs straight down from the target's RootPart;
---  * the shot comes from THAT SAME point, aimed up at the target's head hitbox. Careful's rule 2
---    (grep "The origin is our own position as the server knows it") wants the origin to be the
---    position the server believes we occupy, so the origin follows the stand point instead of
---    sitting above her head. The ray then crosses her body, which costs nothing: Careful itself
---    shoots the head from 0.7 studs under it (-2 for an underground target, -3 for a crouching one,
---    grep "RAGE_UNDERGROUND_HEIGHT") and the hit hitbox is decided by the packet's target part, not
---    by the shot direction;
---  * the body lies flat (pitch 90, the same pose UE's own PlanUE sets) and spins clockwise at
---    PIGEON_SPIN_TURNS turns a second: fan speed. The server CFrame is written once per Heartbeat, so
---    at 10 turns a second the body already moves 60 degrees between frames; much past that the spin
---    aliases and starts to look slow or reversed instead of faster.
--- Returns the server CFrame and the origin CFrame to encode into the packet.
--- How far down we park, measured from the target's RootPart: the one point on her we can actually read.
--- Her feet are somewhere under the root (nothing in this file records how far), so this is the whole
--- offset, not a distance below her feet.
-local PIGEON_ROOT_DROP = 6
--- Height of the head hitbox above the root, used only when the target has no RootPart to measure from.
-local PIGEON_HEAD_TO_ROOT = 1.75
-local PIGEON_SPIN_TURNS = 10
-
-function M.PigeonPose(hitboxHead, rootPart)
-local headPosition = hitboxHead.Position
-local rootPosition = rootPart ~= nil and rootPart.Position or (headPosition - Vector3.new(0, PIGEON_HEAD_TO_ROOT, 0))
-local standPosition = rootPosition - Vector3.new(0, PIGEON_ROOT_DROP, 0)
--- Rule 2: shoot from where the server thinks we are. standPosition is that point, so the origin is
--- built from it and looks up at the head hitbox.
-local origin = CFrame.new(standPosition, headPosition)
--- A negative yaw turns clockwise seen from above. The yaw is the OUTER rotation, so the lying body
--- spins about the world Y axis (like a clock hand on the floor) instead of rolling along its own axis.
-local tau = 6.2831853071795862
-local spin = -(os.clock() * PIGEON_SPIN_TURNS * tau) % tau
-local stand = CFrame.new(standPosition) * CFrame.Angles(0, spin, 0) * CFrame.Angles(1.5707963267948966, 0, 0)
-return stand, origin
-end
-
--- Pigeon's attack gate: the three things Careful's own in-game measurements argue for, with no void-spam
--- timer. Pigeon is either at the attack spot or parked in the void; nothing alternates on a clock.
---  * Move in only while the target CANNOT hit back: its held item is still on a shoot / swing / reload
---    cooldown. Careful's version (rage.retaliateOk) also wants the target to have attacked us first, which
---    costs a scan of every player every 0.05 s; Pigeon keeps the "cannot hit back" half only, which is a
---    plain read of the target we already have in hand.
---  * There is NO hold before the first packet: the user asked on 2026-11-05 for the shot to go out as
---    soon as Pigeon is in place. This goes against the one measurement we have (grep "70 ms landed
---    1/3": 70 ms of hold landed 1 shot in 3, 200 ms landed 3 of 3, which is why Careful runs
---    AttackPrep = 0.2), so if hits stop registering this is the first thing to put back -- a
---    PIGEON_PREP constant and one `now - start < PIGEON_PREP` branch in PigeonAttackState.
---  * Then pace the packets at PIGEON_SHOTS_PER_SECOND. KH sends one a frame and its own diagnostics
---    recorded 50-75 requests per 5 s with almost no hits (grep "diagnostics log showed"); 20 is
---    Careful's rate for every weapon slot.
-local PIGEON_SHOTS_PER_SECOND = 20
-
--- How early Pigeon returns to the target before its next shot is due; rule 4 (grep "26 of 28 hits")
--- is why it leaves at all and this is how much of the gap it hands back. It was PIGEON_PREP + 0.15 so
--- the hold could finish before the cooldown ended; the hold is gone but the lead keeps that same
--- 0.35 s, so the retreat behaves exactly as it did.
-local PIGEON_RETURN_LEAD = 0.35
-
-function M.PigeonReturnLead()
-return PIGEON_RETURN_LEAD
-end
-
--- True while the target's held item cannot be used against us. The three cooldowns are tick() timestamps
--- the game keeps up to date for other players too, which is how Careful (rage.retaliateOk) and the FW UE
--- window both read them.
-function M.PigeonTargetBusy(target)
-local ok, busy = pcall(function()
-local controller = K.Controller("FighterController")
-local fighter = controller ~= nil and controller:GetFighter(target.FighterState.Player) or nil
-if fighter == nil then
--- nothing to judge by: attack rather than freeze the style on a lookup that never works
-return true
-end
-local item = fighter.EquippedItem
-if item == nil then
--- empty hands: it cannot hit back at all
-return true
-end
-local now = tick()
-for _, key in { "_shoot_cooldown", "_attack_cooldown", "_reload_cooldown" } do
-local value = item[key]
-if type(value) == "number" and value > now then
-return true
-end
-end
-return false
-end)
-if not ok then
--- fail open, but leave the reason where F9 can see it instead of silently never gating
-K.PigeonGateError = tostring(busy)
-return true
-end
-return busy
-end
-
--- "void" (park at 2147483647 studs), "hold" (stand at the spot, send nothing) or "fire". `state` is the
--- caller's own table; the next packet time lives on it. "hold" is now only the gap between two packets
--- at the 20/s pace -- arriving at the spot no longer costs a wait.
-function M.PigeonAttackState(state, target, now)
-if not M.PigeonTargetBusy(target) then
-return "void"
-end
-if now < (state._pigeonNextShot or 0) then
-return "hold"
-end
-state._pigeonNextShot = now + 1 / PIGEON_SHOTS_PER_SECOND
-return "fire"
 end
 
 -- true when the knife should stand exactly behind the victim along the victim's facing (not UE's random sphere)
@@ -76075,61 +75945,15 @@ index2.new = function(arg)
 return setmetatable({ _partGlue = arg, _shootLock = v116.new(), _ueNextShot = 0 }, index2)
 end
 
--- Pigeon gun path: park under the target's feet, lying flat and spinning clockwise, and ask for the shot
--- from that same park point, aimed up at her head hitbox. Like the UE gun path it releases KH's glue
--- and points the rep root at workspace.Terrain, so the server CFrame below is read as an absolute
--- world position rather than an offset from the glued hitbox.
-index2._PlanPigeon = function(arg, dt, target, gun, ourPart, allowed)
-arg._partGlue:Free(ourPart)
--- _ueOurPart is what ResetState reads to put the rep root back on our own part when the ragebot lets
--- go; without it the root would stay bound to Terrain after Pigeon stops.
-arg._ueOurPart = ourPart
-arg._partGlue:SetRepRoot(ourPart, workspace.Terrain)
-
-local aliveState = target.AliveState
-local hitboxHead = aliveState.HitboxHead
--- Rule 4, the gun half (the melee path already had it): leave whenever the next shot is further off
--- than PIGEON_RETURN_LEAD. Careful does the same (grep "Skip the teleport until the next shot") on its
--- own measurement that 26 of the 28 hits it took landed while the attack cycle held it at the enemy.
--- GetShootTimeRemaining is max(_shoot_cooldown - tick(), 0) on our OWN gun, so the test self-limits to
--- slow weapons: a handgun (0.13 s) never exceeds the window and so never leaves, while a shotgun
--- (0.7 s) and a sniper (1.5 s) spend their gap in the void. No timer and nothing alternating on a
--- clock: the attack spot and the void are the only two places Pigeon is ever at.
-if gun:GetShootTimeRemaining() > ueS.PigeonReturnLead() then
-return ueS.Void(), nil
-end
--- `allowed` is false while the TARGET itself sits at extreme coordinates (the SpatialLimitGate that
--- sends KH to a far position). Pigeon treats that like any other gap and parks in the void.
-local state = (hitboxHead ~= nil and allowed) and ueS.PigeonAttackState(arg, target, os.clock()) or "void"
-
-if state == "void" then
-return ueS.Void(), nil
-end
-
-local stand, origin = ueS.PigeonPose(hitboxHead, aliveState.RootPart)
-if state == "hold" then
-return stand, nil
-end
-
-return stand, function()
-local rnd = math.random
-gun:ShootEncoded(
-ueEncode.encode(origin),
-ueEncode.encode(origin),
-hitboxHead,
-ueEncode.encode(CFrame.new(rnd() * 0.1, rnd() * 0.1, rnd() * 0.1))
-)
-end
-end
-
 index2.Plan = function(arg, arg2, arg3, arg4, arg5, arg6)
-if ueS.IsPigeon() then
-return arg:_PlanPigeon(arg2, arg3, arg4, arg5, arg6)
-end
 local hitboxHead = arg3.AliveState.HitboxHead
 local flag19 = v117(arg3.FighterState) ~= "Below"
 local ragebot = v115.Data.Ragebot
 local v119 = flag19 and vector or vector2
+if ragebot.CustomAttackHeight == true then
+local height = tonumber(ragebot.AttackHeight) or -0.7
+v119 = flag19 and Vector3.new(0, height, 0.05) or Vector3.new(0, height - 3.15, 0.05)
+end
 local v120 = arg._partGlue:Acquire(arg5, hitboxHead)
 local n
 
@@ -76245,8 +76069,6 @@ end
 -- Give our PhysicsRepRootPart back to our own root once the ragebot lets go (UE never did this explicitly).
 index2.ResetState = function(arg)
 arg._ueNextShot = 0
--- a stale shot timer would let the next engagement fire ahead of Pigeon's 20/s pace
-arg._pigeonNextShot = nil
 local ourPart = arg._ueOurPart
 if ourPart ~= nil then
 arg._ueOurPart = nil
@@ -76465,74 +76287,7 @@ index2.new = function(arg)
 return setmetatable({ _partGlue = arg, _shootLock = v116.new(), _hitboxWindowUntil = -1, _attackCooldown = -1, _ueReadyAt = -1, _ueNextSwing = 0 }, index2)
 end
 
--- Pigeon melee path: the same pose and the same stand-point origin as the gun (ueS.PigeonPose), sent with
--- Careful's melee payload. The glue is released and the rep root goes to workspace.Terrain, so the pose
--- below is an absolute world position.
-index2._PlanPigeon = function(arg, dt, target, item, gluedOurPart, allowed)
-local glued = arg._gluedOurPart
-if glued ~= nil then
-arg._partGlue:Free(glued)
-arg._gluedOurPart = nil
-end
-arg._partGlue:Free(gluedOurPart)
-local aliveState = target.AliveState
-local hitboxHead = aliveState.HitboxHead
-local rootPart = aliveState.RootPart
-if hitboxHead == nil or rootPart == nil then
-return ueS.Void(), nil, nil
-end
--- ResetState puts this back on our own part when the ragebot lets go (the UE melee path never set a
--- rep root, so this strategy had nothing to restore before Pigeon).
-arg._pigeonRepPart = gluedOurPart
-arg._partGlue:SetRepRoot(gluedOurPart, workspace.Terrain)
-
-local now2 = os.clock()
--- Careful comes back to the target PIGEON_RETURN_LEAD before the next swing is due and spends the rest
--- of the gap away (grep "Skip the teleport until the next shot"). Standing on her for the whole
--- cooldown is what its own measurement punishes: 26 of the 28 hits it took landed while the attack
--- cycle held it at the enemy.
-if not allowed or now2 < arg._attackCooldown - ueS.PigeonReturnLead() then
-return ueS.Void(), nil, nil
-end
-
-local state = ueS.PigeonAttackState(arg, target, now2)
-if state == "void" then
-return ueS.Void(), nil, nil
-end
-
-local stand, origin = ueS.PigeonPose(hitboxHead, rootPart)
-
--- KH's backstab view angles are kept: the crit is judged on the view yaw matching the victim's facing,
--- and that is a separate packet from the spinning body, which is the server CFrame.
-local pitch, yaw = rootPart.CFrame:ToOrientation()
-local viewAngles = fn37(pitch, yaw)
-
-if state == "hold" or now2 < arg._attackCooldown then
-return stand, viewAngles, nil
-end
-
-local heavy = item.Name == "Knife"
-if heavy then
-arg:_RecordBackstab()
-end
-
-return stand, viewAngles, function()
-local rnd = math.random
-local enc1 = ueEncode.encode(origin)
-local enc2 = ueEncode.encode(origin + Vector3.one * 0.01)
-local enc3 = ueEncode.encode(CFrame.new(rnd() * 0.1, rnd() * 0.1, rnd() * 0.1))
-if heavy then
-item:HeavyAttackEncoded(enc1, enc2, hitboxHead, enc3)
-else
-item:AttackEncoded(enc1, enc2, hitboxHead, enc3)
-end
-end
-end
-
 index2.Plan = function(arg, arg2, arg3, arg4, gluedOurPart, arg5)
-if ueS.IsPigeon() then
-return arg:_PlanPigeon(arg2, arg3, arg4, gluedOurPart, arg5)
-end
 if K.RagebotStyle(v115.Data.Ragebot.KnifeMode) == "UE" then
 arg._partGlue:Free(gluedOurPart)
 if arg4.Name == "Knife" and not ueS.KnifeLight() then
@@ -76545,6 +76300,10 @@ local hitboxHead = aliveState.HitboxHead
 local flag19 = v117(arg3.FighterState) ~= "Below"
 local ragebot = v115.Data.Ragebot
 local v119 = flag19 and vector or vector2
+if ragebot.CustomAttackHeight == true then
+local height = tonumber(ragebot.AttackHeight) or -0.7
+v119 = flag19 and Vector3.new(0, height, 0.05) or Vector3.new(0, height - 3.15, 0.05)
+end
 local v120 = arg._partGlue:Acquire(gluedOurPart, hitboxHead)
 arg._gluedOurPart = gluedOurPart
 local n
@@ -76737,69 +76496,6 @@ ueSendLight(weapon, targetPart, stand)
 end
 end
 
--- gugugaga: Careful's melee attack (rageFire, the isMelee path) sent from `point`, the fixed point where we stay:
---  * the view yaw sent is the victim's own yaw (pitch 0), every frame;
---  * the packet is the game's own melee packet: c0 = the eye (the point + 1.75 up) looking at the head, c1 = c0
---    moved 0.1 along the look, part = the head hitbox, c3 = Angles(0, pi / 2, 0); StartShooting, no animation key;
---  * GUGUGAGA_PACKETS identical packets on every frame there is a target (no pace lock).
--- Returns the view angles and the packet, or nil when the target has no hitbox / root.
-local GUGUGAGA_PACKETS = 1
-
--- Same UE-shaped payload as ueSendHeavy / ueSendLight, but handed to the weapon object's own HeavyAttackEncoded /
--- AttackEncoded instead of a raw fireServer, so it goes through the game's item code and Melee Cooldown Override
--- (which only rewrites the item's own AttackCooldown) applies to it.
-local function gugugagaSend(item, targetPart, cf, heavy)
-local rnd = math.random
-local enc1 = ueEncode.encode(cf)
-local enc2 = ueEncode.encode(cf + Vector3.one * 0.01)
-local enc3 = ueEncode.encode(CFrame.new(rnd() * 0.1, rnd() * 0.1, rnd() * 0.1))
-if heavy then
-item:HeavyAttackEncoded(enc1, enc2, targetPart, enc3)
-else
-item:AttackEncoded(enc1, enc2, targetPart, enc3)
-end
-end
-
-index2.PlanGugugaga = function(arg, target, weapon, point, fallbackPart)
-local hitbox, root
-if target ~= nil then
-local aliveState = target.AliveState
-hitbox = aliveState.HitboxHead
-root = aliveState.RootPart
-else
--- no enemy on the field at all: the packet still goes out, aimed at our own root part
-hitbox, root = fallbackPart, fallbackPart
-end
-if hitbox == nil or root == nil then
-return nil
-end
-local targetPos = hitbox.Position
-local now2 = os.clock()
-
--- UE's own packets, sent from `point` (where we are): the knife gets UE's heavy backstab (StartAiming + the
--- rotating HeavyAttackN key, aim point 3 studs behind the head, view taken from that aim CFrame, one stab per
--- HeavyAttackCooldown x factor), every other melee (or the knife with Knife Attack = Light) gets UE's light attack
--- (StartShooting + AttackN, at most once per 1/60 s).
-if weapon.Name == "Knife" and not ueS.KnifeLight() then
-local aim = hitbox.CFrame * CFrame.new(0, 0, 3)
-local rx, ry = aim:ToOrientation()
-local viewAngles = fn37(rx, ry)
-ueS.SetStatus("backstabbing " .. ueTargetName(target) .. "...")
--- no cooldown gate: a packet goes out on every frame
-return viewAngles, function()
-gugugagaSend(weapon, hitbox, aim, true)
-end
-end
-
-ueS.SetStatus("attacking " .. ueTargetName(target) .. "...")
-local stand = CFrame.new(point.Position, targetPos)
-local lightView = fn37(0, select(2, root.CFrame:ToOrientation()))
--- no rate gate: a packet goes out on every frame
-return lightView, function()
-gugugagaSend(weapon, hitbox, stand, false)
-end
-end
-
 index2._RecordBackstab = function(arg)
 local now2 = os.clock()
 arg._hitboxWindowUntil = now2 + 0.625
@@ -76814,20 +76510,11 @@ arg._ueNextSwing = 0
 arg._ueLocked = nil
 arg._ueViewAngles = nil
 arg._shootLock:Reset()
--- a stale shot timer would let the next engagement fire ahead of Pigeon's 20/s pace
-arg._pigeonNextShot = nil
 local gluedOurPart = arg._gluedOurPart
 
 if gluedOurPart ~= nil then
 arg._partGlue:Free(gluedOurPart)
 arg._gluedOurPart = nil
-end
-
-local pigeonRepPart = arg._pigeonRepPart
-
-if pigeonRepPart ~= nil then
-arg._pigeonRepPart = nil
-arg._partGlue:SetRepRoot(pigeonRepPart, pigeonRepPart)
 end
 end
 
@@ -77455,15 +77142,6 @@ return { compute = function(arg, arg2)
 if not arg2 then
 return v116(arg.Position, 10000, 1e9)
 end
-if K.RagebotStyle(v115.Data.Ragebot.KnifeMode) == "gugugaga" then
--- gugugaga: the same spot as FW UE (under the lowest killing OOB part), but 1 stud below it instead of 0.1.
--- nil when the map has no such part: the caller then stays at its fixed point.
-local cf = fwueTranslocate()
-if cf ~= nil then
-return cf - Vector3.new(0, 0.9, 0), 0
-end
-return nil
-end
 if K.RagebotStyle(v115.Data.Ragebot.KnifeMode) == "FWUE" then
 local cf, radius = fwueTranslocate()
 if cf ~= nil then
@@ -78026,6 +77704,8 @@ return built
 end)
 if ok then
 hud = result
+K.TargetHudRoot = result.root
+if K.TargetHudRegister ~= nil then pcall(K.TargetHudRegister, result.root) end
 else
 hud = false
 warn("[Kicia TargetHud] could not build the card: " .. tostring(result))
@@ -78043,6 +77723,8 @@ return value ~= nil and tostring(value) or "-"
 end
 
 local function hide()
+local editor = getgenv().LYHud
+if editor ~= nil and editor.Editing then return end
 if hud and hud.root.Visible then
 hud.root.Visible = false
 end
@@ -78065,10 +77747,44 @@ end
 end
 local gradientFrom, gradientAccent
 
-return {
-Hide = hide,
-Update = function(target)
+local updateCard
+-- Always Show: with no ragebot target the card shows the nearest living enemy (looked up 10 times a second)
+local lastFallbackAt, lastFallback = 0, nil
+local function fallbackTarget()
+local now = os.clock()
+if now - lastFallbackAt < 0.1 then return lastFallback end
+lastFallbackAt = now
+lastFallback = nil
+pcall(function()
+local fighters = K.TargetHudFighters
+local cam = workspace.CurrentCamera
+if fighters == nil or cam == nil then return end
+local best, bestDistance
+for _, state in pairs(fighters.EnemyByPlayer) do
+local alive = state.Character and state.Character.State
+if alive ~= nil and alive.Alive and alive.RootPart ~= nil then
+local distance = (alive.RootPart.Position - cam.CFrame.Position).Magnitude
+if bestDistance == nil or distance < bestDistance then
+bestDistance, best = distance, { FighterState = state, AliveState = alive }
+end
+end
+end
+lastFallback = best
+end)
+return lastFallback
+end
+local function alwaysShow()
 local settings = config.Data.Ragebot.TargetHud
+return settings.Enabled == true and settings.AlwaysShow ~= false
+end
+updateCard = function(target, isFallback)
+local settings = config.Data.Ragebot.TargetHud
+local lyCard = K.TargetHudLY
+if lyCard ~= nil then
+if not isFallback then lyCard.target, lyCard.at = target, os.clock() end
+hide()
+return
+end
 if target == nil or not settings.Enabled then
 hide()
 return
@@ -78082,7 +77798,7 @@ local fighterState = target.FighterState
 local aliveState = target.AliveState
 local player = fighterState.Player
 
-put(card.root, "Position", UDim2.new(settings.PosX / 100, 0, settings.PosY / 100, 0))
+if not K.TargetHudLayout then put(card.root, "Position", UDim2.new(settings.PosX / 100, 0, settings.PosY / 100, 0)) end
 put(card.scale, "Scale", settings.Scale / 100)
 put(card.root, "BackgroundColor3", theme.ElementBackground)
 put(card.rootStroke, "Color", theme.Outline)
@@ -78143,6 +77859,37 @@ put(card.barFill, "Size", UDim2.new(maxHealth > 0 and math.clamp(health / maxHea
 if not card.root.Visible then
 card.root.Visible = true
 end
+end
+
+-- the ragebot calls Hide / Update every frame while its controller runs; with nobody calling (no controller yet,
+-- ragebot switched off further up) this keeps the card going on its own
+local lastCall = 0
+local standalone = game:GetService("RunService").Heartbeat:Connect(function()
+if os.clock() - lastCall < 0.25 then return end
+if alwaysShow() then
+pcall(updateCard, fallbackTarget(), true)
+else
+hide()
+end
+end)
+K.onUnload(function() standalone:Disconnect() end)
+
+return {
+Hide = function()
+lastCall = os.clock()
+if alwaysShow() then
+local target = fallbackTarget()
+if target ~= nil then
+updateCard(target)
+return
+end
+end
+hide()
+end,
+Update = function(target)
+lastCall = os.clock()
+if target == nil and alwaysShow() then target = fallbackTarget() end
+updateCard(target)
 end,
 }
 end
@@ -78259,6 +78006,7 @@ local rage = {
 	Provoked = setmetatable({}, { __mode = "k" }),
 	AntiTranslocate = true,   -- always on with the ragebot (no toggle): tracks enemies hiding below OutOfBoundsParts
 	PrioritizeHackers = false,
+	EvadeWhenHacking = false, -- kh: a hacker (Hacker Detector tag) is only evaded while our health is above his
 	Evasion = "Random",
 	EvadeRadius = 100,
 	AttackPrep = 0,           -- the other hub has no hold before the first shot
@@ -78481,8 +78229,23 @@ end
 
 -- Is this player flagged by the hacker detector (movement anomaly)?
 local function rageIsHacker(player)
+	-- kh: the Hacker Detector's tag
+	local tags = K.HackerTags
+	if tags ~= nil then
+		local ok, has = pcall(tags.Has, tags, player, "Hacker")
+		if ok and has then return true end
+	end
 	local flagged = getgenv().InstanceHackerFlagged
 	return type(flagged) == "table" and flagged[player] == true
+end
+
+-- Evade When Target Hacking: a hacker is not a target while our health is above his (only evasion runs against
+-- him, as in KH style); once he has the same or more health he is attacked again
+local function rageSkipHacker(player, character)
+	if not rage.EvadeWhenHacking or not rageIsHacker(player) then return false end
+	local mine = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+	local theirs = character and character:FindFirstChildOfClass("Humanoid")
+	return mine ~= nil and theirs ~= nil and mine.Health > theirs.Health
 end
 
 local function rageSlotConfig(slot)
@@ -78666,6 +78429,7 @@ local function ragePickTarget()
 		if rageSameArena(player) and isEnemy(player) and character and isAlive(character)
 			and not rageIsInvincible(player)
 			and not character:FindFirstChildOfClass("ForceField")
+			and not rageSkipHacker(player, character)
 			and rage.retaliateOk(player, retNow)
 		then
 			if not (rage.AntiDeflect and rageIsDeflecting(player)) then
@@ -78706,6 +78470,7 @@ local function ragePickTarget()
 			and not rageIsInvincible(player)
 				and not character:FindFirstChildOfClass("ForceField")
 				and not (rage.AntiDeflect and rageIsDeflecting(player))
+				and not rageSkipHacker(player, character)
 				and rage.retaliateOk(player, now2)
 			then
 				local root2 = character:FindFirstChild("HumanoidRootPart")
@@ -81260,13 +81025,8 @@ targetHud.Update({ FighterState = fighterState, AliveState = aliveState })
 end
 local fallenPartsDestroyHeight = workspace.FallenPartsDestroyHeight
 
--- The immune ring ends at 2^30 studs, short of Pigeon's void, so Pigeon takes the void instead
-local function hidePoint()
-return ueS.IsPigeon() and ueS.Void() or v127.getImmune()
-end
-
 local function fn36()
-return { CFrame = hidePoint(), ShouldSkipDefense = true }
+return { CFrame = v127.getImmune(), ShouldSkipDefense = true }
 end
 
 -- UE ragebot style (Ragebot.KnifeMode == "UE", dropdown "Ragebot Style"): not equipped, no target, reloading
@@ -81300,6 +81060,8 @@ index2.__index = index2
 
 index2.new = function(arg, arg2, arg3, arg4, arg5)
 local ragebot = v126.new("ragebot")
+-- the Target HUD looks the nearest enemy up here when it has no ragebot target
+K.TargetHudFighters = arg
 local v130 = ragebot:Add(v123.new(arg))
 
 local tbl18 = {
@@ -81368,29 +81130,10 @@ end
 -- values used while the ragebot is off.
 index2._ApplyHistoryFlags = function(arg, enabled)
 local khStyle = K.RagebotStyle(v115.Data.Ragebot.KnifeMode)
-local khHistory = enabled and not isUE() and khStyle ~= "Careful" and khStyle ~= "gugugaga"
+local khHistory = enabled and not isUE() and khStyle ~= "Careful"
 v107(v108, "DFIntAssemblyHistoryBufferSize", khHistory and "2147483648" or "15")
 v107(v108, "DFIntAssemblyHistorySkipSize", khHistory and v86[18] or "8")
 arg._historyStyle = K.RagebotStyle(v115.Data.Ragebot.KnifeMode)
--- gugugaga: melee attack speed at its maximum while the ragebot is on with this style (Melee Cooldown Override at
--- 0 %, the lowest cooldown). A live override, so the saved config is not touched: turning the ragebot off or
--- picking another style puts back what the menu says. Runs on every toggle and every style change.
-local gugugagaOn = enabled and khStyle == "gugugaga"
-if gugugagaOn or arg._gugugagaSpeed then
-local enabledPath = { "ItemModifiers", "MeleeCooldown", "Enabled" }
-local percentagePath = { "ItemModifiers", "MeleeCooldown", "Percentage" }
-pcall(function()
-if gugugagaOn then
-v115:SetLiveOverride(enabledPath, true)
-v115:SetLiveOverride(percentagePath, 0)
-arg._gugugagaSpeed = true
-else
-v115:ClearLiveOverride(enabledPath)
-v115:ClearLiveOverride(percentagePath)
-arg._gugugagaSpeed = nil
-end
-end)
-end
 end
 
 -- Diagnostics: every 5 s one line in the session log (K.Log) saying what the ragebot did with its frames, so
@@ -81632,16 +81375,6 @@ end
 end
 local characterController = innerContext.CharacterController
 local clientCFrame = characterController:GetClientCFrame()
--- gugugaga: Careful's melee attack (see _PlanGugugaga) from one fixed point GUGUGAGA_HEIGHT studs straight above
--- where the client was on the first frame, where the server position stays (kept until _Reset: key off, death, new
--- match). The camera needs no hook of its own: SetServerCFrame is KH's CharacterController, which writes the
--- server CFrame on Heartbeat and puts the real one back at RenderPriority.First, before the camera.
-local gugugaga = K.RagebotStyle(v115.Data.Ragebot.KnifeMode) == "gugugaga"
-if gugugaga and arg._gugugagaPoint == nil then
-local GUGUGAGA_HEIGHT = 100000
-arg._gugugagaPoint = clientCFrame + Vector3.new(0, GUGUGAGA_HEIGHT, 0)
-arg._gugugagaFloorY = clientCFrame.Position.Y
-end
 -- FW UE style: never attacks. Sits in the void for FW_VOID_SECONDS, then under the InstakillOOB
 -- (Translocate, point computed in the Translocate compute) for FW_TRANSLOCATE_SECONDS, then straight
 -- back to the void. Both times are fixed (no menu), the same for every enemy: there is no UE / KH
@@ -81860,7 +81593,7 @@ arg._fwPhase = nil
 end
 local v130 = v128.getAction(innerContext)
 
-if fwue or (mode == "Translocate" and not isUE() and not gugugaga and not ueS.IsPigeon() and arg._reloadGun == nil and (v130 == nil or v130.Type ~= "Reload")) then
+if fwue or (mode == "Translocate" and not isUE() and arg._reloadGun == nil and (v130 == nil or v130.Type ~= "Reload")) then
 arg:_ApplyForcedCrouch(v86[153])
 targetHud.Hide()
 -- FW UE void phase: UE's void (random direction at 2147483647 studs, kept above the map), the furthest
@@ -81920,7 +81653,7 @@ if isUE() then
 -- not "isUE() and x or y": with Never Void on, ueVoidPlan's CFrame is nil and that idiom would fall through
 innerContext.CharacterController:SetServerCFrame(ueVoidPlan(arg, v132, state.RootPart).CFrame)
 else
-innerContext.CharacterController:SetServerCFrame(hidePoint())
+innerContext.CharacterController:SetServerCFrame(v127.getImmune())
 end
 local now2 = os.clock()
 arg._reloadGun = v132
@@ -81967,98 +81700,7 @@ end
 return arg:_EvadePlan(arg6, arg7)
 end
 
--- gugugaga: the fixed point above the map (arg._gugugagaPoint) is where we PARK, and from there we hit KH's target
--- with Careful's melee packet, GUGUGAGA_PACKETS of them per frame (see PlanGugugaga in the melee strategy). Melee
--- only, no gun is ever fired. The weapon swap / reload the Weapon Strategy asks for is done there too.
-index2._PlanGugugaga = function(arg, dt, action, target, rootPart)
-local point = arg._gugugagaPoint
-local stand = CFrame.new(point.Position) * CFrame.Angles(math.pi / 2, 0, 0)
--- Two phases: GUGUGAGA_POINT_SECONDS at the fixed point (attacking from there), then GUGUGAGA_OOB_SECONDS 1 stud
--- below the lowest killing OOB part (FW UE's hide spot), attacking from both, then back to the point.
-local GUGUGAGA_POINT_SECONDS = 1
-local GUGUGAGA_OOB_SECONDS = 0.85
-local nowPhase = os.clock()
-if arg._gugugagaPhase == nil then
-arg._gugugagaPhase = "point"
-arg._gugugagaPhaseUntil = nowPhase + GUGUGAGA_POINT_SECONDS
-elseif nowPhase >= arg._gugugagaPhaseUntil then
-if arg._gugugagaPhase == "point" then
-arg._gugugagaPhase = "oob"
-arg._gugugagaPhaseUntil = nowPhase + GUGUGAGA_OOB_SECONDS
-else
-arg._gugugagaPhase = "point"
-arg._gugugagaPhaseUntil = nowPhase + GUGUGAGA_POINT_SECONDS
-end
-end
-if arg._gugugagaPhase == "oob" then
-local oob = v125.compute(point, true)
-if oob ~= nil then
--- attacks from here too: the packet's eye position is taken from `stand`
-stand = oob
-end
-end
-local hide = { CFrame = stand, ShouldSkipDefense = v86[34] }
-if not ueRoundActive(arg) or ragebotStartDelayActive(arg) or action == nil then
-return hide
-end
-local item = action.Item
-if action.Type == "Swap" then
-hide.WeaponAction = function()
-item:Equip()
-end
-return hide
-end
-if action.Type == "Reload" then
-if not item:IsReloading() then
-hide.WeaponAction = function()
-item:Reload()
-end
-end
-return hide
-end
-if item.__type ~= "Melee" then
-return hide
-end
-if target == nil then
--- No target passed the normal checks (deflecting, invincible, ...): swing at any living enemy that has a
--- head hitbox anyway, the packet is sent regardless.
-pcall(function()
-for _, enemyState in arg._targetSelection._fighters.EnemyByPlayer, nil, nil do
-local alive = enemyState.Character.State
-if alive ~= nil and alive.Alive and alive.HitboxHead ~= nil and alive.RootPart ~= nil then
-target = { FighterState = enemyState, AliveState = alive }
-break
-end
-end
-end)
-end
--- The swing goes through the game's own item input (LocalFighterState:Input -> ClientFighter.Input, the same call
--- a mouse press ends in; knife heavy = "StartAiming", everything else "StartShooting"), not a hand-built packet.
--- The game's item code then checks and sets its own cooldown, which is what Melee Cooldown Override rewrites, and
--- the packet it sends is the game's own. No target is needed for it.
-local viewAngles = nil
-if target ~= nil then
-viewAngles = arg._meleeStrategy:PlanGugugaga(target, item, stand, rootPart)
-end
-local fighterState = arg._innerContext ~= nil and arg._innerContext.FighterState or nil
-if fighterState == nil then
-return hide
-end
-local inputType = (item.Name == "Knife" and not ueS.KnifeLight()) and "StartAiming" or "StartShooting"
-return {
-CFrame = stand,
-ViewAngles = viewAngles,
-WeaponAction = function()
-pcall(fighterState.Input, fighterState, inputType)
-end,
-ShouldSkipDefense = v86[34],
-}
-end
-
 index2._Plan = function(arg, arg2, arg3, arg4, arg5, arg6, arg7)
-if K.RagebotStyle(v115.Data.Ragebot.KnifeMode) == "gugugaga" then
-return arg:_PlanGugugaga(arg2, arg3, arg4, arg5)
-end
 if isUE() and not ueRoundActive(arg) then
 return ueVoidPlan(arg, nil, arg5)
 end
@@ -82120,11 +81762,6 @@ local v131, v132 = arg._hitscanStrategy:PlanUE(arg2, arg4, item, arg5, localFigh
 return { CFrame = v131, WeaponAction = v132, ShouldSkipDefense = v86[34] }
 end
 local v131, v132 = arg._hitscanStrategy:Plan(arg2, arg4, item, arg5, flag19)
--- Pigeon's pose IS the plan: getDefensiveCFrame would rewrite it to face the target and
--- throw away the lying pitch and the spin, so the defensive pass is skipped for it.
-if ueS.IsPigeon() then
-return { CFrame = v131, WeaponAction = v132, ShouldForceCrouch = true, IsAimPose = v132 ~= nil, ShouldSkipDefense = v86[34] }
-end
 return { CFrame = v131, WeaponAction = v132, ShouldForceCrouch = true, IsAimPose = v132 ~= nil }
 end
 
@@ -82228,11 +81865,6 @@ return fn36()
 end
 
 index2._EvadePlan = function(arg, arg2, arg3)
--- Pigeon ignores the Evasion settings (the menu hides them): it always waits in the void
-if ueS.IsPigeon() then
-return { CFrame = ueS.Void(), ShouldSkipDefense = v86[34] }
-end
-
 if arg3 == "Off" then
 return {}
 end
@@ -82279,8 +81911,6 @@ end
 
 index2._Reset = function(arg)
 arg._entryDelayArmed = false
-arg._gugugagaPoint = nil
-arg._gugugagaPhase = nil
 ueS.SetStatus(nil)
 targetHud.Hide()
 arg:_ClearReloadTransport()
@@ -84896,6 +84526,7 @@ v147:Add(tbl17.jt().new(v193))
 local v197 = v147:Add(v124.new(v190, decoratorFactory))
 local v198 = v147:Add(v148.new(v190, playerTags))
 K.HackerDetector = v198
+K.HackerTags = playerTags
 
 local v199 = v147:Add(v164.new(v190))
 v185(storeProfiles, v147, v199)
@@ -86301,6 +85932,8 @@ end
     end
 
     function ColorC:_instance()
+        local n = self._nested
+        if n ~= nil and n.LYRow ~= nil then return n.LYRow end
         return self._host and self._host._el and self._host._el.Instance
     end
 
@@ -86357,6 +85990,32 @@ end
         return nil
     end
 
+    -- a keybind list entry per keybind control, lit while its feature is active: the LY form draws it with MD3
+    -- (menu:_listAdd), the other forms with K.KeyHud
+    function Control:_attachListEntry(sec, o, host)
+        self.ShowInList = o.InKeybindList == true
+        self.FeatureEnabled = false
+        self.FeatureChanged = Signal.new()
+        self.ListLabel = tostring(o.ListLabel or o.Label or host._label or "Keybind"):gsub("^Enable%s+", "")
+        local menu = sec._menu
+        local entry
+        if menu._listAdd ~= nil then
+            entry = menu:_listAdd(self.ListLabel)
+        elseif K.KeyHud ~= nil then
+            entry = K.KeyHud.add(self.ListLabel)
+        end
+        if entry == nil then return end
+        local function sync()
+            -- Always keys are not listed; Hold and Toggle look the same (the key, lit while active)
+            entry.update(self.ShowInList and self.FeatureEnabled and self.Value.Mode ~= "Always", self.Value.Key, self.Active == true, false)
+        end
+        self._lySync = sync
+        self.ActiveChanged:Connect(sync)
+        self.ShowInListChanged:Connect(sync)
+        self.FeatureChanged:Connect(sync)
+        self.ValueChanged:Connect(sync)
+    end
+
     function KeybindC.new(sec, o)
         local self = newControl(sec, "Keybind", KeybindC)
         local host, own = hostFor(sec, o)
@@ -86367,11 +86026,12 @@ end
         for _, m in ipairs(o.Modes or {}) do modes[#modes + 1] = tostring(m) end
         self.Modes = modes
         self.Value = { Key = nil, Mode = modes[1] or "Toggle" }
-        self.ShowInList = true
+        self.ShowInList = o.InKeybindList == true
         self.Invisible = false
         self.ShowInListChanged = Signal.new()
         self.InvisibleChanged = Signal.new()
         self.ActiveChanged = Signal.new()
+        self:_attachListEntry(sec, o, host)
         self:_defer(function()
             if not host._realized then host:_realizeNow() end
             self._nested = host._el:AddBind({
@@ -86407,6 +86067,8 @@ end
     end
 
     function KeybindC:_instance()
+        local n = self._nested
+        if n ~= nil and n.LYRow ~= nil then return n.LYRow end
         return self._host and self._host._el and self._host._el.Instance
     end
 
@@ -86447,6 +86109,13 @@ end
         self.InvisibleChanged:Fire(self.Invisible)
     end
 
+    function KeybindC:SetFeatureEnabled(v)
+        v = v == true
+        if self.FeatureEnabled == v then return end
+        self.FeatureEnabled = v
+        self.FeatureChanged:Fire(v)
+    end
+
     function KeybindC:SetActive(v)
         self.Active = v == true
         self.ActiveChanged:Fire(self.Active)
@@ -86463,10 +86132,10 @@ end
         pull()
         local writing = false
         if map.Key ~= nil then
-            self:Connect(config:Changed(map.Key), function() if not writing then pull() end end)
+            self:Connect(config:Changed(map.Key, true), function() if not writing then pull() end end)
         end
         if map.Mode ~= nil then
-            self:Connect(config:Changed(map.Mode), function() if not writing then pull() end end)
+            self:Connect(config:Changed(map.Mode, true), function() if not writing then pull() end end)
         end
         self:Connect(self.Changed, function(v)
             writing = true
@@ -86481,6 +86150,41 @@ end
         if map.Invisible ~= nil then
             local iv = config:Get(map.Invisible)
             if type(iv) == "boolean" then self.Invisible = iv end
+        end
+        -- the state of the feature, written by the keybind controller (what a keybind list shows), and the
+        -- list switches, which can change later
+        if map.Active ~= nil then
+            local av = config:Get(map.Active)
+            if type(av) == "boolean" then self:SetActive(av) end
+            self:Connect(config:Changed(map.Active, true), function(v) self:SetActive(v == true) end)
+        end
+        if map.ShowInList ~= nil then
+            self:Connect(config:Changed(map.ShowInList, true), function(v)
+                if type(v) == "boolean" then self:SetShowInList(v) end
+            end)
+        end
+        if map.Invisible ~= nil then
+            self:Connect(config:Changed(map.Invisible, true), function(v)
+                if type(v) == "boolean" then self:SetInvisible(v) end
+            end)
+        end
+        if self._lySync ~= nil then self._lySync() end
+        -- on-screen key button (phones): only for the keys of the keybind list
+        if map.Active ~= nil and self.ShowInList and K.MobileKeys ~= nil and not self._mobile then
+            self._mobile = true
+            K.MobileKeys.register(self.ListLabel or "Key", {
+                Mode = function() return self.Value.Mode end,
+                Visible = function() return self.ShowInList and self.FeatureEnabled == true end,
+                Active = function() return self.Active == true end,
+                Down = function(down)
+                    local mode = self.Value.Mode
+                    if mode == "Hold" then
+                        config:Set(map.Active, down)
+                    elseif down then
+                        config:Set(map.Active, not (config:Get(map.Active) == true))
+                    end
+                end,
+            })
         end
     end
 
@@ -86571,8 +86275,7 @@ end
     Makers.SkinChanger = function(sec)
         if not sec._menu._skinNotice then
             sec._menu._skinNotice = true
-            sec:_make("Label", { Label = "The skin, wrap, charm and finisher picker is part of the classic menu." })
-            sec:_make("Button", { Label = "Switch to the classic menu", OnClick = function() K.SwitchUI("Classic") end })
+            sec:_make("Label", { Label = "The skin, wrap, charm and finisher picker is in the LY and Classic menus." })
         end
         return stub
     end
@@ -86712,6 +86415,10 @@ end
         local bind = o.Bind
         if DEBOUNCED[kind] and (bind == nil or bind.Debounce == nil) then
             bind = { WriteBack = bind and bind.WriteBack, Debounce = true }
+        end
+        -- a feature switch also drives the keybind list: its changes must arrive while the menu is closed
+        if kind == "Toggle" then
+            bind = { WriteBack = bind and bind.WriteBack, Debounce = bind and bind.Debounce, Persistent = true }
         end
         -- the control is its own trove: Control:Connect keeps the connections and Destroy drops them
         tbl17.P().bind(c, config, c, o.Config, bind)
@@ -87048,8 +86755,8 @@ end
         self.Keybind = Enum.KeyCode.RightShift
         self.VisibilityChanged = Signal.new()
         self.AccentChanged = Signal.new()
-        self._watermark = true
-        self._keybindList = true
+        self._watermark = not (self._stateData ~= nil and self._stateData.ShowWatermark == false)
+        self._keybindList = not (self._stateData ~= nil and self._stateData.ShowKeybinds == false)
         self._tabs = {}
 
         local saved
@@ -87248,9 +86955,9 @@ end
         local ok, err = pcall(function()
             result = tbl17.aC()(self:View(), tab, self._trove, {
                 SetAccent = function(c) menu.AccentChanged:Fire(c) end,
-                SetWatermarkEnabled = function(v) menu._watermark = v end,
+                SetWatermarkEnabled = function(v) menu:SetWatermarkEnabled(v) end,
                 IsWatermarkEnabled = function() return menu._watermark end,
-                SetKeybindListEnabled = function(v) menu._keybindList = v end,
+                SetKeybindListEnabled = function(v) menu:SetKeybindListEnabled(v) end,
                 IsKeybindListEnabled = function() return menu._keybindList end,
                 SetMenuPillHidden = function() end,
                 EnterMobileButtonDragMode = function() end,
@@ -87265,10 +86972,19 @@ end
         return buildDialog(self, o or {}, builder)
     end
 
-    function Menu:SetWatermarkUsername() end
-    function Menu:SetWatermarkEnabled(v) self._watermark = v end
+    function Menu:SetWatermarkUsername(name)
+        if K.KeyHud then K.KeyHud.ensure(name, self._watermark, self._keybindList) end
+    end
+    function Menu:_persistFlag(key, v)
+        local data = self._stateData
+        if data ~= nil and data[key] ~= (v ~= false) then
+            data[key] = v ~= false
+            self:SaveState()
+        end
+    end
+    function Menu:SetWatermarkEnabled(v) self._watermark = v self:_persistFlag("ShowWatermark", v) if K.KeyHud then K.KeyHud.setWatermark(v) end end
     function Menu:IsWatermarkEnabled() return self._watermark end
-    function Menu:SetKeybindListEnabled(v) self._keybindList = v end
+    function Menu:SetKeybindListEnabled(v) self._keybindList = v self:_persistFlag("ShowKeybinds", v) if K.KeyHud then K.KeyHud.setList(v) end end
     function Menu:IsKeybindListEnabled() return self._keybindList end
     function Menu:SetAccent(c) self.AccentChanged:Fire(c) end
 
@@ -87315,6 +87031,7 @@ end
 
     function Menu:Destroy()
         if self._destroyed then return end
+        if K.KeyHud then K.KeyHud.destroy() end
         self._destroyed = true
         self:SaveState()
         if self._cursor ~= nil then pcall(self._cursor.Set, self._cursor, false) end
@@ -88206,7 +87923,7 @@ end
 
     ----------------------------------------------------------------------------------------------- keybind
     local SKeybind = subclass()
-    for _, name in ipairs({ "SetKey", "SetMode", "SetShowInList", "SetInvisible", "SetActive", "_BindConfigMap" }) do
+    for _, name in ipairs({ "SetKey", "SetMode", "SetShowInList", "SetInvisible", "SetActive", "SetFeatureEnabled", "_BindConfigMap" }) do
         SKeybind[name] = KeybindC[name]
     end
 
@@ -88225,6 +87942,7 @@ end
         self.ShowInListChanged = Signal.new()
         self.InvisibleChanged = Signal.new()
         self.ActiveChanged = Signal.new()
+        self:_attachListEntry(sec, o, host)
         self:_defer(function()
             if not host._realized then host:_realizeNow() end
             if host._row == nil then return end
@@ -88329,13 +88047,223 @@ end
     SMakers.Color = function(sec, o) return SColor.new(sec, o) end
     SMakers.Keybind = function(sec, o) return SKeybind.new(sec, o) end
     SMakers.OrderedList = function(sec, o) return OrderedC.new(sec, o) end
-    SMakers.SkinChanger = function(sec)
-        if not sec._menu._skinNotice then
-            sec._menu._skinNotice = true
-            sec:_make("Label", { Label = "The skin, wrap, charm and finisher picker is part of the classic menu." })
-            sec:_make("Button", { Label = "Switch to the classic menu", OnClick = function() K.SwitchUI("Classic") end })
+    -- The picker of skins, wraps, charms and finishers for the Setsuna, Setsuna Drop and Lite forms: a card grid with
+    -- the item pictures (and the 3D previews of wraps and charms), the same surface as the classic menu's widget
+    -- (SetItems / SetState / SetFilter / SetClearFilterAction / Set / Value / OnChanged).
+    do
+        local SSkin = subclass()
+        local STATE_TEXT = {
+            Loading = { "Loading catalog", "The previews are being prepared." },
+            Unavailable = { "Unavailable", "The catalog could not be loaded." },
+            Empty = { "No items available", "This catalog does not have any items yet." },
+            NoMatches = { "No matches", "Nothing matches the search." },
+        }
+        local function indexOf(items, name)
+            for i, it in ipairs(items) do
+                if it.Name == name then return i end
+            end
+            return nil
         end
-        return stub
+
+        function SSkin.new(sec, o)
+            local self = newControl(sec, "SkinChanger", SSkin)
+            self.Items = o.Items or {}
+            self._published = o.Items ~= nil
+            self.State = o.State or "Ready"
+            self._stateMsg = o.StateMessage
+            self._onClear = o.OnClearFilter
+            self._entries = {}
+            self._token = 0
+            self._label = "SkinChanger"
+            if o.OnChanged ~= nil then self:OnChanged(o.OnChanged) end
+            self:_defer(function() self:_build() end)
+            return self
+        end
+        SSkin._instance = rowInstance
+        SSkin._isReady = rowReady
+
+        function SSkin:_paint(entry, selected)
+            if entry == nil then return end
+            entry.Selected = selected
+            local pal = self._menu._pal
+            entry.Button.BackgroundColor3 = selected and pal.hover or pal.panel
+            entry.Title.TextColor3 = selected and pal.text or pal.dim
+            entry.Stroke.Color = pal.sel
+            entry.Stroke.Enabled = selected
+        end
+
+        function SSkin:_recolor()
+            for _, e in ipairs(self._entries) do self:_paint(e, e.Selected == true) end
+        end
+
+        function SSkin:_applyFilter()
+            local filter = self._filter
+            for _, e in ipairs(self._entries) do
+                local show = filter == nil or filter(e.Item, e.Key)
+                if e.Button.Visible ~= show then e.Button.Visible = show end
+            end
+        end
+
+        function SSkin:_applyState()
+            if self._row == nil then return end
+            local ready = self.State == "Ready"
+            self._holder.Visible = ready
+            self._overlay.Visible = not ready
+            local info = STATE_TEXT[self.State] or { "", "" }
+            self._stTitle.Text = info[1]
+            self._stMsg.Text = self._stateMsg or info[2]
+            self._clear.Visible = self.State == "NoMatches" and self._onClear ~= nil
+        end
+
+        function SSkin:_cards()
+            self._token = self._token + 1
+            local token = self._token
+            for _, e in ipairs(self._entries) do pcall(function() e.Button:Destroy() end) end
+            self._entries = {}
+            self._sel = nil
+            local items = self.Items
+            task.spawn(function()
+                for i, item in ipairs(items) do
+                    if self._token ~= token or self._dead then return end
+                    local button = mk("TextButton", {
+                        Name = tostring(item.Name), Text = "", AutoButtonColor = false, BorderSizePixel = 0,
+                        LayoutOrder = i, ClipsDescendants = true,
+                    })
+                    corner(button, 8)
+                    local stroke = mk("UIStroke", { Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Enabled = false }, button)
+                    local preview = mk("Frame", {
+                        BackgroundTransparency = 1, Size = UDim2.new(1, -10, 1, -32), Position = UDim2.fromOffset(5, 5),
+                    }, button)
+                    local image = mk("ImageLabel", {
+                        BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ScaleType = Enum.ScaleType.Fit,
+                        Image = item.Image or "rbxassetid://89204837120267",
+                    }, preview)
+                    local title = mk("TextLabel", {
+                        BackgroundTransparency = 1, Size = UDim2.new(1, -8, 0, 24), Position = UDim2.new(0, 4, 1, -27),
+                        Font = Enum.Font.GothamMedium, TextSize = 12, Text = tostring(item.Name),
+                        TextTruncate = Enum.TextTruncate.AtEnd, TextWrapped = true,
+                    }, button)
+                    local entry = { Item = item, Button = button, Title = title, Stroke = stroke, Key = tostring(item.Name):lower() }
+                    self._entries[#self._entries + 1] = entry
+                    self:_paint(entry, item.Name == self.Value)
+                    if item.Name == self.Value then self._sel = entry end
+                    if item.Render ~= nil then
+                        local content = mk("Frame", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1) }, preview)
+                        local ok, err = pcall(item.Render, item, {
+                            Content = content,
+                            HideImage = function() image.Visible = false end,
+                        })
+                        if not ok then log("skin preview failed: " .. tostring(err)) end
+                    end
+                    button.Activated:Connect(function() self:Set(item.Name) end)
+                    local filter = self._filter
+                    if filter ~= nil and not filter(item, entry.Key) then button.Visible = false end
+                    button.Parent = self._holder
+                    if i % 8 == 0 then task.wait() end
+                end
+                -- Lite sets the font of a page when it opens: the cards came later
+                local m = self._menu
+                if m._fontPass ~= nil and self._row ~= nil then pcall(m._fontPass, m, self._row) end
+            end)
+        end
+
+        function SSkin:_build()
+            local sec = self._sec
+            local m = sec._menu
+            local row = newRow(sec, 340, true)
+            self._row, self._el = row, row
+            local holder = mk("ScrollingFrame", {
+                Name = "Cards", BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.new(1, -10, 1, -10),
+                Position = UDim2.fromOffset(5, 5), ScrollBarThickness = 3, CanvasSize = UDim2.new(),
+                AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y,
+            }, row)
+            mk("UIGridLayout", {
+                CellSize = UDim2.fromOffset(100, 118), CellPadding = UDim2.fromOffset(6, 6),
+                SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Center,
+            }, holder)
+            local overlay = mk("Frame", { Name = "State", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Visible = false }, row)
+            mk("UIListLayout", {
+                HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Center,
+                Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder,
+            }, overlay)
+            local stTitle = text(m, overlay, "", 16, "text", true)
+            stTitle.Size, stTitle.LayoutOrder, stTitle.TextXAlignment = UDim2.new(1, -20, 0, 22), 1, Enum.TextXAlignment.Center
+            local stMsg = text(m, overlay, "", 13, "dim", false)
+            stMsg.Size, stMsg.LayoutOrder, stMsg.TextXAlignment, stMsg.TextWrapped = UDim2.new(1, -20, 0, 36), 2, Enum.TextXAlignment.Center, true
+            local clear = mk("TextButton", {
+                Size = UDim2.fromOffset(120, 30), Text = "Clear search", Font = Enum.Font.GothamMedium, TextSize = 13,
+                BorderSizePixel = 0, AutoButtonColor = true, Visible = false, LayoutOrder = 3,
+            }, overlay)
+            corner(clear, 8)
+            m:_paint(clear, "BackgroundColor3", "hover")
+            m:_paint(clear, "TextColor3", "text")
+            clear.Activated:Connect(function()
+                local fn = self._onClear
+                if fn ~= nil then fn() end
+            end)
+            self._holder, self._overlay, self._stTitle, self._stMsg, self._clear = holder, overlay, stTitle, stMsg, clear
+            if m._fontPass ~= nil then pcall(m._fontPass, m, row) end
+            m:_onTheme(self, function() self:_recolor() end)
+            self:_cards()
+            self:_applyState()
+        end
+
+        function SSkin:Set(name, silent)
+            local v = name
+            if v ~= nil and self._published and indexOf(self.Items, v) == nil then v = nil end
+            local entry
+            for _, e in ipairs(self._entries) do
+                if e.Item.Name == v then entry = e break end
+            end
+            if self.Value == v and (entry == nil or self._sel == entry) and not (name ~= nil and v == nil) then return end
+            self.Value = v
+            if self._sel ~= nil and self._sel ~= entry then self:_paint(self._sel, false) end
+            self._sel = entry
+            if entry ~= nil then self:_paint(entry, true) end
+            self.ValueChanged:Fire(v)
+            if not silent then self.Changed:Fire(v) end
+        end
+
+        function SSkin:SetItems(items, silent)
+            self.Items = table.clone(items)
+            self._published = true
+            local value, emit = self.Value, false
+            if value == nil or indexOf(self.Items, value) == nil then
+                value = self.Items[1] and self.Items[1].Name or nil
+                emit = self.Value ~= nil
+            end
+            self.Value = value
+            if self._row ~= nil then self:_cards() end
+            self.ValueChanged:Fire(value)
+            if emit and not silent then self.Changed:Fire(value) end
+        end
+
+        function SSkin:SetFilter(filter)
+            self._filter = filter
+            if self._row ~= nil then self:_applyFilter() end
+            return self
+        end
+
+        function SSkin:SetState(state, message)
+            self.State = state
+            self._stateMsg = message
+            self:_applyState()
+            return self
+        end
+
+        function SSkin:SetClearFilterAction(fn)
+            self._onClear = fn
+            self:_applyState()
+            return self
+        end
+
+        function SSkin:Destroy()
+            self._token = self._token + 1
+            self._dead = true
+            pcall(function() self._row:Destroy() end)
+        end
+
+        SMakers.SkinChanger = function(sec, o) return SSkin.new(sec, o or {}) end
     end
     SMakers.Stub = function() return stub end
 
@@ -88647,8 +88575,8 @@ end
         self.Keybind = Enum.KeyCode.RightShift
         self.VisibilityChanged = Signal.new()
         self.AccentChanged = Signal.new()
-        self._watermark = true
-        self._keybindList = true
+        self._watermark = not (self._stateData ~= nil and self._stateData.ShowWatermark == false)
+        self._keybindList = not (self._stateData ~= nil and self._stateData.ShowKeybinds == false)
         self._tabs = {}
         self._acc, self._ov = DEFAULT_ACCENT, {}
         self._lite = class.__lite == true
@@ -89068,7 +88996,7 @@ end
 
     for _, name in ipairs({ "_setVisibleState", "View", "GetConfig", "GetColorAnimation", "GetPersistence", "GetStateData", "GetOverlayLayer",
         "SaveState", "Connect", "Add", "Notify", "AddSettingsTab", "SetWatermarkUsername", "SetWatermarkEnabled", "IsWatermarkEnabled",
-        "SetKeybindListEnabled", "IsKeybindListEnabled", "SetAccent", "Unload" }) do
+        "SetKeybindListEnabled", "IsKeybindListEnabled", "SetAccent", "Unload", "_persistFlag" }) do
         SMenu[name] = Menu[name]
     end
 
@@ -89107,6 +89035,7 @@ end
     function SMenu:Destroy()
         pcall(function() self._dim.Modal = false end)
         if self._destroyed then return end
+        if K.KeyHud then K.KeyHud.destroy() end
         self._destroyed = true
         self:SaveState()
         if self._cursor ~= nil then pcall(self._cursor.Set, self._cursor, false) end
@@ -90163,6 +90092,1456 @@ end
         return true
     end
 end
+;(function()
+--==========================================================================
+--  Shared HUD for the Starlight / Lite / Setsuna forms: the watermark and the keybind list. Those forms only keep
+--  the two on / off flags; this draws the HUD the same way for all of them (the LY form draws its own with MD3, the
+--  classic menu has its own). Entries are made by the keybind controls (see attachListEntry).
+--==========================================================================
+do
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local UserInputService = game:GetService("UserInputService")
+    local HttpService = game:GetService("HttpService")
+    local KeyHud = { entries = {} }
+    K.KeyHud = KeyHud
+
+    local gui, wm, wmText, list, rows, wmStroke, listStroke, listTitle
+    local wmOn, listOn = true, true
+    local playerName = Players.LocalPlayer and Players.LocalPlayer.Name or "Player"
+    local dirty, tickConn = true, nil
+    local fps, fpsAt, frames = 60, os.clock(), 0
+
+    local function mk(class, props, parent)
+        local inst = Instance.new(class)
+        for k, v in pairs(props) do inst[k] = v end
+        if parent ~= nil then inst.Parent = parent end
+        return inst
+    end
+
+    local function tokens()
+        local ok, t = pcall(tbl17.z)
+        return ok and type(t) == "table" and t or {}
+    end
+
+    local function color(t, name, fallback)
+        local c = t[name]
+        if typeof(c) == "Color3" then return c end
+        return fallback
+    end
+
+    -- the pieces can be dragged; where they were left is kept in LxYHook/hud_positions.json (fractions of the screen)
+    local POSITIONS = "LxYHook/hud_positions.json"
+    local placed = {}
+    pcall(function()
+        local readFile, isFile = K.fn("readfile"), K.fn("isfile")
+        if readFile and isFile and isFile(POSITIONS) then
+            local decoded = HttpService:JSONDecode(readFile(POSITIONS))
+            if type(decoded) == "table" then placed = decoded end
+        end
+    end)
+    local function savePositions()
+        pcall(function()
+            local writeFile = K.fn("writefile")
+            if writeFile then
+                local makeFolder, isFolder = K.fn("makefolder"), K.fn("isfolder")
+                if makeFolder and isFolder and not isFolder("LxYHook") then makeFolder("LxYHook") end
+                writeFile(POSITIONS, HttpService:JSONEncode(placed))
+            end
+        end)
+    end
+    local function viewport()
+        local cam = workspace.CurrentCamera
+        local size = cam and cam.ViewportSize
+        if typeof(size) == "Vector2" and type(size.X) == "number" and size.X > 0 then return size end
+        return Vector2.new(1920, 1080)
+    end
+    local function place(frame, key, default)
+        local saved = placed[key]
+        if type(saved) == "table" and type(saved.x) == "number" and type(saved.y) == "number" then
+            local v = viewport()
+            frame.Position = UDim2.fromOffset(saved.x * v.X, saved.y * v.Y)
+        else
+            frame.Position = default
+        end
+    end
+    local function draggable(frame, key)
+        frame.Active = true
+        frame.InputBegan:Connect(function(input)
+            if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+            local start = input.Position
+            local origin = Vector2.new(frame.Position.X.Offset, frame.Position.Y.Offset)
+            local moveConn, endConn
+            local function stop()
+                if moveConn then moveConn:Disconnect() end
+                if endConn then endConn:Disconnect() end
+                savePositions()
+            end
+            moveConn = UserInputService.InputChanged:Connect(function(i)
+                if i.UserInputType ~= Enum.UserInputType.MouseMovement and i ~= input then return end
+                local v, own = viewport(), frame.AbsoluteSize
+                local x = math.clamp(origin.X + (i.Position.X - start.X), 0, math.max(0, v.X - own.X))
+                local y = math.clamp(origin.Y + (i.Position.Y - start.Y), 0, math.max(0, v.Y - own.Y))
+                frame.Position = UDim2.fromOffset(x, y)
+                placed[key] = { x = x / v.X, y = y / v.Y }
+            end)
+            endConn = UserInputService.InputEnded:Connect(function(i)
+                if i == input or (i.UserInputType == Enum.UserInputType.MouseButton1 and input.UserInputType == Enum.UserInputType.MouseButton1) then
+                    stop()
+                end
+            end)
+        end)
+    end
+
+    local function build()
+        if gui ~= nil then return end
+        gui = mk("ScreenGui", { Name = "LxYHud", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 99990,
+            ZIndexBehavior = Enum.ZIndexBehavior.Sibling })
+        local placed = pcall(function() gui.Parent = gethui() end)
+        if not placed or gui.Parent == nil then gui.Parent = game:GetService("CoreGui") end
+
+        wm = mk("Frame", { Name = "Watermark", Position = UDim2.fromOffset(14, 14), AutomaticSize = Enum.AutomaticSize.XY,
+            BorderSizePixel = 0, Size = UDim2.fromOffset(0, 28) }, gui)
+        mk("UICorner", { CornerRadius = UDim.new(0, 8) }, wm)
+        wmStroke = mk("UIStroke", { Thickness = 1 }, wm)
+        mk("UIPadding", { PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12) }, wm)
+        wmText = mk("TextLabel", { BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 28),
+            Font = Enum.Font.GothamMedium, TextSize = 13, Text = "", TextXAlignment = Enum.TextXAlignment.Left }, wm)
+
+        place(wm, "watermark", UDim2.fromOffset(14, 14))
+        draggable(wm, "watermark")
+
+        list = mk("Frame", { Name = "Keybinds", Position = UDim2.fromOffset(14, 56), Size = UDim2.fromOffset(200, 0),
+            AutomaticSize = Enum.AutomaticSize.Y, BorderSizePixel = 0 }, gui)
+        mk("UICorner", { CornerRadius = UDim.new(0, 8) }, list)
+        listStroke = mk("UIStroke", { Thickness = 1 }, list)
+        mk("UIPadding", { PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12), PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 10) }, list)
+        mk("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6) }, list)
+        listTitle = mk("TextLabel", { Name = "Title", LayoutOrder = 0, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 18),
+            Font = Enum.Font.GothamBold, TextSize = 13, Text = "Keybinds", TextXAlignment = Enum.TextXAlignment.Left }, list)
+        rows = list
+        place(list, "keybinds", UDim2.fromOffset(14, 56))
+        draggable(list, "keybinds")
+    end
+
+    local function repaint()
+        if gui == nil then return end
+        local t = tokens()
+        local bg = color(t, "ElementBackground", Color3.fromRGB(20, 20, 24))
+        local outline = color(t, "Outline", Color3.fromRGB(60, 60, 70))
+        local accent = color(t, "Accent", Color3.fromRGB(154, 213, 222))
+        local text = color(t, "TextColor", Color3.fromRGB(220, 220, 220))
+        local dim = color(t, "Unselected", Color3.fromRGB(130, 130, 130))
+
+        wm.BackgroundColor3 = bg
+        wmStroke.Color = outline
+        wmText.TextColor3 = text
+        local ping = 0
+        pcall(function() ping = math.floor(Players.LocalPlayer:GetNetworkPing() * 1000 + 0.5) end)
+        wmText.Text = string.format("LxYHook  |  %s  |  %d fps  |  %d ms", playerName, math.floor(fps + 0.5), ping)
+        wm.Visible = wmOn
+
+        list.BackgroundColor3 = bg
+        listStroke.Color = outline
+        listTitle.TextColor3 = accent
+        for _, child in ipairs(rows:GetChildren()) do
+            if child.Name == "Row" then child:Destroy() end
+        end
+        local shown = {}
+        for _, entry in ipairs(KeyHud.entries) do
+            if entry.show then shown[#shown + 1] = entry end
+        end
+        table.sort(shown, function(a, b) return a.label < b.label end)
+        for index, entry in ipairs(shown) do
+            local active = entry.active or entry.always
+            local row = mk("Frame", { Name = "Row", LayoutOrder = index, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 20) }, rows)
+            mk("TextLabel", { BackgroundTransparency = 1, Size = UDim2.new(1, -70, 1, 0), Font = Enum.Font.GothamMedium, TextSize = 13,
+                Text = entry.label, TextColor3 = active and text or dim, TextXAlignment = Enum.TextXAlignment.Left,
+                TextTruncate = Enum.TextTruncate.AtEnd }, row)
+            local chip = mk("TextLabel", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.fromScale(1, 0.5), Size = UDim2.fromOffset(0, 18),
+                AutomaticSize = Enum.AutomaticSize.X, BorderSizePixel = 0, Font = Enum.Font.GothamBold, TextSize = 11,
+                Text = entry.key and entry.key.Name or (entry.always and "Always" or "None"),
+                BackgroundColor3 = active and accent or outline, TextColor3 = active and bg or text }, row)
+            mk("UICorner", { CornerRadius = UDim.new(0, 5) }, chip)
+            mk("UIPadding", { PaddingLeft = UDim.new(0, 7), PaddingRight = UDim.new(0, 7) }, chip)
+        end
+        -- a phone has the on-screen key buttons instead
+        list.Visible = listOn and not (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled) and #shown > 0
+    end
+
+    local function startTick()
+        if tickConn ~= nil then return end
+        local last = 0
+        tickConn = RunService.Heartbeat:Connect(function(dt)
+            frames += 1
+            local now = os.clock()
+            if now - fpsAt >= 0.5 then
+                fps, fpsAt, frames = frames / (now - fpsAt), now, 0
+            end
+            -- redraw on a change, and twice a second for the numbers and the theme
+            if dirty or now - last >= 0.5 then
+                dirty, last = false, now
+                pcall(repaint)
+            end
+        end)
+    end
+
+    function KeyHud.ensure(name, watermark, keybinds)
+        if type(name) == "string" and name ~= "" then playerName = name end
+        wmOn, listOn = watermark ~= false, keybinds ~= false
+        pcall(build)
+        pcall(startTick)
+        dirty = true
+    end
+
+    function KeyHud.setWatermark(v) wmOn = v ~= false dirty = true end
+    function KeyHud.setList(v) listOn = v ~= false dirty = true end
+
+    -- one entry per keybind control: update(show, key, active, always)
+    function KeyHud.add(label)
+        local entry = { label = tostring(label), show = false, key = nil, active = false, always = false }
+        function entry.update(show, key, active, always)
+            entry.show, entry.key, entry.active, entry.always = show == true, key, active == true, always == true
+            dirty = true
+        end
+        table.insert(KeyHud.entries, entry)
+        return entry
+    end
+
+    function KeyHud.destroy()
+        if tickConn ~= nil then tickConn:Disconnect() tickConn = nil end
+        if gui ~= nil then pcall(function() gui:Destroy() end) end
+        gui, wm, wmText, list, rows, wmStroke, listStroke, listTitle = nil, nil, nil, nil, nil, nil, nil, nil
+        table.clear(KeyHud.entries)
+    end
+
+    K.onUnload(KeyHud.destroy)
+end
+end)()
+
+--==========================================================================
+--  Weapon Visuals from LY.lua: the first-person weapon motion switch, the arm and gun chams
+--  (material, colour, transparency, wireframe) and the muzzle flash switch run on the code of LY.lua; the options
+--  of the Weapon Visuals page are what drives it (kh's own versions of these are switched off).
+--  The LY code is used as it is: it makes its elements on a small stand-in section (no window), and each element
+--  that has a counterpart in the script's settings is linked to that setting.
+--==========================================================================
+;(function()
+local function setup()
+    local cfg = tbl17.bG()
+    local data = cfg.Data
+    local RunService = game:GetService("RunService")
+    local LocalPlayer = game:GetService("Players").LocalPlayer
+    local PREFIX = "LxYWeapon_"
+    local unloaders = {}
+    local function track(item)
+        unloaders[#unloaders + 1] = item
+        return item
+    end
+    local owned = setmetatable({}, { __mode = "k" })
+    local function camera()
+        return workspace.CurrentCamera
+    end
+    -- where first-person viewmodels live: RIVALS keeps them in Workspace.ViewModels.FirstPerson
+    local function viewmodelFolders()
+        local folders = {}
+        local root = workspace:FindFirstChild("ViewModels")
+        local firstPerson = root and root:FindFirstChild("FirstPerson")
+        if firstPerson then
+            table.insert(folders, firstPerson)
+        end
+        if camera() then
+            table.insert(folders, camera())
+        end
+        return folders
+    end
+    local function snapshot(instance, properties)
+        local saved = {}
+        for _, property in properties do
+            local ok, value = pcall(function()
+                return instance[property]
+            end)
+            if ok then
+                saved[property] = value
+            end
+        end
+        return function()
+            for property, value in saved do
+                pcall(function()
+                    instance[property] = value
+                end)
+            end
+        end
+    end
+    -- the elements LY makes: a value and the callback that applies it
+    local virtual = {}
+    local function element(options)
+        local e = { Flag = options.Flag, Value = options.Default, Callback = options.Callback }
+        function e:Set(value, silent)
+            self.Value = value
+            if not silent and self.Callback ~= nil then self.Callback(value) end
+        end
+        function e:SetVisible() end
+        if options.Flag ~= nil then virtual[options.Flag] = e end
+        return e
+    end
+    local Section = setmetatable({}, { __index = function() return function(_, options) return element(options or {}) end end })
+    local CameraTab = { AddSection = function() return Section end }
+    local Window = {
+        Notify = function(_, options)
+            pcall(function() tbl17.aB().get():Notify(tostring(options.Title) .. ": " .. tostring(options.Content)) end)
+        end,
+    }
+    local function patchToggle(section, options)
+        local toggle
+        toggle = section:AddToggle({
+            Title = options.Title,
+            Default = false,
+            Flag = options.Flag,
+            Callback = function(on)
+                if not options.Set(on) and on then
+                    Window:Notify({ Title = options.Title, Content = options.Failure })
+                    task.defer(function()
+                        toggle:Set(false, true)
+                    end)
+                end
+            end,
+        })
+        track(function()
+            options.Set(false)
+        end)
+        return toggle
+    end
+
+	local function noop() end
+
+	local function writeField(tbl, key, value)
+		local frozen = type(isreadonly) == "function" and isreadonly(tbl)
+		if frozen and type(setreadonly) == "function" then
+			setreadonly(tbl, false)
+		end
+		local ok = pcall(rawset, tbl, key, value)
+		if frozen and type(setreadonly) == "function" then
+			setreadonly(tbl, true)
+		end
+		return ok
+	end
+
+	local function requireGameModule(name)
+		local roots = { LocalPlayer:FindFirstChild("PlayerScripts"), cloneref(game:GetService("ReplicatedStorage")) }
+		for _, root in roots do
+			local module = root and root:FindFirstChild(name, true)
+			if module and module:IsA("ModuleScript") then
+				local ok, result = pcall(require, module)
+				if ok then
+					return result
+				end
+			end
+		end
+		return nil
+	end
+
+	-- The table that actually holds `method`: the module itself or its class
+	-- (metatable / __index). Falls back to the Lua heap when the module isn't
+	-- where we expect it.
+	local function findClass(moduleName, method)
+		local function holder(value)
+			if type(value) ~= "table" then
+				return nil
+			end
+			if type(rawget(value, method)) == "function" then
+				return value
+			end
+			local meta = getmetatable(value)
+			if type(meta) == "table" then
+				if type(rawget(meta, method)) == "function" then
+					return meta
+				end
+				local index = rawget(meta, "__index")
+				if type(index) == "table" and type(rawget(index, method)) == "function" then
+					return index
+				end
+			end
+			return nil
+		end
+		local found = holder(requireGameModule(moduleName))
+		if found or type(getgc) ~= "function" then
+			return found
+		end
+		local ok, objects = pcall(getgc, true)
+		if ok then
+			for _, object in objects do
+				if type(object) == "table" and type(rawget(object, method)) == "function" then
+					return object
+				end
+			end
+		end
+		return nil
+	end
+	local WeaponSection = CameraTab:AddSection("Weapon")
+	local MOTION_SPRINGS = {
+		_sliding_spring = 0,
+		_sprinting_spring = 0,
+		_bobbing_speed_spring = 0,
+		_bobbing_value_spring = Vector2.zero,
+		_landing_spring = 0,
+		_jump_spring = 0,
+		_tilt_spring = Vector2.zero,
+		_impulse_position_spring = Vector3.zero,
+		_recoil_spring = Vector3.zero,
+		_unrecoil_spring = Vector3.zero,
+	}
+	local motion = { Enabled = false, Connections = {} }
+	local frozenSprings = setmetatable({}, { __mode = "k" })
+
+	local function isLocalItem(viewModel)
+		local ok, isLocal = pcall(function()
+			return viewModel.ClientItem.ClientFighter.IsLocalPlayer
+		end)
+		return ok and isLocal == true
+	end
+
+	local function freezeViewModel(viewModel)
+		for field, rest in MOTION_SPRINGS do
+			local spring = rawget(viewModel, field)
+			if type(spring) == "table" and writeField(spring, "Value", rest) then
+				frozenSprings[spring] = true
+			end
+		end
+	end
+
+	local function freezeViewModels()
+		if type(getgc) ~= "function" then
+			return false
+		end
+		local ok, objects = pcall(getgc, true)
+		if not ok then
+			return false
+		end
+		local found = false
+		for _, object in objects do
+			-- CameraController has bobbing / sliding springs too; only viewmodels have
+			-- a recoil spring and a ClientItem. Other players' items have viewmodels
+			-- as well, so only your own are touched.
+			if type(object) == "table" and type(rawget(object, "_recoil_spring")) == "table"
+				and rawget(object, "ClientItem") ~= nil and isLocalItem(object)
+			then
+				freezeViewModel(object)
+				found = true
+			end
+		end
+		return found
+	end
+
+	local function restoreViewModels()
+		for spring in frozenSprings do
+			writeField(spring, "Value", nil)
+			frozenSprings[spring] = nil
+		end
+	end
+
+	local function watchViewModels()
+		for _, connection in motion.Connections do
+			connection:Disconnect()
+		end
+		table.clear(motion.Connections)
+		if not motion.Enabled then
+			return
+		end
+		for _, folder in viewmodelFolders() do
+			table.insert(motion.Connections, folder.ChildAdded:Connect(function(child)
+				if child:IsA("Model") and not owned[child] then
+					task.defer(freezeViewModels)
+				end
+			end))
+		end
+	end
+	track(workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(watchViewModels))
+
+	local function setNoMotion(on)
+		motion.Enabled = on
+		watchViewModels()
+		if not on then
+			restoreViewModels()
+			return true
+		end
+		if type(getgc) ~= "function" then
+			motion.Enabled = false
+			watchViewModels()
+			return false
+		end
+		freezeViewModels() -- nothing yet is fine: the next equip gets caught
+		return true
+	end
+
+	patchToggle(WeaponSection, {
+		Title = "No weapon motion",
+		Description = "Removes gun bob, tilt, landing and recoil motion from your viewmodel",
+		Flag = "NoMotion",
+		Set = setNoMotion,
+		Failure = "Your executor doesn't support getgc",
+	})
+
+	-- Viewmodel animations --------------------------------------------------------
+	-- Shoot / sprint / equip / reload: like LY-broken, ViewModelAnimator:
+	-- PlayAnimation(key, ...) is hooked (equip and sprint are played by the
+	-- animator itself, so the ClientViewModel wrapper would miss them). For a
+	-- suppressed key on your own viewmodel the track in _animation_tracks is
+	-- swapped for one whose Play / Stop do nothing, the original still runs (so
+	-- the game's state updates), then the real track goes back.
+	-- Idle / crouch / aim, and the four above when the hook can't be installed,
+	-- fall back to stopping matching tracks on the viewmodel's Animators each
+	-- frame (matched by track / animation name and id).
+
+	local animations = { Sprint = false, Shoot = false, Equip = false, Reload = false }
+	local animationPatch = nil
+	local silentTrack = { Play = noop, Stop = noop }
+
+	local function shouldSuppress(animator, key)
+		if type(key) ~= "string" then
+			return false
+		end
+		return (animations.Sprint and key == rawget(animator, "_sprint_animation"))
+			or (animations.Equip and key == rawget(animator, "_equip_animation"))
+			or (animations.Shoot and (key:find("Shoot", 1, true) ~= nil or key == "QuickShot"))
+			or (animations.Reload and key:find("Reload", 1, true) ~= nil)
+	end
+
+	local function isLocalAnimator(animator)
+		local ok, isLocal = pcall(function()
+			return animator.ClientViewModel.ClientItem.ClientFighter.IsLocalPlayer
+		end)
+		return ok and isLocal == true
+	end
+
+	local function installAnimationPatch()
+		if animationPatch then
+			return true
+		end
+		local class = findClass("ViewModelAnimator", "PlayAnimation")
+		local original = class and rawget(class, "PlayAnimation")
+		if type(original) ~= "function" then
+			return false
+		end
+		local function playAnimation(animator, key, ...)
+			local tracks = type(animator) == "table" and rawget(animator, "_animation_tracks")
+			if type(tracks) ~= "table" or rawget(tracks, key) == nil
+				or not shouldSuppress(animator, key) or not isLocalAnimator(animator)
+			then
+				return original(animator, key, ...)
+			end
+			local realTrack = rawget(tracks, key)
+			rawset(tracks, key, silentTrack)
+			local results = table.pack(pcall(original, animator, key, ...))
+			rawset(tracks, key, realTrack)
+			if not results[1] then
+				error(results[2], 0)
+			end
+			return table.unpack(results, 2, results.n)
+		end
+		if not writeField(class, "PlayAnimation", playAnimation) then
+			return false
+		end
+		animationPatch = { Class = class, Original = original }
+		return true
+	end
+
+	local function removeAnimationPatch()
+		if animationPatch then
+			writeField(animationPatch.Class, "PlayAnimation", animationPatch.Original)
+			animationPatch = nil
+		end
+	end
+
+	local TRACK_PATTERNS = {
+		Shoot = { "shoot", "fire", "shot" },
+		Sprint = { "sprint" },
+		Equip = { "equip" },
+		Reload = { "reload" },
+		Idle = { "idle" },
+		Crouch = { "crouch" },
+		Aim = { "aim", "ads", "scope" },
+	}
+	local stoppedKinds = {} -- kind -> true while handled by stopping tracks
+	local trackStopper = nil
+
+	local function trackLabel(animTrack)
+		local label = animTrack.Name
+		local anim = animTrack.Animation
+		if anim then
+			label ..= " " .. anim.Name .. " " .. anim.AnimationId
+		end
+		return label:lower()
+	end
+
+	local function shouldStopTrack(animTrack)
+		local ok, label = pcall(trackLabel, animTrack)
+		if not ok then
+			return false
+		end
+		for kind in stoppedKinds do
+			for _, pattern in TRACK_PATTERNS[kind] do
+				if label:find(pattern, 1, true) then
+					return true
+				end
+			end
+		end
+		return false
+	end
+
+	local function updateTrackStopper()
+		if next(stoppedKinds) == nil then
+			if trackStopper then
+				trackStopper:Disconnect()
+				trackStopper = nil
+			end
+			return
+		end
+		if trackStopper then
+			return
+		end
+		trackStopper = RunService.RenderStepped:Connect(function()
+			for _, folder in viewmodelFolders() do
+				for _, descendant in folder:GetDescendants() do
+					if descendant:IsA("Animator") and not owned[descendant] then
+						for _, animTrack in descendant:GetPlayingAnimationTracks() do
+							if shouldStopTrack(animTrack) then
+								pcall(animTrack.Stop, animTrack, 0)
+							end
+						end
+					end
+				end
+			end
+		end)
+	end
+
+	local function setAnimationDisabled(kind, on)
+		stoppedKinds[kind] = nil
+		if animations[kind] ~= nil then
+			animations[kind] = on
+			local any = animations.Sprint or animations.Shoot or animations.Equip or animations.Reload
+			if not any then
+				removeAnimationPatch()
+			elseif not installAnimationPatch() then
+				-- No hook available: stop the tracks instead.
+				animations[kind] = false
+				stoppedKinds[kind] = on or nil
+			end
+		else
+			stoppedKinds[kind] = on or nil
+		end
+		updateTrackStopper()
+		return true
+	end
+
+	for _, entry in {
+		{ Kind = "Shoot", Title = "No shoot animation", Description = "Your gun doesn't play its firing animation" },
+		{ Kind = "Sprint", Title = "No sprint animation", Description = "Your viewmodel doesn't play the sprint animation" },
+		{ Kind = "Equip", Title = "No equip animation", Description = "Skip the draw animation when you switch weapons" },
+		{ Kind = "Reload", Title = "No reload animation", Description = "Your viewmodel doesn't play the reload animation" },
+		{ Kind = "Idle", Title = "No idle animation", Description = "Your viewmodel stays still while idle" },
+		{ Kind = "Crouch", Title = "No crouch animation", Description = "Your viewmodel doesn't play the crouch animation" },
+		{ Kind = "Aim", Title = "No aim animation", Description = "Your viewmodel doesn't play the aim-down-sights animation" },
+	} do
+		patchToggle(WeaponSection, {
+			Title = entry.Title,
+			Description = entry.Description,
+			Flag = "No" .. entry.Kind .. "Animation",
+			Set = function(on)
+				return setAnimationDisabled(entry.Kind, on)
+			end,
+		})
+	end
+local viewmodel, muzzle
+do
+local ViewmodelSection = CameraTab:AddSection("Viewmodel")
+local MATERIAL_NAMES = { "ForceField", "Neon", "Glass", "SmoothPlastic", "Plastic", "Metal", "Foil" }
+viewmodel = {
+	Offset = false, X = 0, Y = 0, Z = 0,
+	-- Arms and gun are chammed separately.
+	Arm = {
+		Enabled = false, Material = "ForceField", Color = Color3.fromRGB(120, 170, 255), Transparency = 0,
+		Wireframe = false, WireWidth = 0.02, WireAngle = 0, WireMaterial = "Neon",
+	},
+	Gun = {
+		Enabled = false, Material = "Neon", Color = Color3.fromRGB(255, 255, 255), Transparency = 0,
+		Wireframe = false, WireWidth = 0.02, WireAngle = 0, WireMaterial = "Neon",
+	},
+}
+local chamRestores = setmetatable({}, { __mode = "k" }) -- part -> restore function
+local chamKinds = setmetatable({}, { __mode = "k" }) -- part -> "Arm" | "Gun" | false
+
+-- Arm / gun detection: arm models are named like "<Weapon> - Arms"; inside a
+-- gun model, arm parts are found by name or by an arm-ish ancestor folder.
+local CHAM_EXCLUDED_PARTS = {
+	ChamOutlineShell = true, ChamOutlineGlow = true, ChamOutlineBloom = true,
+	WeaponWireframeCore = true, WeaponWireframeGlow = true, WeaponWireframeBloom = true,
+	GunChamNeonGlow = true,
+	ChamMeshProxy = true,
+}
+local ARM_PART_SKIP = { "hitbox", "collision", "trigger", "proxy", "handguard", "handle", "foregrip", "charm", "armor" }
+local ARM_PART_WORDS = {
+	"leftarm", "rightarm", "left arm", "right arm", "forearm", "upperarm", "lowerarm",
+	"glove", "sleeve", "finger", "wrist", "palm", "thumb", "hand",
+}
+
+local function isHelperPart(part)
+	local name = part.Name:lower()
+	return name:find("hitbox", 1, true) or name:find("collision", 1, true)
+		or name:find("trigger", 1, true) or name:find("proxy", 1, true)
+end
+
+local function isArmViewModel(model)
+	local segments = {}
+	for segment in model.Name:gmatch("[^-]+") do
+		table.insert(segments, segment:match("^%s*(.-)%s*$"):lower())
+	end
+	if #segments >= 2 then
+		local tag = segments[2]
+		if tag:find("glove", 1, true) then
+			return true
+		end
+		return tag:find("arm", 1, true) ~= nil and not tag:find("charm", 1, true) and not tag:find("armor", 1, true)
+	end
+	local name = model.Name:lower()
+	return name:find("arms", 1, true) ~= nil or name:find("glove", 1, true) ~= nil
+end
+
+local function isArmNamedPart(partName)
+	local name = partName:lower()
+	for _, skip in ARM_PART_SKIP do
+		if name:find(skip, 1, true) then
+			return false
+		end
+	end
+	if name == "larm" or name == "rarm" then
+		return true
+	end
+	for _, word in ARM_PART_WORDS do
+		if name:find(word, 1, true) then
+			return true
+		end
+	end
+	return false
+end
+
+local function hasArmAncestor(part, model)
+	local node = part.Parent
+	while node and node ~= model do
+		local name = node.Name:lower()
+		if name == "hands" or name:find("glove", 1, true) or name:find("sleeve", 1, true) then
+			return true
+		end
+		if name:find("arm", 1, true) and not name:find("armor", 1, true) and not name:find("charm", 1, true)
+			and not name:find("handguard", 1, true) and not name:find("foregrip", 1, true) then
+			return true
+		end
+		node = node.Parent
+	end
+	return false
+end
+
+-- "Arm", "Gun", or false for parts that are never chammed.
+local function chamKind(part, model)
+	local kind = chamKinds[part]
+	if kind ~= nil then
+		return kind
+	end
+	if CHAM_EXCLUDED_PARTS[part.Name] or part.Transparency >= 0.99 or isHelperPart(part) then
+		kind = false
+	elseif isArmViewModel(model) or hasArmAncestor(part, model) or isArmNamedPart(part.Name) then
+		kind = "Arm"
+	else
+		kind = "Gun"
+	end
+	-- A hidden part may be shown later, so don't remember that answer.
+	if part.Transparency < 0.99 then
+		chamKinds[part] = kind
+	end
+	return kind
+end
+
+local function viewmodels()
+	local list = {}
+	for _, folder in viewmodelFolders() do
+		for _, child in folder:GetChildren() do
+			if child:IsA("Model") and not owned[child] then
+				table.insert(list, child)
+			end
+		end
+	end
+	return list
+end
+
+-- Proxies: a MeshPart welded over a viewmodel part that shows the cham while
+-- the original is hidden.
+--  * Materials don't render on a Part shaped by a SpecialMesh (the arms), so
+--    those get a MeshPart copy of their mesh; otherwise only the color showed.
+--  * Wireframe: every edge of the mesh is rebuilt as a thin two-sided strip
+--    (an EditableMesh), so the part's material and color land on the lines.
+local chamMesh = {
+	Proxies = setmetatable({}, { __mode = "k" }), -- part -> proxy MeshPart
+	Keys = setmetatable({}, { __mode = "k" }), -- part -> template key of its proxy
+	Templates = {}, -- key -> MeshPart, or false while loading / if it failed
+	WireGeneration = 0, -- bumped when a line width changes; stale builds are dropped
+}
+
+-- MeshId, scale from mesh units to studs, and offset of what a part draws.
+local function meshSource(part)
+	if part:IsA("MeshPart") then
+		local ok, size = pcall(function()
+			return part.MeshSize
+		end)
+		if part.MeshId == "" or not ok or size.X <= 0 or size.Y <= 0 or size.Z <= 0 then
+			return nil
+		end
+		return part.MeshId, part.Size / size, CFrame.new()
+	end
+	local mesh = part:FindFirstChildOfClass("SpecialMesh")
+	if mesh and mesh.MeshType == Enum.MeshType.FileMesh and mesh.MeshId ~= "" then
+		return mesh.MeshId, mesh.Scale, CFrame.new(mesh.Offset)
+	end
+	return nil
+end
+
+-- Reading a mesh's triangles needs the Roblox-only UGCValidationService calls.
+local function asRobloxScript(fn)
+	local get, set = getthreadidentity, setthreadidentity
+	if type(get) ~= "function" or type(set) ~= "function" then
+		return fn()
+	end
+	local previous = get()
+	set(8)
+	local ok, result = pcall(fn)
+	set(previous)
+	if not ok then
+		error(result, 0)
+	end
+	return result
+end
+
+local function buildWireMesh(meshId, width, minAngle)
+	local ugc = cloneref(game:GetService("UGCValidationService"))
+	local mesh = ugc:CreateEditableMeshFromBinaryStringRobloxOnly(ugc:GetMeshDataBinaryString(meshId))
+	local faces, original = {}, mesh:GetFaces()
+	for _, face in original do
+		local verts = mesh:GetFaceVertices(face)
+		if #verts >= 3 then
+			local points = {}
+			for index, vertex in verts do
+				points[index] = mesh:GetPosition(vertex)
+			end
+			local normal = (points[2] - points[1]):Cross(points[3] - points[1])
+			if normal.Magnitude > 1e-6 then
+				table.insert(faces, { Verts = verts, Points = points, Normal = normal.Unit })
+			end
+		end
+	end
+	for _, face in original do
+		mesh:RemoveFace(face)
+	end
+	mesh:RemoveUnused()
+
+	-- A mesh may not be wider than 2048 in any direction (some models are modelled huge and
+	-- shown tiny, e.g. Blast X): shrink the lines to fit; the caller scales the part back up.
+	local low, high = Vector3.one * math.huge, Vector3.one * -math.huge
+	for _, face in faces do
+		for _, point in face.Points do
+			low, high = low:Min(point), high:Max(point)
+		end
+	end
+	local span = math.max((high - low).X, (high - low).Y, (high - low).Z)
+	local factor = if span > 1800 then 1800 / span else 1
+	if factor ~= 1 then
+		for _, face in faces do
+			for index, point in face.Points do
+				face.Points[index] = point * factor
+			end
+		end
+		width *= factor
+	end
+
+	-- Edges keyed by position: meshes split vertices along UV / normal seams,
+	-- which would draw a seam edge twice and hide its neighbouring face.
+	local function pointKey(point)
+		return string.format("%.4f,%.4f,%.4f", point.X, point.Y, point.Z)
+	end
+	local edges, order = {}, {}
+	for _, face in faces do
+		local count = #face.Points
+		for i = 1, count do
+			local p, q = face.Points[i], face.Points[i % count + 1]
+			local kp, kq = pointKey(p), pointKey(q)
+			local key = if kp < kq then kp .. "|" .. kq else kq .. "|" .. kp
+			local edge = edges[key]
+			if edge then
+				table.insert(edge.Normals, face.Normal)
+			elseif (q - p).Magnitude > 1e-6 then
+				edge = { P = p, Q = q, Normals = { face.Normal } }
+				edges[key] = edge
+				table.insert(order, edge)
+			end
+		end
+	end
+
+	-- minAngle > 0 keeps only edges whose faces meet at least that sharply
+	-- (open edges always stay), so flat surfaces lose their triangle lines.
+	-- A mesh can't hold more than 20000 triangles and every line costs four, so a model with more
+	-- edges than that keeps its sharpest ones (this is why the detailed guns had no wireframe).
+	local MAX_LINES = 4900
+	local kept = {}
+	for _, edge in order do
+		local sharp = 180 -- an open edge counts as the sharpest
+		if #edge.Normals > 1 then
+			sharp = 0
+			for a = 1, #edge.Normals - 1 do
+				for b = a + 1, #edge.Normals do
+					sharp = math.max(sharp, math.deg(math.acos(math.clamp(edge.Normals[a]:Dot(edge.Normals[b]), -1, 1))))
+				end
+			end
+		end
+		edge.Sharp = sharp
+		if minAngle <= 0 or sharp >= minAngle then
+			table.insert(kept, edge)
+		end
+	end
+	if #kept > MAX_LINES then
+		table.sort(kept, function(left, right)
+			return left.Sharp > right.Sharp
+		end)
+		kept = table.move(kept, 1, MAX_LINES, 1, {})
+	end
+
+	local white = mesh:AddColor(Color3.new(1, 1, 1), 1)
+	local half = width / 2
+	for _, edge in kept do
+		local normal = edge.Normals[1]
+		local side = normal:Cross(edge.Q - edge.P)
+		if side.Magnitude > 1e-6 then
+			local p, q = edge.P, edge.Q
+			local lift = normal * 0.001 -- just off the surface
+			side = side.Unit * half
+			local v1 = mesh:AddVertex(p - side + lift)
+			local v2 = mesh:AddVertex(p + side + lift)
+			local v3 = mesh:AddVertex(q + side + lift)
+			local v4 = mesh:AddVertex(q - side + lift)
+			local up, down = mesh:AddNormal(normal), mesh:AddNormal(-normal)
+			-- Both windings, so the lines show from either side.
+			for _, tri in { { v1, v2, v3, up }, { v1, v3, v4, up }, { v3, v2, v1, down }, { v4, v3, v1, down } } do
+				local triangle = mesh:AddTriangle(tri[1], tri[2], tri[3])
+				mesh:SetFaceNormals(triangle, { tri[4], tri[4], tri[4] })
+				mesh:SetFaceColors(triangle, { white, white, white })
+			end
+		end
+	end
+	return mesh, factor
+end
+
+-- Template MeshPart for a key, built in the background (it yields); nil until ready.
+local function templateFor(key, create, generation)
+	local template = chamMesh.Templates[key]
+	if template ~= nil then
+		return template or nil
+	end
+	chamMesh.Templates[key] = false
+	task.spawn(function()
+		local ok, created = pcall(create)
+		if generation and generation ~= chamMesh.WireGeneration then
+			if ok and created then
+				created:Destroy()
+			end
+			chamMesh.Templates[key] = nil
+			return
+		end
+		chamMesh.Templates[key] = ok and created or false
+	end)
+	return nil
+end
+
+local function dropProxy(part)
+	local proxy = chamMesh.Proxies[part]
+	if proxy then
+		proxy:Destroy()
+	end
+	chamMesh.Proxies[part] = nil
+	chamMesh.Keys[part] = nil
+end
+
+-- The part's proxy for `key`; keeps showing the previous one until it's built.
+local function proxyFor(part, key, create, scale, offset, generation)
+	local current = chamMesh.Proxies[part]
+	if current and not current.Parent then
+		current = nil
+	end
+	if current and chamMesh.Keys[part] == key then
+		return current
+	end
+	local template = templateFor(key, create, generation)
+	if not template then
+		return current
+	end
+	local proxy = template:Clone()
+	proxy.Name = "ChamMeshProxy"
+	proxy.Anchored = false
+	proxy.Massless = true
+	proxy.CanCollide = false
+	proxy.CanQuery = false
+	proxy.CanTouch = false
+	proxy.CastShadow = false
+	proxy.Size = template.MeshSize * scale / (template:GetAttribute("WireFactor") or 1)
+	local weld = Instance.new("Weld")
+	weld.Part0 = part
+	weld.Part1 = proxy
+	weld.C0 = offset
+	weld.Parent = proxy
+	proxy.CFrame = part.CFrame * offset
+	proxy.Parent = part
+	dropProxy(part)
+	chamMesh.Proxies[part] = proxy
+	chamMesh.Keys[part] = key
+	return proxy
+end
+
+local function applyCham(part, settings)
+	if not chamRestores[part] then
+		-- Viewmodel arms wear a ShirtTexture decal over the whole mesh, which
+		-- hid most materials and the color; the decals are hidden while chammed.
+		-- (The game resets a decal's Transparency every frame, not its
+		-- LocalTransparencyModifier.)
+		local restores = { snapshot(part, { "Material", "Color", "Transparency", "LocalTransparencyModifier" }) }
+		for _, child in part:GetChildren() do
+			if child:IsA("Decal") then -- Texture is a Decal too
+				table.insert(restores, snapshot(child, { "LocalTransparencyModifier" }))
+			end
+		end
+		chamRestores[part] = function()
+			for _, restore in restores do
+				restore()
+			end
+		end
+	end
+	for _, child in part:GetChildren() do
+		if child:IsA("Decal") then
+			child.LocalTransparencyModifier = 1
+		end
+	end
+
+	local wire = settings.Wireframe
+	local meshId, scale, offset = meshSource(part)
+	local proxy = nil
+	if wire and meshId then
+		local width = settings.WireWidth / ((scale.X + scale.Y + scale.Z) / 3) -- studs -> mesh units
+		local generation = chamMesh.WireGeneration
+		local angle = settings.WireAngle
+		proxy = proxyFor(part, string.format("wire|%s|%.5f|%d", meshId, width, angle), function()
+			return asRobloxScript(function()
+				local mesh, factor = buildWireMesh(meshId, width, angle)
+				local template = game:GetService("AssetService"):CreateMeshPartAsync(Content.fromObject(mesh))
+				template:SetAttribute("WireFactor", factor)
+				return template
+			end)
+		end, scale, offset, generation)
+	elseif not wire and meshId and not part:IsA("MeshPart") then
+		proxy = proxyFor(part, "cham|" .. meshId, function()
+			return game:GetService("AssetService"):CreateMeshPartAsync(meshId)
+		end, scale, offset)
+	else
+		dropProxy(part)
+	end
+
+	local material = Enum.Material[if wire then settings.WireMaterial else settings.Material]
+	local color = settings.Color -- the lines use the arm / gun color too
+	local transparency = if wire then 0 else settings.Transparency
+	if proxy then
+		part.LocalTransparencyModifier = 1
+		proxy.Material = material
+		proxy.Color = color
+		proxy.Transparency = transparency
+	elseif not wire then
+		part.LocalTransparencyModifier = 0
+		part.Material = material
+		part.Color = color
+		part.Transparency = transparency
+	end
+end
+
+local function restoreCham(part)
+	dropProxy(part)
+	local restore = chamRestores[part]
+	if restore then
+		restore()
+		chamRestores[part] = nil
+	end
+end
+
+local function clearChams()
+	for part in chamRestores do
+		restoreCham(part)
+	end
+end
+
+local function chamsActive()
+	return viewmodel.Arm.Enabled or viewmodel.Gun.Enabled or viewmodel.Arm.Wireframe or viewmodel.Gun.Wireframe
+end
+
+local function refreshChams()
+	if not chamsActive() then
+		clearChams()
+		return
+	end
+	for _, model in viewmodels() do
+		for _, descendant in model:GetDescendants() do
+			if descendant:IsA("BasePart") then
+				local kind = chamKind(descendant, model)
+				local settings = kind and viewmodel[kind]
+				if settings and (settings.Enabled or settings.Wireframe) then
+					applyCham(descendant, settings)
+				else
+					restoreCham(descendant)
+				end
+			end
+		end
+	end
+end
+
+ViewmodelSection:AddToggle({
+	Title = "Viewmodel offset",
+	Description = "Move your first-person arms and gun",
+	Default = false,
+	Flag = "ViewmodelOffset",
+	Callback = function(on)
+		viewmodel.Offset = on
+	end,
+})
+for _, axis in { "X", "Y", "Z" } do
+	ViewmodelSection:AddSlider({
+		Title = axis .. " offset",
+		Min = -3, Max = 3, Step = 0.05, Default = 0,
+		Flag = "Viewmodel" .. axis,
+		Callback = function(value)
+			viewmodel[axis] = value
+		end,
+	})
+end
+-- Lines are baked into the mesh: drop the old builds, they get rebuilt.
+local function rebuildWires()
+	chamMesh.WireGeneration += 1
+	for key, template in chamMesh.Templates do
+		if key:sub(1, 5) == "wire|" then
+			if template then
+				template:Destroy()
+			end
+			chamMesh.Templates[key] = nil
+		end
+	end
+	refreshChams()
+end
+
+for _, kind in { "Arm", "Gun" } do
+	local settings = viewmodel[kind]
+	ViewmodelSection:AddToggle({
+		Title = kind .. " chams",
+		Description = kind == "Arm" and "Change the look of your first-person arms / hands"
+			or "Change the look of your first-person gun",
+		Default = false,
+		Flag = "Viewmodel" .. kind .. "Chams",
+		Callback = function(on)
+			settings.Enabled = on
+			refreshChams()
+		end,
+	})
+	ViewmodelSection:AddDropdown({
+		Title = kind .. " material",
+		Options = MATERIAL_NAMES,
+		Default = settings.Material,
+		Flag = "Viewmodel" .. kind .. "Material",
+		Callback = function(name)
+			settings.Material = name
+			refreshChams()
+		end,
+	})
+	ViewmodelSection:AddColorPicker({
+		Title = kind .. " color",
+		Default = settings.Color,
+		Flag = "Viewmodel" .. kind .. "Color",
+		Callback = function(color)
+			settings.Color = color
+			refreshChams()
+		end,
+	})
+	ViewmodelSection:AddSlider({
+		Title = kind .. " transparency",
+		Min = 0, Max = 0.95, Step = 0.05, Default = 0,
+		Flag = "Viewmodel" .. kind .. "Transparency",
+		Callback = function(value)
+			settings.Transparency = value
+			refreshChams()
+		end,
+	})
+	ViewmodelSection:AddToggle({
+		Title = kind .. " wireframe",
+		Description = kind == "Arm" and "Draw your first-person arms as lines along their mesh edges"
+			or "Draw your first-person gun as lines along its mesh edges",
+		Default = false,
+		Flag = "Viewmodel" .. kind .. "Wireframe",
+		Callback = function(on)
+			settings.Wireframe = on
+			refreshChams()
+		end,
+	})
+	ViewmodelSection:AddSlider({
+		Title = kind .. " line thickness",
+		Min = 0.005, Max = 0.15, Step = 0.005, Default = settings.WireWidth, Suffix = " studs",
+		Flag = "Viewmodel" .. kind .. "WireWidth",
+		Callback = function(value)
+			settings.WireWidth = value
+			rebuildWires()
+		end,
+	})
+	ViewmodelSection:AddSlider({
+		Title = kind .. " line reduction",
+		Min = 0, Max = 90, Step = 1, Default = settings.WireAngle, Suffix = "°",
+		Flag = "Viewmodel" .. kind .. "WireAngle",
+		Callback = function(value)
+			-- 0 draws every edge; higher keeps only edges this sharp, so fewer lines.
+			settings.WireAngle = value
+			rebuildWires()
+		end,
+	})
+	ViewmodelSection:AddDropdown({
+		Title = kind .. " line material",
+		Options = MATERIAL_NAMES,
+		Default = settings.WireMaterial,
+		Flag = "Viewmodel" .. kind .. "WireMaterial",
+		Callback = function(name)
+			settings.WireMaterial = name
+			refreshChams()
+		end,
+	})
+end
+
+-- No muzzle flash: hides flash effects on your own viewmodel. Emitters are made
+-- invisible (Emit() ignores Enabled), lights / beams are switched off.
+muzzle = { Enabled = false, AllEffects = false }
+local muzzleRestores = setmetatable({}, { __mode = "k" }) -- effect -> restore function
+local INVISIBLE = NumberSequence.new(1)
+local EFFECT_CLASSES = { "ParticleEmitter", "PointLight", "SpotLight", "SurfaceLight", "Beam", "Trail", "Fire", "Smoke", "Sparkles" }
+
+local function isEffect(instance)
+	for _, className in EFFECT_CLASSES do
+		if instance:IsA(className) then
+			return true
+		end
+	end
+	return false
+end
+
+local function inViewmodel(instance)
+	local folders = viewmodelFolders()
+	local node = instance
+	while node and not table.find(folders, node.Parent) do
+		node = node.Parent
+	end
+	return node ~= nil and node:IsA("Model") and not owned[node]
+end
+
+local function looksLikeMuzzle(instance)
+	local node = instance
+	for _ = 1, 4 do
+		if not node then
+			break
+		end
+		local name = node.Name:lower()
+		if name:find("muzzle") or name:find("flash") then
+			return true
+		end
+		node = node.Parent
+	end
+	return false
+end
+
+local function hideEffect(effect)
+	if muzzleRestores[effect] or not (muzzle.AllEffects or looksLikeMuzzle(effect)) then
+		return
+	end
+	if effect:IsA("ParticleEmitter") then
+		muzzleRestores[effect] = snapshot(effect, { "Transparency" })
+		effect.Transparency = INVISIBLE
+	else
+		muzzleRestores[effect] = snapshot(effect, { "Enabled" })
+		effect.Enabled = false
+	end
+end
+
+local function restoreEffects()
+	for effect, restore in muzzleRestores do
+		restore()
+		muzzleRestores[effect] = nil
+	end
+end
+
+local function hideAllEffects()
+	for _, model in viewmodels() do
+		for _, descendant in model:GetDescendants() do
+			if isEffect(descendant) then
+				hideEffect(descendant)
+			end
+		end
+	end
+end
+
+local function setNoMuzzleFlash(on)
+	muzzle.Enabled = on
+	restoreEffects()
+	if on then
+		hideAllEffects()
+	end
+end
+
+-- Flashes are often cloned in per shot, so catch them the moment they appear.
+local muzzleConnections = {}
+local function watchViewmodelEffects()
+	for _, connection in muzzleConnections do
+		connection:Disconnect()
+	end
+	table.clear(muzzleConnections)
+	for _, folder in viewmodelFolders() do
+		table.insert(muzzleConnections, folder.DescendantAdded:Connect(function(descendant)
+			if muzzle.Enabled and isEffect(descendant) and inViewmodel(descendant) then
+				hideEffect(descendant)
+			end
+		end))
+	end
+end
+watchViewmodelEffects()
+track(workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(watchViewmodelEffects))
+track(function()
+	for _, connection in muzzleConnections do
+		connection:Disconnect()
+	end
+	restoreEffects()
+end)
+
+ViewmodelSection:AddToggle({
+	Title = "No muzzle flash",
+	Description = "Hide the flash on your own gun",
+	Default = false,
+	Flag = "NoMuzzleFlash",
+	Callback = setNoMuzzleFlash,
+})
+ViewmodelSection:AddToggle({
+	Title = "Hide all viewmodel effects",
+	Description = "Also hide effects that aren't named muzzle / flash",
+	Default = false,
+	Flag = "HideViewmodelEffects",
+	Callback = function(on)
+		muzzle.AllEffects = on
+		if muzzle.Enabled then
+			setNoMuzzleFlash(true)
+		end
+	end,
+})
+
+local VIEWMODEL_STEP = PREFIX .. "Viewmodel"
+local lastChamScan = 0
+local offsetPivots = setmetatable({}, { __mode = "k" }) -- model -> pivot we last set
+RunService:BindToRenderStep(VIEWMODEL_STEP, Enum.RenderPriority.Last.Value, function()
+	if viewmodel.Offset then
+		local offset = CFrame.new(viewmodel.X, viewmodel.Y, viewmodel.Z)
+		for _, model in viewmodels() do
+			local pivot = model:GetPivot()
+			-- Only offset once per game update, so a frame the game skips can't drift it.
+			if offsetPivots[model] ~= pivot then
+				local moved = pivot * offset
+				model:PivotTo(moved)
+				offsetPivots[model] = moved
+			end
+		end
+	end
+	-- Weapon swaps bring in new parts; pick them up a few times a second.
+	local now = os.clock()
+	if chamsActive() and now - lastChamScan > 0.25 then
+		lastChamScan = now
+		refreshChams()
+	end
+end)
+track(function()
+	RunService:UnbindFromRenderStep(VIEWMODEL_STEP)
+	clearChams()
+end)
+end
+
+    ---------------------------------------------------------------------------------------------- the link
+    local connections = {}
+    local function read(path)
+        local v = data
+        for _, key in ipairs(path) do
+            if type(v) ~= "table" then return nil end
+            v = v[key]
+        end
+        return v
+    end
+    local function link(flag, path, convert)
+        local el = virtual[flag]
+        if el == nil then return end
+        local function push()
+            local v = read(path)
+            if convert ~= nil then v = convert(v) end
+            if v ~= nil then el:Set(v) end
+        end
+        connections[#connections + 1] = cfg:GetPropertyChangedSignal(path):Connect(push)
+        push()
+    end
+    -- the script's material names are LY's materials
+    local MATERIAL = { Ghost = "ForceField", Flat = "Neon", Foil = "Foil", Custom = "SmoothPlastic", Reflective = "Glass", Original = "Plastic" }
+    local function material(name) return MATERIAL[name] or "ForceField" end
+    local function clampTransparency(v) return type(v) == "number" and math.clamp(v, 0, 0.95) or nil end
+
+    for _, flag in ipairs({ "NoMotion" }) do
+        link(flag, { "ItemModifiers", flag })
+    end
+    link("NoMuzzleFlash", { "Removables", "NoMuzzleFlash" })
+    for _, pair in ipairs({ { "Arm", "Arms" }, { "Gun", "Item" } }) do
+        local ly, kh = pair[1], pair[2]
+        link("Viewmodel" .. ly .. "Chams", { "Chams", kh, "Enabled" })
+        link("Viewmodel" .. ly .. "Material", { "Chams", kh, "Material" }, material)
+        link("Viewmodel" .. ly .. "Color", { "Chams", kh, "Color" })
+        link("Viewmodel" .. ly .. "Transparency", { "Chams", kh, "Transparency" }, clampTransparency)
+        link("Viewmodel" .. ly .. "Wireframe", { "ViewModelWireframe", kh, "Enabled" })
+        link("Viewmodel" .. ly .. "WireWidth", { "ViewModelWireframe", kh, "Width" })
+        -- the lines of LY wear the cham colour: with only the wireframe on, they take the wireframe colour
+        local colorEl = virtual["Viewmodel" .. ly .. "Color"]
+        local function pushColor()
+            local wireOn = read({ "ViewModelWireframe", kh, "Enabled" }) == true
+            local chamOn = read({ "Chams", kh, "Enabled" }) == true
+            local c = (wireOn and not chamOn) and read({ "ViewModelWireframe", kh, "Color" }) or read({ "Chams", kh, "Color" })
+            if colorEl ~= nil and typeof(c) == "Color3" then colorEl:Set(c) end
+        end
+        for _, path in ipairs({ { "ViewModelWireframe", kh, "Enabled" }, { "ViewModelWireframe", kh, "Color" }, { "Chams", kh, "Enabled" }, { "Chams", kh, "Color" } }) do
+            connections[#connections + 1] = cfg:GetPropertyChangedSignal(path):Connect(pushColor)
+        end
+        pushColor()
+    end
+
+    K.onUnload(function()
+        for _, c in ipairs(connections) do pcall(function() c:Disconnect() end) end
+        for index = #unloaders, 1, -1 do
+            local item = unloaders[index]
+            if typeof(item) == "RBXScriptConnection" then
+                pcall(item.Disconnect, item)
+            elseif type(item) == "function" then
+                pcall(item)
+            elseif typeof(item) == "Instance" then
+                pcall(item.Destroy, item)
+            end
+        end
+    end)
+end
+task.defer(function()
+    local ok, err = pcall(setup)
+    if not ok then warn("[LxYHook] weapon visuals of LY failed: " .. tostring(err)) end
+end)
+end)()
 
 --==========================================================================
 --  LY custom skins (ported from LYHub): extra Contraband-style skins built on stock
