@@ -30251,7 +30251,7 @@ end
 local function fn40(arg, arg2, arg3)
 arg:AddDropdown({
 Label = "UI Style",
-Options = { "Starlight", "Lite", "Setsuna", "Setsuna Drop", "Classic" },
+Options = { "Starlight", "Lite", "Matcha", "Setsuna", "Setsuna Drop", "Classic" },
 Default = K.UIMode(),
 Tooltip = "Starlight (default) is built into the script; if it fails, the classic menu is shown for that session. Classic is the script's own menu.",
 OnChanged = function(mode)
@@ -73441,6 +73441,7 @@ if mode=="Starlight" and K.StarUI~=nil then MenuClass=K.StarUI.Menu end
 if mode=="Lite" and K.SetsunaUI~=nil then MenuClass=K.SetsunaUI.Lite end
 if mode=="Setsuna" and K.SetsunaUI~=nil then MenuClass=K.SetsunaUI.Menu end
 if mode=="Setsuna Drop" and K.SetsunaUI~=nil then MenuClass=K.SetsunaUI.Drop end
+if mode=="Matcha" and K.SetsunaUI~=nil and K.SetsunaUI.Matcha~=nil then MenuClass=K.SetsunaUI.Matcha end
 local t=MenuClass.new({Icon=K.LithiumLogo,Title=string.format("LxYHook | Rivals | %s",tostring("Premium Build")),Directory=K.AccountDir,Config=l.ReactiveStoreAdapter,ColorAnimation=l.ColorAnimation,Persistence=I,State=l.GeneralState,StateData=l.GeneralStateData,OnUnload=function()e:Destroy();end})
 current=t
 e:Add(t)
@@ -84853,7 +84854,7 @@ end
 do
     -- one file per account (like the rest of its settings, in K.AccountDir), so each account keeps its own menu form
     local MODE_FILE = K.AccountDir .. "/ui_style.txt"
-    local function valid(m) return m == "Classic" or m == "Starlight" or m == "Lite" or m == "Setsuna" or m == "Setsuna Drop" end
+    local function valid(m) return m == "Classic" or m == "Starlight" or m == "Lite" or m == "Setsuna" or m == "Setsuna Drop" or m == "Matcha" end
     function K.UIMode()
         local m = getgenv().LxYUI
         if valid(m) then return m end
@@ -90090,6 +90091,268 @@ end
         end
         self:_setVisibleState(visible)
         return true
+    end
+
+    ----------------------------------------------------------------------------------------------- Matcha
+    -- Fifth form of the menu: the flat "Matcha" look. A 600 x 650 window with a header (brand, style pill, user
+    -- name), a row of tabs under it and, for a tab with several pages, a row of page pills; the open page is two
+    -- columns of cards. It reuses the Lite form's widgets, cards, theme page and fade (it is a Lite with another
+    -- shell), so every page builder works unchanged. Colours come from a flat theme (near-black greys, a muted
+    -- matcha green accent); Options > Theme can still switch to any of the Starlight themes.
+    local MATCHA_W, MATCHA_H, MATCHA_HEAD = 600, 650, 38
+
+    local SMatcha = {}
+    SMatcha.__lite = true
+    SMatcha.__index = function(t, k)
+        local v = rawget(SMatcha, k)
+        if v ~= nil then return v end
+        v = rawget(SLite, k)
+        if v ~= nil then return v end
+        v = rawget(SMenu, k)
+        if v ~= nil then return v end
+        if isMethodName(k) then return function() return nil end end
+        return nil
+    end
+    SetsunaUI.Matcha = SMatcha
+    function SMatcha.new(opts) return newMenu(SMatcha, opts) end
+
+    local function matchaTheme()
+        local function rgb(r, g, b) return Color3.fromRGB(r, g, b) end
+        local function flat(c) return ColorSequence.new(c) end
+        return {
+            Backgrounds = { Dark = rgb(14, 14, 16), Medium = rgb(19, 19, 22), Light = rgb(14, 14, 16), Groupbox = rgb(26, 26, 30), Highlight = rgb(30, 30, 35) },
+            Foregrounds = { Active = rgb(255, 255, 255), Light = rgb(228, 228, 232), Medium = rgb(125, 125, 132), Dark = rgb(48, 48, 54),
+                MediumHover = rgb(160, 160, 166), DarkHover = rgb(66, 66, 73) },
+            Miscellaneous = { Divider = rgb(38, 38, 43), Shadow = rgb(34, 34, 39), LighterShadow = rgb(26, 26, 30) },
+            Accents = { Main = flat(rgb(160, 205, 140)), Brighter = flat(rgb(200, 232, 184)) },
+        }
+    end
+
+    -- runs from newMenu, before the palette is made. No library download: the theme page works on this one theme
+    -- plus the saved theme files.
+    function SMatcha:_initTheme()
+        self._theme = matchaTheme()
+        self._themes = { Matcha = matchaTheme() }
+        self._themeExt = ".starlight"
+        self._themeDir = "Starlight Interface Suite/LxYHook/themes"
+        self._themeName = "Matcha"
+    end
+
+    function SMatcha:_themeNames()
+        local names = SLite._themeNames(self)
+        table.insert(names, 1, "Matcha")
+        return names
+    end
+
+    function SMatcha:_fontPass() end
+
+    function SMatcha:_buildShell()
+        local gui = mk("ScreenGui", { Name = "Matcha Interface", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 100000,
+            ZIndexBehavior = Enum.ZIndexBehavior.Sibling, Enabled = false })
+        local placed = pcall(function() gui.Parent = gethui() end)
+        if not placed or gui.Parent == nil then gui.Parent = game:GetService("CoreGui") end
+        self._gui = gui
+        local dim = mk("TextButton", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, BorderSizePixel = 0, Modal = false }, gui)
+        self._dim = dim
+        local stage = mk("Frame", { BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 1 }, gui)
+        self._stage = stage
+        self._uiscale = mk("UIScale", {}, stage)
+
+        local win = mk("CanvasGroup", { AnchorPoint = Vector2.new(.5, .5), Size = UDim2.fromOffset(MATCHA_W, MATCHA_H), BorderSizePixel = 0,
+            ZIndex = 5, GroupTransparency = 1, Active = true }, stage)
+        self:_paint(win, "BackgroundColor3", "panel")
+        corner(win, 10)
+        local wst = mk("UIStroke", { Thickness = 1, Transparency = 0 }, win)
+        self:_paint(wst, "Color", "outline")
+        self._win = win
+        self._winScale = mk("UIScale", { Scale = .965 }, win)
+        self._ctlW = { dd = 112, tb = 104 }
+        self._w, self._h = MATCHA_W, MATCHA_H
+
+        -- header: brand, style pill, user name; also the drag handle
+        local me = game:GetService("Players").LocalPlayer
+        local head = mk("Frame", { Size = UDim2.new(1, 0, 0, MATCHA_HEAD), BackgroundTransparency = 1, BorderSizePixel = 0, Active = true }, win)
+        self._head = head
+        local brand = text(self, head, "Matcha", 12, "text", true)
+        brand.Position, brand.Size = UDim2.fromOffset(16, 0), UDim2.fromOffset(50, MATCHA_HEAD)
+        local sub = text(self, head, "Interface", 11, "dim", false)
+        sub.Position, sub.Size = UDim2.fromOffset(70, 0), UDim2.fromOffset(60, MATCHA_HEAD)
+        local pill = mk("Frame", { Position = UDim2.fromOffset(132, 9), Size = UDim2.fromOffset(62, 20), BorderSizePixel = 0 }, head)
+        self:_paint(pill, "BackgroundColor3", "box")
+        corner(pill, 10)
+        local pst = mk("UIStroke", { Thickness = 1 }, pill)
+        self:_paint(pst, "Color", "outline")
+        local pt = text(self, pill, "Standard", 10, "text", false)
+        pt.Size, pt.TextXAlignment = UDim2.fromScale(1, 1), Enum.TextXAlignment.Center
+        local who = text(self, head, me and me.Name or "", 11, "text", false)
+        who.Position, who.Size = UDim2.new(1, -176, 0, 0), UDim2.fromOffset(160, MATCHA_HEAD)
+        who.TextXAlignment = Enum.TextXAlignment.Right
+        who.TextTruncate = Enum.TextTruncate.AtEnd
+        head.InputBegan:Connect(function(input)
+            if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+            self:_closePopup()
+            local sx, sy = pointer(input)
+            local start = win.Position
+            local moveConn, endConn
+            moveConn = UIS.InputChanged:Connect(function(i)
+                if i.UserInputType ~= Enum.UserInputType.MouseMovement and i.UserInputType ~= Enum.UserInputType.Touch then return end
+                local x, y = pointer(i)
+                local k = self._k
+                self._moved = true
+                win.Position = UDim2.fromOffset(start.X.Offset + (x - sx) / k, start.Y.Offset + (y - sy) / k)
+                self:_clampWin()
+            end)
+            endConn = UIS.InputEnded:Connect(function(i)
+                if i == input or i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                    moveConn:Disconnect()
+                    endConn:Disconnect()
+                end
+            end)
+        end)
+
+        -- navigation: the tab row, then (for a tab with several pages) its page pills; both wrap onto more lines
+        local nav = mk("Frame", { Position = UDim2.fromOffset(0, MATCHA_HEAD), Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
+            BackgroundTransparency = 1, BorderSizePixel = 0 }, win)
+        mk("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, nav)
+        mk("UIPadding", { PaddingLeft = UDim.new(0, 16), PaddingRight = UDim.new(0, 16), PaddingTop = UDim.new(0, 2), PaddingBottom = UDim.new(0, 4) }, nav)
+        local tabBar = mk("Frame", { Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = 1 }, nav)
+        mk("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Wraps = true, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }, tabBar)
+        self._nav, self._tabBar = nav, tabBar
+
+        -- the open page: below the navigation, whose height changes with the tab
+        local body = mk("Frame", { BackgroundTransparency = 1, ClipsDescendants = true, BorderSizePixel = 0 }, win)
+        self._body = body
+        local function place()
+            local y = MATCHA_HEAD + math.floor(nav.AbsoluteSize.Y / (self._k or 1) + .5)
+            body.Position = UDim2.fromOffset(0, y)
+            body.Size = UDim2.new(1, 0, 1, -y)
+        end
+        nav:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
+        self._placeBody = place
+        place()
+
+        dim.Activated:Connect(function() self:_closePopup() end)
+        gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() self:_relayout() end)
+        self:_relayout()
+    end
+
+    function SMatcha:_relayout()
+        local gui = self._gui
+        local vw, vh = gui.AbsoluteSize.X, gui.AbsoluteSize.Y
+        if vw <= 0 or vh <= 0 then
+            local cam = workspace.CurrentCamera
+            if cam == nil then return end
+            vw, vh = cam.ViewportSize.X, cam.ViewportSize.Y
+        end
+        if vw <= 0 or vh <= 0 then return end
+        -- no scaling unless the window does not fit: a fractional UIScale is what makes text blurry
+        local k = clamp(math.min(1, (vw - 24) / MATCHA_W, (vh - 24) / MATCHA_H), .5, 1)
+        k = math.floor(k * 20) / 20
+        self._k = k
+        self._uiscale.Scale = k
+        local sw, sh = vw / k, vh / k
+        self._stage.Size = UDim2.fromOffset(sw, sh)
+        local w = math.floor(math.min(self._w or MATCHA_W, sw - 24) / 2) * 2
+        local h = math.floor(math.min(self._h or MATCHA_H, sh - 24) / 2) * 2
+        self._win.Size = UDim2.fromOffset(w, h)
+        self._g = { sw = sw, sh = sh, cx = sw / 2, cy = sh / 2, setW = (w - 56) / 2, panelW = 0 }
+        if self._moved then
+            self:_clampWin()
+        else
+            self._win.Position = UDim2.fromOffset(math.floor(sw / 2), math.floor(sh / 2))
+        end
+        if self._placeBody then self._placeBody() end
+        self:_closePopup()
+    end
+
+    -- a tab is a button in the top row; its pages are pills in a row of their own
+    function SMatcha:AddTab(o)
+        o = o or {}
+        local m = self
+        local tab = setmetatable({ _menu = self, Label = tostring(o.Label or "Tab"), Icon = o.Icon or false, _pages = {} }, STab)
+        local n = #self._tabs + 1
+        local btn = mk("TextButton", { Size = UDim2.fromOffset(0, 26), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1,
+            Text = "  " .. tab.Label .. "  ", TextSize = 11, Font = Enum.Font.Gotham, AutoButtonColor = false, BorderSizePixel = 0, LayoutOrder = n }, self._tabBar)
+        corner(btn, 6)
+        local function tint()
+            local on = m._tab == tab
+            btn.BackgroundColor3 = m._pal.sel
+            btn.BackgroundTransparency = on and 0 or 1
+            btn.TextColor3 = on and m._pal.text or m._pal.dim
+        end
+        tab._tint = tint
+        tint()
+        self:_onTheme(tab, tint)
+        btn.MouseEnter:Connect(function() if m._tab ~= tab then btn.TextColor3 = m._pal.text end end)
+        btn.MouseLeave:Connect(tint)
+        btn.Activated:Connect(function()
+            local target = tab._lastPage or tab._pages[1]
+            if target ~= nil then
+                task.spawn(function() m:_openPage(target) end)
+            else
+                m:_showTab(tab)
+            end
+        end)
+        local pills = mk("Frame", { Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, BorderSizePixel = 0,
+            Visible = false, LayoutOrder = 1 + n }, self._nav)
+        mk("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Wraps = true, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }, pills)
+        tab._sub = pills
+        self._tabs[n] = tab
+        return tab
+    end
+
+    function SMatcha:_makePageRow(tab, page)
+        local m = self
+        local btn = mk("TextButton", { Size = UDim2.fromOffset(0, 22), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1,
+            Text = "  " .. page.Label .. "  ", TextSize = 10, Font = Enum.Font.Gotham, AutoButtonColor = false, BorderSizePixel = 0, LayoutOrder = #tab._pages }, tab._sub)
+        corner(btn, 11)
+        local st = mk("UIStroke", { Thickness = 1 }, btn)
+        self:_paint(st, "Color", "outline")
+        local row = { btn = btn, sel = { Visible = false } }
+        function row.tint()
+            local on = m._page == page
+            btn.BackgroundColor3 = m._pal.sel
+            btn.BackgroundTransparency = on and 0 or 1
+            btn.TextColor3 = on and m._pal.text or m._pal.dim
+        end
+        row.tint()
+        self:_onTheme(row, row.tint)
+        btn.MouseEnter:Connect(function() if m._page ~= page then btn.TextColor3 = m._pal.text end end)
+        btn.MouseLeave:Connect(row.tint)
+        btn.Activated:Connect(function() task.spawn(function() m:_openPage(page) end) end)
+        page._row = row
+        -- a second page makes the pill row appear
+        if #tab._pages > 1 then self:_showTab(self._tab) end
+    end
+
+    function SMatcha:_showTab(tab)
+        self._tab = tab
+        for _, t in ipairs(self._tabs) do
+            if t._tint then t._tint() end
+            t._sub.Visible = t == tab and #t._pages > 1
+        end
+    end
+
+    function SMatcha:_openPage(page)
+        if self._destroyed then return end
+        self:_closePopup()
+        self._page = page
+        local tab = page._tab
+        if tab ~= nil then
+            tab._lastPage = page
+            self:_showTab(tab)
+        end
+        for _, t in ipairs(self._tabs) do
+            for _, p in ipairs(t._pages) do
+                if p._row ~= nil then p._row.tint() end
+                if p ~= page and p._scroll ~= nil then p._scroll.Visible = false end
+            end
+        end
+        page:_realize()
+        -- building a page can yield; if another page was opened meanwhile, this one stays hidden
+        if self._page ~= page then return end
+        page._scroll.Visible = true
+        page._scroll.CanvasPosition = Vector2.zero
     end
 end
 ;(function()
