@@ -82092,9 +82092,10 @@ end
 end
 end)
 if melee ~= nil then
--- first K8X_UE_WAIT seconds after detecting UE: take out the melee and stay hidden (KH Evasion), then come down
+-- first K8X_UE_WAIT seconds after detecting UE: take out the melee and wait in the straight-up void
+-- (y = 2147483647, i.e. 2.1 billion studs), then come down
 if os.clock() < k8xUEWaitUntil then
-local waitPlan = k8xHidePlan()
+local waitPlan = { CFrame = ueS.Void(), ShouldSkipDefense = v86[34] }
 if not melee:IsEquipped() then
 waitPlan.WeaponAction = function()
 melee:Equip()
