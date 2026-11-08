@@ -4242,8 +4242,17 @@ function Starlight:CreateWindow(WindowSettings)
 			Players:GetUserThumbnailAsync(Player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
 
 		task.spawn(function()
+			-- (LxYHook) the clock shows seconds: it is redrawn once a second, not on every frame (it ran with the
+			-- menu closed too), and the two labels are looked up once
+			local playerUserLabel, clockLabel = Tab.Instances.Page.playerUser, Tab.Instances.Page.clock
+			local shownSecond = nil
 			connections.__homeTabTime = RunService.RenderStepped:Connect(function()
-				local t = os.date("*t")
+				local second = os.time()
+				if second == shownSecond then
+					return
+				end
+				shownSecond = second
+				local t = os.date("*t", second)
 				local hour = t.hour
 
 				local formatted = string.format("%02d : %02d : %02d", hour, t.min, t.sec)
@@ -4257,9 +4266,12 @@ function Starlight:CreateWindow(WindowSettings)
 				else
 					greetingString = "Jeez you should be asleep..."
 				end
-				Tab.Instances.Page.playerUser.Text = `{greetingString} | {Player.Name}`
+				local userText = `{greetingString} | {Player.Name}`
+				if playerUserLabel.Text ~= userText then
+					playerUserLabel.Text = userText
+				end
 
-				Tab.Instances.Page.clock.Text =
+				clockLabel.Text =
 					`{formatted}\n{string.format("%02d / %02d / %d", t.day, t.month, t.year)}`
 			end)
 		end)
@@ -4353,7 +4365,6 @@ function Starlight:CreateWindow(WindowSettings)
 		local TimeFunction = RunService:IsRunning() and time or os.clock
 
 		local LastIteration, Start
-		local FrameUpdateTable = {}
 
 		local friendsCooldown = 0
 		local function checkFriends()
@@ -4403,36 +4414,43 @@ function Starlight:CreateWindow(WindowSettings)
 			end
 		end
 
+		-- (LxYHook) frames are counted and the two labels redrawn once a second. It shifted a list of every frame
+		-- time of the last second up by one on every frame and rebuilt both rich-text labels each frame, with the
+		-- menu closed too.
+		local serverFrame = Tab.Instances.Page.Holder.Left.Server.Frame
+		local latencyLabel, timeLabel = serverFrame.latency, serverFrame.time
+		local frameCount, windowStart = 0, nil
+
+		local function convertToHMS(elapsed)
+			if elapsed <= 4 then
+				return "now"
+			elseif elapsed < 60 then
+				return math.floor(elapsed) .. "s"
+			elseif elapsed < 3600 then
+				return math.floor(elapsed / 60) .. "m"
+			else
+				return math.floor(elapsed / 3600) .. "h"
+			end
+		end
+
 		local function HeartbeatUpdate()
 			LastIteration = TimeFunction()
-			for Index = #FrameUpdateTable, 1, -1 do
-				FrameUpdateTable[Index + 1] = FrameUpdateTable[Index] >= LastIteration - 1 and FrameUpdateTable[Index]
-					or nil
+			frameCount += 1
+			windowStart = windowStart or Start or LastIteration
+			local span = LastIteration - windowStart
+			if span < 1 then
+				return
 			end
+			local fps = math.floor(frameCount / span)
+			frameCount, windowStart = 0, LastIteration
 
-			FrameUpdateTable[1] = LastIteration
-			Tab.Instances.Page.Holder.Left.Server.Frame.latency.Text =
-				`<font size="14" color="#FFF" weight="semibold">Latency</font>\n{tostring(
-					math.floor(
-						TimeFunction() - Start >= 1 and #FrameUpdateTable
-						or #FrameUpdateTable / (TimeFunction() - Start)
-					)
-				)} FPS\n{getPing()}ms`
+			latencyLabel.Text =
+				`<font size="14" color="#FFF" weight="semibold">Latency</font>\n{tostring(fps)} FPS\n{getPing()}ms`
 
-			local function convertToHMS(elapsed)
-				if elapsed <= 4 then
-					return "now"
-				elseif elapsed < 60 then
-					return math.floor(elapsed) .. "s"
-				elseif elapsed < 3600 then
-					return math.floor(elapsed / 60) .. "m"
-				else
-					return math.floor(elapsed / 3600) .. "h"
-				end
+			local timeText = '<font size="14" color="#FFF" weight="semibold">Players</font>\n' .. convertToHMS(time())
+			if timeLabel.Text ~= timeText then
+				timeLabel.Text = timeText
 			end
-
-			Tab.Instances.Page.Holder.Left.Server.Frame.time.Text = '<font size="14" color="#FFF" weight="semibold">Players</font>\n'
-				.. convertToHMS(time())
 		end
 		
 		if TabSettings.Changelog[1] then
@@ -71953,7 +71971,7 @@ return ie.c
 end
 end
 do -- ih
-local function fn35() tbl17 .aE();local cfgd= tbl17 .bG();local I= tbl17 .h6();local function l(W)I(W,"Enable Ragebot",{"Always","Toggle","Hold"},{"Ragebot"},true);local style=W:AddDropdown({Label="Ragebot Style",Tooltip="KH: Kicia's own ragebot. UE: the Unnamed Enhancements ragebot (void spam, backstab, gun and light attack). Picking UE hides the KH settings. Auto: plays as KH until the Hacker Detector flags an enemy, then switches this dropdown to FW UE and stays there. Careful: the LY hub's own ragebot in its Careful mode (its own targeting, teleport attack, evasion and reloads). Careful Settings, Weapon Strategy and Target HUD apply to it.",Options={"Original","UE","Careful","FWUE"},Labels={Original="KH",UE="UE",Careful="Careful",FWUE="FW UE trash kh"},Config={"Ragebot","KnifeMode"}});W:AddToggle({Label="Round Start Delay",Tooltip="At the start of a round, hide in the void for a random 1-6 s first, then start attacking. Applies to every Ragebot Style.",Config={"Ragebot","StartDelay"}});W:AddToggle({Label="Prioritize Hackers",Config={"Ragebot","PrioritizeHackers"}});W:AddToggle({Label="Evade When Target Hacking",Config={"Ragebot","EvadeWhenHacking"}});W:AddButton({Label="Clear Hacker Tags",OnClick=function()local d=K.HackerDetector;local ok,n=pcall(function()return d and d:ClearTags() or nil;end);local text=(not ok or n==nil) and "Hacker detector is not ready" or string.format("Cleared %d hacker tag(s)",n);pcall(function()tbl17.aB().get():Notify(text);end);end});return style;end;local function kf(W)W:AddToggle({Label="Detect Knife",Config={"Ragebot","DetectKnife"}});W:AddSlider({Label="Stability",Min=0,Max=1.5,Step=0.001,Config={"Ragebot","Stability"}});W:AddSlider({Label="Shoot Frames",Min=1,Max=5,Config={"Ragebot","ShootFrames"}});W:AddToggle({Label="Custom Attack Height",Tooltip="Off: the fixed stand height (0.7 below the head hitbox of the target). On: the Attack Height below is used.",Config={"Ragebot","CustomAttackHeight"}});W:AddSlider({Label="Attack Height",Tooltip="How far above (+) or below (-) the head hitbox of the target you stand. A shield pointing down is 3.15 lower.",Min=-15,Max=15,Step=0.05,Config={"Ragebot","AttackHeight"}});end;local function cf(W)W:AddToggle({Label="Evade Between Shots",Tooltip="Slow weapons (shotgun, sniper, knife): evade in the gaps instead of standing on the target",Config={"Ragebot","Careful","EvadeBetweenShots"}});W:AddToggle({Label="Attack After Enemy",Tooltip="Only shoot an enemy in the gap right after it fired or swung, or while its weapon cools down or reloads",Config={"Ragebot","Careful","RetaliateOnly"}});W:AddSlider({Label="Gap Window",Tooltip="How long after its shot or swing an enemy can still be shot (its weapon cooldown or reload also counts)",Min=0.5,Max=5,Step=0.1,Suffix="s",Config={"Ragebot","Careful","RetaliateWindow"}});W:AddToggle({Label="Custom Attack Height",Tooltip="Off: the fixed stand height (0.7 below the head hitbox of the target). On: the Attack Height below is used.",Config={"Ragebot","CustomAttackHeight"}});W:AddSlider({Label="Attack Height",Tooltip="How far above (+) or below (-) the head hitbox of the target you stand. A shield pointing down is 3.15 lower.",Min=-15,Max=15,Step=0.05,Config={"Ragebot","AttackHeight"}});end;local function uf(W)W:AddToggle({Label="Never Void",Tooltip="Never hide in the void (UE style): no hide phase, and none while reloading, swapping, without a target or between knife stabs. You stay where you are.",Config={"Ragebot","UE","NoVoid"}});W:AddToggle({Label="Backstab Cooldown 0.8",Tooltip="On: the time between two backstabs is HeavyAttackCooldown x 0.8. Off: UE's own x 0.75.",Config={"Ragebot","UE","KnifeCooldown08"}});W:AddToggle({Label="Void Spam",Tooltip="Hide in the void between attack bursts (UE void spam). Used by the gun and the light attack, not by the backstab.",Config={"Ragebot","UE","VoidSpam"}});W:AddSlider({Label="Void Spam Attack",Tooltip="the amount of time attacking before hiding again (UE adds 0.1 s on top)",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","AttackTime"}});W:AddSlider({Label="Void Spam Hide",Tooltip="how long it stays in void for",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","HideTime"}});W:AddSlider({Label="Shoot Attempts",Tooltip="how many times it will try to fire your weapon (UE: ragebot_shoot_attempts)",Min=1,Max=2,Step=1,Config={"Ragebot","UE","ShootAttempts"}});W:AddDropdown({Label="Knife Attack",Tooltip="Heavy Backstab = UE attack mode knife. Light Attack = UE attack mode melee (fast light attacks with the knife).",Options={"Heavy","Light"},Labels={Heavy="Heavy Backstab",Light="Light Attack"},Config={"Ragebot","UE","KnifeAttack"}});end;local function I(W)local N={"Primary","Secondary","Melee"};for P,P in N,nil,nil do W:AddToggle({Label=string.format("%s Enabled",tostring(P)),Config={"Ragebot","Weapons","Enabled",P}});end;W:AddOrderedList({Label="Weapon Priority",Items=N,Default=N,Config={"Ragebot","Weapons","Priority"}});W:AddDropdown({Label="On Empty",Options={"Reload","Swap","SwapOrReload"},Labels={SwapOrReload="Swap or Reload"},Config={"Ragebot","Weapons","OnEmpty"}});end;local function W(N,P)local a=N:AddGroup({Source=P,Option="ProjectileBreaker"});a:AddRangeSlider({Label="Forward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForward"}});a:AddSlider({Label="Forward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForwardFrequency"}});a:AddRangeSlider({Label="Upward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUp"}});a:AddSlider({Label="Upward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUpFrequency"}});a:AddSlider({Label="Reposition Interval (s)",Min=0.05,Max=2,Step=0.01,Config={"Ragebot","Evasion","ProjectileBreaker","RepositionInterval"}});a:AddToggle({Label="Fallback Character Origin",Config={"Ragebot","Evasion","ProjectileBreaker","FallbackAnchorFromCharacter"}});a:AddSlider({Label="Fallback Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackBaseRadius"}});a:AddSlider({Label="Fallback Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackRadiusRandomFactor"}});end;local function N(P)local a=P:AddDropdown({Label="Evasion Mode",Options={"Off","Random","Translocate","ProjectileBreaker"},Labels={ProjectileBreaker="Projectile Breaker"},Config={"Ragebot","Evasion","Mode"}});local e=P:AddGroup({Source=a,Option="Random"});e:AddToggle({Label="Character Origin",Config={"Ragebot","Evasion","Random","AnchorFromCharacter"}});e:AddSlider({Label="Base Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","Random","BaseRadius"}});e:AddSlider({Label="Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","Random","RadiusRandomFactor"}});P:AddGroup({Source=a,Option="Translocate"}):AddSlider({Label="Offset",Min=-5,Max=5,Step=0.1,Config={"Ragebot","Evasion","Translocate","Offset"}});W(P,a);end;local function H(P)P:AddToggle({Label="Target HUD",Config={"Ragebot","TargetHud","Enabled"}});P:AddToggle({Label="Always Show",Tooltip="Keep the card up: without a ragebot target it shows the nearest enemy.",Config={"Ragebot","TargetHud","AlwaysShow"}});P:AddSlider({Label="Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","Scale"}});P:AddSlider({Label="Item Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","ItemScale"}});P:AddSlider({Label="Offset X (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosX"}});P:AddSlider({Label="Offset Y (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosY"}});end;return function(W)local style=l(W:AddSection({Title="Activation",Side="left"}));local khSection=W:AddSection({Title="KH Settings",Side="left"});kf(khSection);local carefulSection=W:AddSection({Title="Careful Settings",Side="left"});cf(carefulSection);local ueSection=W:AddSection({Title="UE Settings",Side="left"});uf(ueSection);local weaponSection=W:AddSection({Title="Weapon Strategy",Side="left"});I(weaponSection);local evasionSection=W:AddSection({Title="Evasion",Side="right"});N(evasionSection);local hudSection=W:AddSection({Title="Target HUD",Side="right"});H(hudSection);local fwSection=W:AddSection({Title="FW UE Settings",Side="left"});fwSection:AddToggle({Label="FW Weapon Check",Tooltip="Hide only while the weapon window is open. Slow weapons: the shot / swing cooldown must have at least 0.6 s left. Fast weapons (cooldown up to 0.3 s): the magazine must be nearly empty. Nobody may be reloading, and an enemy starting to reload sends you back to the void. No time limit on the wait.",Config={"Ragebot","FWWeaponCheck"}});local function applyStyle()local picked=style.Value;local isUE=picked=="UE";local isCareful=picked=="Careful";local isEmpty=picked=="FWUE";khSection:SetVisible(not isUE and not isCareful and not isEmpty);evasionSection:SetVisible(not isUE and not isCareful and not isEmpty);ueSection:SetVisible(isUE);carefulSection:SetVisible(isCareful);weaponSection:SetVisible(not isEmpty);hudSection:SetVisible(not isEmpty);fwSection:SetVisible(picked=="FWUE");end;applyStyle();pcall(function()style.ValueChanged:Connect(applyStyle);end);end;end
+local function fn35() tbl17 .aE();local cfgd= tbl17 .bG();local I= tbl17 .h6();local function l(W)I(W,"Enable Ragebot",{"Always","Toggle","Hold"},{"Ragebot"},true);local style=W:AddDropdown({Label="Ragebot Style",Tooltip="KH: Kicia's own ragebot. UE: the Unnamed Enhancements ragebot (void spam, backstab, gun and light attack). Picking UE hides the KH settings. Auto: plays as KH until the Hacker Detector flags an enemy, then switches this dropdown to FW UE and stays there. Careful: the LY hub's own ragebot in its Careful mode (its own targeting, teleport attack, evasion and reloads). Careful Settings, Weapon Strategy and Target HUD apply to it.",Options={"Original","UE","k8x","Careful","FWUE"},Labels={Original="KH",UE="UE",k8x="k8x",Careful="Careful",FWUE="FW UE trash kh"},Config={"Ragebot","KnifeMode"}});W:AddToggle({Label="Round Start Delay",Tooltip="At the start of a round, hide in the void for a random 1-6 s first, then start attacking. Applies to every Ragebot Style.",Config={"Ragebot","StartDelay"}});W:AddToggle({Label="Prioritize Hackers",Config={"Ragebot","PrioritizeHackers"}});W:AddToggle({Label="Evade When Target Hacking",Config={"Ragebot","EvadeWhenHacking"}});W:AddButton({Label="Clear Hacker Tags",OnClick=function()local d=K.HackerDetector;local ok,n=pcall(function()return d and d:ClearTags() or nil;end);local text=(not ok or n==nil) and "Hacker detector is not ready" or string.format("Cleared %d hacker tag(s)",n);pcall(function()tbl17.aB().get():Notify(text);end);end});return style;end;local function kf(W)W:AddToggle({Label="Detect Knife",Config={"Ragebot","DetectKnife"}});W:AddSlider({Label="Stability",Min=0,Max=1.5,Step=0.001,Config={"Ragebot","Stability"}});W:AddSlider({Label="Shoot Frames",Min=1,Max=5,Config={"Ragebot","ShootFrames"}});W:AddToggle({Label="Custom Attack Height",Tooltip="Off: the fixed stand height (0.7 below the head hitbox of the target). On: the Attack Height below is used.",Config={"Ragebot","CustomAttackHeight"}});W:AddSlider({Label="Attack Height",Tooltip="How far above (+) or below (-) the head hitbox of the target you stand. A shield pointing down is 3.15 lower.",Min=-15,Max=15,Step=0.05,Config={"Ragebot","AttackHeight"}});end;local function cf(W)W:AddToggle({Label="Evade Between Shots",Tooltip="Slow weapons (shotgun, sniper, knife): evade in the gaps instead of standing on the target",Config={"Ragebot","Careful","EvadeBetweenShots"}});W:AddToggle({Label="Attack After Enemy",Tooltip="Only shoot an enemy in the gap right after it fired or swung, or while its weapon cools down or reloads",Config={"Ragebot","Careful","RetaliateOnly"}});W:AddSlider({Label="Gap Window",Tooltip="How long after its shot or swing an enemy can still be shot (its weapon cooldown or reload also counts)",Min=0.5,Max=5,Step=0.1,Suffix="s",Config={"Ragebot","Careful","RetaliateWindow"}});W:AddToggle({Label="Custom Attack Height",Tooltip="Off: the fixed stand height (0.7 below the head hitbox of the target). On: the Attack Height below is used.",Config={"Ragebot","CustomAttackHeight"}});W:AddSlider({Label="Attack Height",Tooltip="How far above (+) or below (-) the head hitbox of the target you stand. A shield pointing down is 3.15 lower.",Min=-15,Max=15,Step=0.05,Config={"Ragebot","AttackHeight"}});end;local function uf(W)W:AddToggle({Label="Never Void",Tooltip="Never hide in the void (UE style): no hide phase, and none while reloading, swapping, without a target or between knife stabs. You stay where you are.",Config={"Ragebot","UE","NoVoid"}});W:AddToggle({Label="Backstab Cooldown 0.8",Tooltip="On: the time between two backstabs is HeavyAttackCooldown x 0.8. Off: UE's own x 0.75.",Config={"Ragebot","UE","KnifeCooldown08"}});W:AddToggle({Label="Void Spam",Tooltip="Hide in the void between attack bursts (UE void spam). Used by the gun and the light attack, not by the backstab.",Config={"Ragebot","UE","VoidSpam"}});W:AddSlider({Label="Void Spam Attack",Tooltip="the amount of time attacking before hiding again (UE adds 0.1 s on top)",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","AttackTime"}});W:AddSlider({Label="Void Spam Hide",Tooltip="how long it stays in void for",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","HideTime"}});W:AddSlider({Label="Shoot Attempts",Tooltip="how many times it will try to fire your weapon (UE: ragebot_shoot_attempts)",Min=1,Max=2,Step=1,Config={"Ragebot","UE","ShootAttempts"}});W:AddDropdown({Label="Knife Attack",Tooltip="Heavy Backstab = UE attack mode knife. Light Attack = UE attack mode melee (fast light attacks with the knife).",Options={"Heavy","Light"},Labels={Heavy="Heavy Backstab",Light="Light Attack"},Config={"Ragebot","UE","KnifeAttack"}});end;local function I(W)local N={"Primary","Secondary","Melee"};for P,P in N,nil,nil do W:AddToggle({Label=string.format("%s Enabled",tostring(P)),Config={"Ragebot","Weapons","Enabled",P}});end;W:AddOrderedList({Label="Weapon Priority",Items=N,Default=N,Config={"Ragebot","Weapons","Priority"}});W:AddDropdown({Label="On Empty",Options={"Reload","Swap","SwapOrReload"},Labels={SwapOrReload="Swap or Reload"},Config={"Ragebot","Weapons","OnEmpty"}});end;local function W(N,P)local a=N:AddGroup({Source=P,Option="ProjectileBreaker"});a:AddRangeSlider({Label="Forward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForward"}});a:AddSlider({Label="Forward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForwardFrequency"}});a:AddRangeSlider({Label="Upward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUp"}});a:AddSlider({Label="Upward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUpFrequency"}});a:AddSlider({Label="Reposition Interval (s)",Min=0.05,Max=2,Step=0.01,Config={"Ragebot","Evasion","ProjectileBreaker","RepositionInterval"}});a:AddToggle({Label="Fallback Character Origin",Config={"Ragebot","Evasion","ProjectileBreaker","FallbackAnchorFromCharacter"}});a:AddSlider({Label="Fallback Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackBaseRadius"}});a:AddSlider({Label="Fallback Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackRadiusRandomFactor"}});end;local function N(P)local a=P:AddDropdown({Label="Evasion Mode",Options={"Off","Random","Translocate","ProjectileBreaker"},Labels={ProjectileBreaker="Projectile Breaker"},Config={"Ragebot","Evasion","Mode"}});local e=P:AddGroup({Source=a,Option="Random"});e:AddToggle({Label="Character Origin",Config={"Ragebot","Evasion","Random","AnchorFromCharacter"}});e:AddSlider({Label="Base Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","Random","BaseRadius"}});e:AddSlider({Label="Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","Random","RadiusRandomFactor"}});P:AddGroup({Source=a,Option="Translocate"}):AddSlider({Label="Offset",Min=-5,Max=5,Step=0.1,Config={"Ragebot","Evasion","Translocate","Offset"}});W(P,a);end;local function H(P)P:AddToggle({Label="Target HUD",Config={"Ragebot","TargetHud","Enabled"}});P:AddToggle({Label="Always Show",Tooltip="Keep the card up: without a ragebot target it shows the nearest enemy.",Config={"Ragebot","TargetHud","AlwaysShow"}});P:AddSlider({Label="Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","Scale"}});P:AddSlider({Label="Item Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","ItemScale"}});P:AddSlider({Label="Offset X (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosX"}});P:AddSlider({Label="Offset Y (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosY"}});end;return function(W)local style=l(W:AddSection({Title="Activation",Side="left"}));local khSection=W:AddSection({Title="KH Settings",Side="left"});kf(khSection);local carefulSection=W:AddSection({Title="Careful Settings",Side="left"});cf(carefulSection);local ueSection=W:AddSection({Title="UE Settings",Side="left"});uf(ueSection);local weaponSection=W:AddSection({Title="Weapon Strategy",Side="left"});I(weaponSection);local evasionSection=W:AddSection({Title="Evasion",Side="right"});N(evasionSection);local hudSection=W:AddSection({Title="Target HUD",Side="right"});H(hudSection);local fwSection=W:AddSection({Title="FW UE Settings",Side="left"});fwSection:AddToggle({Label="FW Weapon Check",Tooltip="Hide only while the weapon window is open. Slow weapons: the shot / swing cooldown must have at least 0.6 s left. Fast weapons (cooldown up to 0.3 s): the magazine must be nearly empty. Nobody may be reloading, and an enemy starting to reload sends you back to the void. No time limit on the wait.",Config={"Ragebot","FWWeaponCheck"}});local function applyStyle()local picked=style.Value;local isUE=picked=="UE" or picked=="k8x";local isCareful=picked=="Careful";local isEmpty=picked=="FWUE";khSection:SetVisible(not isUE and not isCareful and not isEmpty);evasionSection:SetVisible(not isUE and not isCareful and not isEmpty);ueSection:SetVisible(isUE);carefulSection:SetVisible(isCareful);weaponSection:SetVisible(not isEmpty);hudSection:SetVisible(not isEmpty);fwSection:SetVisible(picked=="FWUE");end;applyStyle();pcall(function()style.ValueChanged:Connect(applyStyle);end);end;end
 
 tbl17.ih = function()
 local ih = tbl17.cache.ih
@@ -75623,7 +75641,13 @@ local M = {}
 
 -- UE ragebot style is picked with Ragebot.KnifeMode == "UE" (the dropdown is labelled "Ragebot Style": KH / UE / Careful)
 function M.IsUE()
-return K.RagebotStyle(config.Data.Ragebot.KnifeMode) == "UE"
+local style = K.RagebotStyle(config.Data.Ragebot.KnifeMode)
+return style == "UE" or style == "k8x"
+end
+
+-- k8x: UE's whole void-spam ragebot, except the void is straight UP (y = 2147483647) instead of a random direction
+function M.IsK8x()
+return K.RagebotStyle(config.Data.Ragebot.KnifeMode) == "k8x"
 end
 
 -- UE-style settings (menu section "UE Settings"); the defaults are UE's own values
@@ -75650,6 +75674,9 @@ if M.NoVoid() then
 return nil
 end
 local distance = UE_VOID_DISTANCE
+if M.IsK8x() then
+return CFrame.new(0, distance, 0)
+end
 local v = random:NextUnitVector()
 -- UE is literally CFrame.new(NextUnitVector() * distance) (proto 4290 pc6-9), and NextUnitVector is
 -- uniform over the sphere, so half of UE's voids land at y = -distance: below the world, where the
@@ -75725,7 +75752,7 @@ end
 -- 0.1 -> 0.2 s) and a TRUE flag (hiding) lasts ragebot_void_spam_hide (default 0.25 s). The defaults and ranges come
 -- from UE's own slider definitions (proto 1 pc4183 / pc11574: both 0.01..1 s); here they are menu options.
 local flag, nextSwitchAt = false, 0
-function M.Phase()
+function M.Phase(targetPart)
 local settings = ueSettings()
 if settings ~= nil and not settings.VoidSpam then
 return nil
@@ -76007,7 +76034,7 @@ end
 index2.PlanUE = function(arg, dt, target, gun, ourPart, localFighterState)
 -- UE never drags a hitbox: release whatever KH's glue left on this target
 arg._partGlue:Free(ourPart)
-if ueS.Phase() then
+if ueS.Phase(target.AliveState.HitboxHead) then
 arg:UEVoidState(ourPart)
 ueS.SetStatus("void spamming...")
 return ueS.Void(), nil
@@ -76289,7 +76316,7 @@ return setmetatable({ _partGlue = arg, _shootLock = v116.new(), _hitboxWindowUnt
 end
 
 index2.Plan = function(arg, arg2, arg3, arg4, gluedOurPart, arg5)
-if K.RagebotStyle(v115.Data.Ragebot.KnifeMode) == "UE" then
+if ueS.IsUE() then
 arg._partGlue:Free(gluedOurPart)
 if arg4.Name == "Knife" and not ueS.KnifeLight() then
 return arg:_PlanUE(arg3, arg4, arg2)
@@ -76462,7 +76489,7 @@ arg._partGlue:Free(gluedOurPart)
 arg._gluedOurPart = nil
 end
 
-if ueS.Phase() then
+if ueS.Phase(target.AliveState.HitboxHead) then
 ueS.MarkVoid()
 ueS.SetStatus("void spamming...")
 return ueVoid(), nil, nil
@@ -77322,7 +77349,7 @@ local v117 = nil
 -- applies, since that one is kh's own menu switch and the user can see it.
 local ragebotData = v115.Data.Ragebot
 local ueData = ragebotData.UE
-local ueKnifeMode = K.RagebotStyle(ragebotData.KnifeMode) == "UE" and (ueData == nil or ueData.KnifeAttack ~= "Light")
+local ueKnifeMode = tbl17.ueS().IsUE() and (ueData == nil or ueData.KnifeAttack ~= "Light")
 local ueKnife = nil
 
 for _, v118 in arg.ItemBehaviors:GetItems(), nil, nil do
@@ -90507,14 +90534,27 @@ do
         list.BackgroundColor3 = bg
         listStroke.Color = outline
         listTitle.TextColor3 = accent
-        for _, child in ipairs(rows:GetChildren()) do
-            if child.Name == "Row" then child:Destroy() end
-        end
         local shown = {}
         for _, entry in ipairs(KeyHud.entries) do
             if entry.show then shown[#shown + 1] = entry end
         end
         table.sort(shown, function(a, b) return a.label < b.label end)
+        -- the rows are rebuilt only when what they show changed (entries, keys, lit state, theme colours); the timer
+        -- redraws twice a second for the watermark numbers and used to rebuild every row each time
+        local parts = { tostring(bg), tostring(outline), tostring(accent), tostring(text), tostring(dim) }
+        for _, entry in ipairs(shown) do
+            parts[#parts + 1] = entry.label .. "\1" .. (entry.key and entry.key.Name or "")
+                .. "\1" .. tostring(entry.active) .. tostring(entry.always)
+        end
+        local signature = table.concat(parts, "\2")
+        if signature == KeyHud._rowsSignature and rows == KeyHud._rowsParent then
+            list.Visible = listOn and not (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled) and #shown > 0
+            return
+        end
+        KeyHud._rowsSignature, KeyHud._rowsParent = signature, rows
+        for _, child in ipairs(rows:GetChildren()) do
+            if child.Name == "Row" then child:Destroy() end
+        end
         for index, entry in ipairs(shown) do
             local active = entry.active or entry.always
             local row = mk("Frame", { Name = "Row", LayoutOrder = index, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 20) }, rows)
@@ -90937,10 +90977,17 @@ local function setup()
 		return label:lower()
 	end
 
+	-- a track keeps its animation, so its label is built once
+	local trackLabels = setmetatable({}, { __mode = "k" })
 	local function shouldStopTrack(animTrack)
-		local ok, label = pcall(trackLabel, animTrack)
-		if not ok then
-			return false
+		local label = trackLabels[animTrack]
+		if label == nil then
+			local ok, built = pcall(trackLabel, animTrack)
+			if not ok then
+				return false
+			end
+			label = built
+			trackLabels[animTrack] = label
 		end
 		for kind in stoppedKinds do
 			for _, pattern in TRACK_PATTERNS[kind] do
@@ -90952,27 +90999,90 @@ local function setup()
 		return false
 	end
 
+	-- Event driven: every Animator under the viewmodel folders gets an AnimationPlayed listener that stops a
+	-- matching track the moment it starts. It used to walk every descendant of the viewmodels and the camera
+	-- and list each Animator's playing tracks on every frame. Animators are picked up through DescendantAdded
+	-- (and swept once when found, since a deferred signal can arrive after the game already played a track);
+	-- a light sweep of the known Animators twice a second covers the folders being replaced.
+	local stopperAnimators = {} -- Animator -> AnimationPlayed connection
+	local stopperFolders = {} -- folder -> DescendantAdded connection
+	local function stopMatching(animator)
+		local ok, playing = pcall(animator.GetPlayingAnimationTracks, animator)
+		if not ok then return end
+		for _, animTrack in playing do
+			if shouldStopTrack(animTrack) then
+				pcall(animTrack.Stop, animTrack, 0)
+			end
+		end
+	end
+	local function watchAnimator(animator)
+		if stopperAnimators[animator] ~= nil or owned[animator] then return end
+		stopperAnimators[animator] = animator.AnimationPlayed:Connect(function(animTrack)
+			if next(stoppedKinds) ~= nil and shouldStopTrack(animTrack) then
+				pcall(animTrack.Stop, animTrack, 0)
+			end
+		end)
+		stopMatching(animator)
+	end
+	local function watchFolder(folder)
+		if stopperFolders[folder] ~= nil then return end
+		stopperFolders[folder] = folder.DescendantAdded:Connect(function(descendant)
+			if descendant:IsA("Animator") then watchAnimator(descendant) end
+		end)
+		for _, descendant in folder:GetDescendants() do
+			if descendant:IsA("Animator") then watchAnimator(descendant) end
+		end
+	end
+	local function stopTrackStopper()
+		if trackStopper then
+			trackStopper:Disconnect()
+			trackStopper = nil
+		end
+		for animator, connection in stopperAnimators do
+			connection:Disconnect()
+			stopperAnimators[animator] = nil
+		end
+		for folder, connection in stopperFolders do
+			connection:Disconnect()
+			stopperFolders[folder] = nil
+		end
+	end
+	track(stopTrackStopper)
+
 	local function updateTrackStopper()
 		if next(stoppedKinds) == nil then
-			if trackStopper then
-				trackStopper:Disconnect()
-				trackStopper = nil
-			end
+			stopTrackStopper()
 			return
 		end
 		if trackStopper then
+			-- the set of stopped kinds changed: apply it to what is already playing
+			for animator in stopperAnimators do stopMatching(animator) end
 			return
 		end
-		trackStopper = RunService.RenderStepped:Connect(function()
-			for _, folder in viewmodelFolders() do
-				for _, descendant in folder:GetDescendants() do
-					if descendant:IsA("Animator") and not owned[descendant] then
-						for _, animTrack in descendant:GetPlayingAnimationTracks() do
-							if shouldStopTrack(animTrack) then
-								pcall(animTrack.Stop, animTrack, 0)
-							end
-						end
-					end
+		for _, folder in viewmodelFolders() do watchFolder(folder) end
+		local sweepAt = os.clock()
+		trackStopper = RunService.Heartbeat:Connect(function()
+			local now = os.clock()
+			if now - sweepAt < 0.5 then return end
+			sweepAt = now
+			local current = viewmodelFolders()
+			local live = {}
+			for _, folder in current do
+				live[folder] = true
+				watchFolder(folder)
+			end
+			for folder, connection in stopperFolders do
+				if not live[folder] then
+					connection:Disconnect()
+					stopperFolders[folder] = nil
+				end
+			end
+			for animator, connection in stopperAnimators do
+				if animator.Parent == nil then
+					connection:Disconnect()
+					stopperAnimators[animator] = nil
+				else
+					stopMatching(animator)
 				end
 			end
 		end)
@@ -91708,18 +91818,63 @@ ViewmodelSection:AddToggle({
 local VIEWMODEL_STEP = PREFIX .. "Viewmodel"
 local lastChamScan = 0
 local offsetPivots = setmetatable({}, { __mode = "k" }) -- model -> pivot we last set
+-- The models the offset moves. viewmodels() builds new lists and walks the children of the viewmodel folder and
+-- the camera, which ran on every frame; the list is now kept and built again only when a child is added to or
+-- removed from one of those folders (the folders themselves are checked once a second).
+local offsetCache = { list = nil, folders = {}, conns = {}, checkAt = -math.huge }
+function offsetCache.drop()
+	for _, connection in offsetCache.conns do
+		connection:Disconnect()
+	end
+	table.clear(offsetCache.conns)
+	table.clear(offsetCache.folders)
+	offsetCache.list = nil
+end
+function offsetCache.models()
+	local now = os.clock()
+	if now - offsetCache.checkAt >= 1 then
+		offsetCache.checkAt = now
+		local current = viewmodelFolders()
+		local same = #current == #offsetCache.folders
+		for index, folder in current do
+			if offsetCache.folders[index] ~= folder then same = false end
+		end
+		if not same then
+			offsetCache.drop()
+			local function invalidate() offsetCache.list = nil end
+			for index, folder in current do
+				offsetCache.folders[index] = folder
+				table.insert(offsetCache.conns, folder.ChildAdded:Connect(invalidate))
+				table.insert(offsetCache.conns, folder.ChildRemoved:Connect(invalidate))
+			end
+		end
+	end
+	local list = offsetCache.list
+	if list == nil then
+		list = viewmodels()
+		offsetCache.list = list
+	end
+	return list
+end
+track(offsetCache.drop)
 RunService:BindToRenderStep(VIEWMODEL_STEP, Enum.RenderPriority.Last.Value, function()
 	if viewmodel.Offset then
 		local offset = CFrame.new(viewmodel.X, viewmodel.Y, viewmodel.Z)
-		for _, model in viewmodels() do
-			local pivot = model:GetPivot()
-			-- Only offset once per game update, so a frame the game skips can't drift it.
-			if offsetPivots[model] ~= pivot then
-				local moved = pivot * offset
-				model:PivotTo(moved)
-				offsetPivots[model] = moved
+		for _, model in offsetCache.models() do
+			-- a model can be marked as the script's own after the list was built, or be on its way out
+			if model.Parent ~= nil and not owned[model] then
+				local pivot = model:GetPivot()
+				-- Only offset once per game update, so a frame the game skips can't drift it.
+				if offsetPivots[model] ~= pivot then
+					local moved = pivot * offset
+					model:PivotTo(moved)
+					offsetPivots[model] = moved
+				end
 			end
 		end
+	elseif offsetCache.list ~= nil or #offsetCache.conns > 0 then
+		offsetCache.drop()
+		offsetCache.checkAt = -math.huge
 	end
 	-- Weapon swaps bring in new parts; pick them up a few times a second.
 	local now = os.clock()
