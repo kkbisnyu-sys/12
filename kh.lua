@@ -80894,6 +80894,9 @@ rage.setRenderRestore(false)
 
 -- Careful Settings (config Ragebot.Careful): the options LY's Careful mode sets, adjustable in the menu
 local function syncSettings()
+-- the two hacker switches live on Ragebot itself (shared with KH style), not under Careful
+rage.EvadeWhenHacking = config.Data.Ragebot.EvadeWhenHacking == true
+rage.PrioritizeHackers = config.Data.Ragebot.PrioritizeHackers == true
 local saved = config.Data.Ragebot.Careful
 if type(saved) ~= "table" then
 return
