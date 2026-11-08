@@ -75693,7 +75693,7 @@ end
 -- k8x pose (same numbers as the Pigeon style): park FeetDrop studs under the target's RootPart, lying flat
 -- (pitch 90 deg), spinning clockwise SpinTurns turns a second; the shot origin is OriginHeight studs above his
 -- head hitbox, looking down at it. To change any of them before running the script:
---   getgenv().K8xPose = { OriginHeight = 50, FeetDrop = 3, SpinTurns = 1, Pitch = 90 }
+--   getgenv().K8xPose = { FeetDrop = 5, SpinTurns = 1, Pitch = 90 }   (OriginHeight is no longer used)
 -- (any field left out keeps its default below)
 local K8X_POSE_DEFAULT = { OriginHeight = 50, FeetDrop = 5, SpinTurns = 1, Pitch = 90 }
 function M.K8xPose()
@@ -75709,7 +75709,9 @@ end
 -- server CFrame for a park point: lying flat, spinning clockwise (negative yaw seen from above)
 function M.K8xStandCFrame(standPosition)
 local pose = M.K8xPose()
-return CFrame.new(standPosition) * CFrame.Angles(0, -pose.SpinTurns * 6.283185307179586 * tick(), 0) * CFrame.Angles(math.rad(pose.Pitch), 0, 0)
+-- the turn count is wrapped to 0..1 first: tick() is ~1.7e9, and an angle of 1e10 radians loses all precision
+local turn = (os.clock() * pose.SpinTurns) % 1
+return CFrame.new(standPosition) * CFrame.Angles(0, -turn * 6.283185307179586, 0) * CFrame.Angles(math.rad(pose.Pitch), 0, 0)
 end
 
 -- true when the knife should stand exactly behind the victim along the victim's facing (not UE's random sphere)
@@ -81898,8 +81900,8 @@ local function k8xMapPosition()
 	k8xMapCache = ok and pos or nil
 	return k8xMapCache
 end
--- Detection: an enemy more than 1.5 billion studs from the map's OOB position is judged to be UE (UE hides at
--- 2147483647); anything closer is judged to be KH. The last verdict is kept while there is no target.
+-- Detection: an enemy between 2.0e9 and 2.3e9 studs from the map's OOB position is judged to be UE (UE hides at
+-- 2147483647); anything else is judged to be KH. The verdict is held for K8X_UE_HOLD seconds.
 -- Only the current target is judged: 2v2 with two enemies on different cheats is not handled (on purpose, for now).
 -- KH tops out at ~1.86e9 (its immune ring: x, y, z each up to 1.07e9, so the magnitude reaches sqrt(3) * 1.07e9;
 -- its Evasion Random only gets to ~1.084e9); UE hides at exactly 2147483647. 2.0e9 sits between the two.
@@ -82106,8 +82108,31 @@ ueS.MarkVoid()
 k8xSetStatus("void: reload")
 return k8xReload
 end
+-- The weapon picker (getAction) only knows slots 1 / 2 / 3 and the Weapons.Enabled switches, and returns nil
+-- for anything else (a one-weapon mode, a disabled slot). k8x does not care about those switches: if a gun is in
+-- hand and has ammo, attack with it.
 if arg3 == nil then
-return k8xVoid("no usable item")
+local heldGun = nil
+pcall(function()
+heldGun = arg._innerContext.ItemBehaviors:EquippedItemAsGun()
+end)
+local okAmmo, heldAmmo = false, 0
+if heldGun ~= nil then
+okAmmo, heldAmmo = pcall(heldGun.GetAmmo, heldGun)
+end
+if heldGun ~= nil and okAmmo and type(heldAmmo) == "number" and heldAmmo > 0 then
+arg3 = { Type = "Attack", Item = heldGun }
+else
+-- say WHY nothing is usable: every item with its slot index and ammo
+local listed = {}
+pcall(function()
+for _, it in arg._innerContext.ItemBehaviors:GetItems() do
+local okA, am = pcall(function() return it.__type == "Gun" and it:GetAmmo() or "-" end)
+table.insert(listed, string.format("%s#%s a%s%s", tostring(it.Name), tostring(it.Index), tostring(okA and am or "?"), it:IsEquipped() and "*" or ""))
+end
+end)
+return k8xVoid("no usable item [" .. table.concat(listed, ", ") .. "]")
+end
 end
 -- the gun is not equipped yet: equip it (the other styles do this through WeaponAction too)
 if arg3.Type == "Swap" then
@@ -82122,7 +82147,7 @@ local voidNow, voidWhy = k8xShouldVoid(arg, arg3, arg4, arg5)
 if voidNow then
 return k8xVoid(voidWhy)
 end
--- Gun in hand: shoot from 5000 studs above his head (PlanK8x), standing under him and spinning.
+-- Gun in hand: shoot from our own stand position (PlanK8x), standing under him, lying flat and spinning.
 local k8xItem = arg3 ~= nil and arg3.Item or nil
 if k8xItem ~= nil and k8xItem.__type == "Gun" then
 local localFighterState = arg._innerContext ~= nil and arg._innerContext.FighterState or nil
