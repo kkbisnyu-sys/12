@@ -30269,7 +30269,7 @@ end
 local function fn40(arg, arg2, arg3)
 arg:AddDropdown({
 Label = "UI Style",
-Options = { "Starlight", "Lite", "Matcha", "Setsuna", "Setsuna Drop", "Classic" },
+Options = { "Starlight", "Lite", "Matcha", "KH V2", "Setsuna", "Setsuna Drop", "Classic" },
 Default = K.UIMode(),
 Tooltip = "Starlight (default) is built into the script; if it fails, the classic menu is shown for that session. Classic is the script's own menu.",
 OnChanged = function(mode)
@@ -71971,7 +71971,7 @@ return ie.c
 end
 end
 do -- ih
-local function fn35() tbl17 .aE();local cfgd= tbl17 .bG();local I= tbl17 .h6();local function l(W)I(W,"Enable Ragebot",{"Always","Toggle","Hold"},{"Ragebot"},true);local style=W:AddDropdown({Label="Ragebot Style",Tooltip="KH: Kicia's own ragebot. UE: the Unnamed Enhancements ragebot (void spam, backstab, gun and light attack). Picking UE hides the KH settings. Auto: plays as KH until the Hacker Detector flags an enemy, then switches this dropdown to FW UE and stays there. Careful: the LY hub's own ragebot in its Careful mode (its own targeting, teleport attack, evasion and reloads). Careful Settings, Weapon Strategy and Target HUD apply to it.",Options={"Original","UE","k8x","Careful","FWUE"},Labels={Original="KH",UE="UE",k8x="k8x",Careful="Careful",FWUE="FW UE trash kh"},Config={"Ragebot","KnifeMode"}});W:AddToggle({Label="Round Start Delay",Tooltip="At the start of a round, hide in the void for a random 1-6 s first, then start attacking. Applies to every Ragebot Style.",Config={"Ragebot","StartDelay"}});W:AddToggle({Label="Prioritize Hackers",Config={"Ragebot","PrioritizeHackers"}});W:AddToggle({Label="Evade When Target Hacking",Config={"Ragebot","EvadeWhenHacking"}});W:AddButton({Label="Clear Hacker Tags",OnClick=function()local d=K.HackerDetector;local ok,n=pcall(function()return d and d:ClearTags() or nil;end);local text=(not ok or n==nil) and "Hacker detector is not ready" or string.format("Cleared %d hacker tag(s)",n);pcall(function()tbl17.aB().get():Notify(text);end);end});return style;end;local function kf(W)W:AddToggle({Label="Detect Knife",Config={"Ragebot","DetectKnife"}});W:AddSlider({Label="Stability",Min=0,Max=1.5,Step=0.001,Config={"Ragebot","Stability"}});W:AddSlider({Label="Shoot Frames",Min=1,Max=5,Config={"Ragebot","ShootFrames"}});W:AddToggle({Label="Custom Attack Height",Tooltip="Off: the fixed stand height (0.7 below the head hitbox of the target). On: the Attack Height below is used.",Config={"Ragebot","CustomAttackHeight"}});W:AddSlider({Label="Attack Height",Tooltip="How far above (+) or below (-) the head hitbox of the target you stand. A shield pointing down is 3.15 lower.",Min=-15,Max=15,Step=0.05,Config={"Ragebot","AttackHeight"}});end;local function cf(W)W:AddToggle({Label="Evade Between Shots",Tooltip="Slow weapons (shotgun, sniper, knife): evade in the gaps instead of standing on the target",Config={"Ragebot","Careful","EvadeBetweenShots"}});W:AddToggle({Label="Attack After Enemy",Tooltip="Only shoot an enemy in the gap right after it fired or swung, or while its weapon cools down or reloads",Config={"Ragebot","Careful","RetaliateOnly"}});W:AddSlider({Label="Gap Window",Tooltip="How long after its shot or swing an enemy can still be shot (its weapon cooldown or reload also counts)",Min=0.5,Max=5,Step=0.1,Suffix="s",Config={"Ragebot","Careful","RetaliateWindow"}});W:AddToggle({Label="Custom Attack Height",Tooltip="Off: the fixed stand height (0.7 below the head hitbox of the target). On: the Attack Height below is used.",Config={"Ragebot","CustomAttackHeight"}});W:AddSlider({Label="Attack Height",Tooltip="How far above (+) or below (-) the head hitbox of the target you stand. A shield pointing down is 3.15 lower.",Min=-15,Max=15,Step=0.05,Config={"Ragebot","AttackHeight"}});end;local function uf(W)W:AddToggle({Label="Never Void",Tooltip="Never hide in the void (UE style): no hide phase, and none while reloading, swapping, without a target or between knife stabs. You stay where you are.",Config={"Ragebot","UE","NoVoid"}});W:AddToggle({Label="Backstab Cooldown 0.8",Tooltip="On: the time between two backstabs is HeavyAttackCooldown x 0.8. Off: UE's own x 0.75.",Config={"Ragebot","UE","KnifeCooldown08"}});W:AddToggle({Label="Void Spam",Tooltip="Hide in the void between attack bursts (UE void spam). Used by the gun and the light attack, not by the backstab.",Config={"Ragebot","UE","VoidSpam"}});W:AddSlider({Label="Void Spam Attack",Tooltip="the amount of time attacking before hiding again (UE adds 0.1 s on top)",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","AttackTime"}});W:AddSlider({Label="Void Spam Hide",Tooltip="how long it stays in void for",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","HideTime"}});W:AddSlider({Label="Shoot Attempts",Tooltip="how many times it will try to fire your weapon (UE: ragebot_shoot_attempts)",Min=1,Max=2,Step=1,Config={"Ragebot","UE","ShootAttempts"}});W:AddDropdown({Label="Knife Attack",Tooltip="Heavy Backstab = UE attack mode knife. Light Attack = UE attack mode melee (fast light attacks with the knife).",Options={"Heavy","Light"},Labels={Heavy="Heavy Backstab",Light="Light Attack"},Config={"Ragebot","UE","KnifeAttack"}});end;local function I(W)local N={"Primary","Secondary","Melee"};for P,P in N,nil,nil do W:AddToggle({Label=string.format("%s Enabled",tostring(P)),Config={"Ragebot","Weapons","Enabled",P}});end;W:AddOrderedList({Label="Weapon Priority",Items=N,Default=N,Config={"Ragebot","Weapons","Priority"}});W:AddDropdown({Label="On Empty",Options={"Reload","Swap","SwapOrReload"},Labels={SwapOrReload="Swap or Reload"},Config={"Ragebot","Weapons","OnEmpty"}});end;local function W(N,P)local a=N:AddGroup({Source=P,Option="ProjectileBreaker"});a:AddRangeSlider({Label="Forward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForward"}});a:AddSlider({Label="Forward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForwardFrequency"}});a:AddRangeSlider({Label="Upward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUp"}});a:AddSlider({Label="Upward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUpFrequency"}});a:AddSlider({Label="Reposition Interval (s)",Min=0.05,Max=2,Step=0.01,Config={"Ragebot","Evasion","ProjectileBreaker","RepositionInterval"}});a:AddToggle({Label="Fallback Character Origin",Config={"Ragebot","Evasion","ProjectileBreaker","FallbackAnchorFromCharacter"}});a:AddSlider({Label="Fallback Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackBaseRadius"}});a:AddSlider({Label="Fallback Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackRadiusRandomFactor"}});end;local function N(P)local a=P:AddDropdown({Label="Evasion Mode",Options={"Off","Random","Translocate","ProjectileBreaker"},Labels={ProjectileBreaker="Projectile Breaker"},Config={"Ragebot","Evasion","Mode"}});local e=P:AddGroup({Source=a,Option="Random"});e:AddToggle({Label="Character Origin",Config={"Ragebot","Evasion","Random","AnchorFromCharacter"}});e:AddSlider({Label="Base Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","Random","BaseRadius"}});e:AddSlider({Label="Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","Random","RadiusRandomFactor"}});P:AddGroup({Source=a,Option="Translocate"}):AddSlider({Label="Offset",Min=-5,Max=5,Step=0.1,Config={"Ragebot","Evasion","Translocate","Offset"}});W(P,a);end;local function H(P)P:AddToggle({Label="Target HUD",Config={"Ragebot","TargetHud","Enabled"}});P:AddToggle({Label="Always Show",Tooltip="Keep the card up: without a ragebot target it shows the nearest enemy.",Config={"Ragebot","TargetHud","AlwaysShow"}});P:AddSlider({Label="Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","Scale"}});P:AddSlider({Label="Item Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","ItemScale"}});P:AddSlider({Label="Offset X (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosX"}});P:AddSlider({Label="Offset Y (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosY"}});end;return function(W)local style=l(W:AddSection({Title="Activation",Side="left"}));local khSection=W:AddSection({Title="KH Settings",Side="left"});kf(khSection);local carefulSection=W:AddSection({Title="Careful Settings",Side="left"});cf(carefulSection);local ueSection=W:AddSection({Title="UE Settings",Side="left"});uf(ueSection);local weaponSection=W:AddSection({Title="Weapon Strategy",Side="left"});I(weaponSection);local evasionSection=W:AddSection({Title="Evasion",Side="right"});N(evasionSection);local hudSection=W:AddSection({Title="Target HUD",Side="right"});H(hudSection);local fwSection=W:AddSection({Title="FW UE Settings",Side="left"});fwSection:AddToggle({Label="FW Weapon Check",Tooltip="Hide only while the weapon window is open. Slow weapons: the shot / swing cooldown must have at least 0.6 s left. Fast weapons (cooldown up to 0.3 s): the magazine must be nearly empty. Nobody may be reloading, and an enemy starting to reload sends you back to the void. No time limit on the wait.",Config={"Ragebot","FWWeaponCheck"}});local function applyStyle()local picked=style.Value;local isUE=picked=="UE" or picked=="k8x";local isCareful=picked=="Careful";local isEmpty=picked=="FWUE";khSection:SetVisible(not isUE and not isCareful and not isEmpty);evasionSection:SetVisible(not isUE and not isCareful and not isEmpty);ueSection:SetVisible(isUE);carefulSection:SetVisible(isCareful);weaponSection:SetVisible(not isEmpty);hudSection:SetVisible(not isEmpty);fwSection:SetVisible(picked=="FWUE");end;applyStyle();pcall(function()style.ValueChanged:Connect(applyStyle);end);end;end
+local function fn35() tbl17 .aE();local cfgd= tbl17 .bG();local I= tbl17 .h6();local function l(W)I(W,"Enable Ragebot",{"Always","Toggle","Hold"},{"Ragebot"},true);local style=W:AddDropdown({Label="Ragebot Style",Tooltip="KH: Kicia's own ragebot. UE: the Unnamed Enhancements ragebot (void spam, backstab, gun and light attack). Picking UE hides the KH settings. Auto: plays as KH until the Hacker Detector flags an enemy, then switches this dropdown to FW UE and stays there. Careful: the LY hub's own ragebot in its Careful mode (its own targeting, teleport attack, evasion and reloads). Careful Settings, Weapon Strategy and Target HUD apply to it.",Options={"Original","UE","k8x","Careful","FWUE"},Labels={Original="KH",UE="UE",k8x="k8x",Careful="Careful",FWUE="FW UE trash kh"},Config={"Ragebot","KnifeMode"}});W:AddToggle({Label="Round Start Delay",Tooltip="At the start of a round, hide in the void for a random 1-6 s first, then start attacking. Applies to every Ragebot Style.",Config={"Ragebot","StartDelay"}});W:AddToggle({Label="Prioritize Hackers",Config={"Ragebot","PrioritizeHackers"}});W:AddToggle({Label="Evade When Target Hacking",Config={"Ragebot","EvadeWhenHacking"}});W:AddButton({Label="Clear Hacker Tags",OnClick=function()local d=K.HackerDetector;local ok,n=pcall(function()return d and d:ClearTags() or nil;end);local text=(not ok or n==nil) and "Hacker detector is not ready" or string.format("Cleared %d hacker tag(s)",n);pcall(function()tbl17.aB().get():Notify(text);end);end});return style;end;local function kf(W)W:AddToggle({Label="Detect Knife",Config={"Ragebot","DetectKnife"}});W:AddSlider({Label="Stability",Min=0,Max=1.5,Step=0.001,Config={"Ragebot","Stability"}});W:AddSlider({Label="Shoot Frames",Min=1,Max=5,Config={"Ragebot","ShootFrames"}});W:AddToggle({Label="Custom Attack Height",Tooltip="Off: the fixed stand height (0.7 below the head hitbox of the target). On: the Attack Height below is used.",Config={"Ragebot","CustomAttackHeight"}});W:AddSlider({Label="Attack Height",Tooltip="How far above (+) or below (-) the head hitbox of the target you stand. A shield pointing down is 3.15 lower.",Min=-15,Max=15,Step=0.05,Config={"Ragebot","AttackHeight"}});end;local function cf(W)W:AddToggle({Label="Evade Between Shots",Tooltip="Slow weapons (shotgun, sniper, knife): evade in the gaps instead of standing on the target",Config={"Ragebot","Careful","EvadeBetweenShots"}});W:AddToggle({Label="Attack After Enemy",Tooltip="Only shoot an enemy in the gap right after it fired or swung, or while its weapon cools down or reloads",Config={"Ragebot","Careful","RetaliateOnly"}});W:AddSlider({Label="Gap Window",Tooltip="How long after its shot or swing an enemy can still be shot (its weapon cooldown or reload also counts)",Min=0.5,Max=5,Step=0.1,Suffix="s",Config={"Ragebot","Careful","RetaliateWindow"}});W:AddToggle({Label="Custom Attack Height",Tooltip="Off: the fixed stand height (0.7 below the head hitbox of the target). On: the Attack Height below is used.",Config={"Ragebot","CustomAttackHeight"}});W:AddSlider({Label="Attack Height",Tooltip="How far above (+) or below (-) the head hitbox of the target you stand. A shield pointing down is 3.15 lower.",Min=-15,Max=15,Step=0.05,Config={"Ragebot","AttackHeight"}});end;local function uf(W)W:AddToggle({Label="Never Void",Tooltip="Never hide in the void (UE style): no hide phase, and none while reloading, swapping, without a target or between knife stabs. You stay where you are.",Config={"Ragebot","UE","NoVoid"}});W:AddToggle({Label="Backstab Cooldown 0.8",Tooltip="On: the time between two backstabs is HeavyAttackCooldown x 0.8. Off: UE's own x 0.75.",Config={"Ragebot","UE","KnifeCooldown08"}});W:AddToggle({Label="Void Spam",Tooltip="Hide in the void between attack bursts (UE void spam). Used by the gun and the light attack, not by the backstab.",Config={"Ragebot","UE","VoidSpam"}});W:AddSlider({Label="Void Spam Attack",Tooltip="the amount of time attacking before hiding again (UE adds 0.1 s on top)",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","AttackTime"}});W:AddSlider({Label="Void Spam Hide",Tooltip="how long it stays in void for",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","HideTime"}});W:AddSlider({Label="Shoot Attempts",Tooltip="how many times it will try to fire your weapon (UE: ragebot_shoot_attempts)",Min=1,Max=2,Step=1,Config={"Ragebot","UE","ShootAttempts"}});W:AddDropdown({Label="Knife Attack",Tooltip="Heavy Backstab = UE attack mode knife. Light Attack = UE attack mode melee (fast light attacks with the knife).",Options={"Heavy","Light"},Labels={Heavy="Heavy Backstab",Light="Light Attack"},Config={"Ragebot","UE","KnifeAttack"}});end;local function I(W)local N={"Primary","Secondary","Melee"};for P,P in N,nil,nil do W:AddToggle({Label=string.format("%s Enabled",tostring(P)),Config={"Ragebot","Weapons","Enabled",P}});end;W:AddOrderedList({Label="Weapon Priority",Items=N,Default=N,Config={"Ragebot","Weapons","Priority"}});W:AddDropdown({Label="On Empty",Options={"Reload","Swap","SwapOrReload"},Labels={SwapOrReload="Swap or Reload"},Config={"Ragebot","Weapons","OnEmpty"}});end;local function W(N,P)local a=N:AddGroup({Source=P,Option="ProjectileBreaker"});a:AddRangeSlider({Label="Forward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForward"}});a:AddSlider({Label="Forward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForwardFrequency"}});a:AddRangeSlider({Label="Upward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUp"}});a:AddSlider({Label="Upward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUpFrequency"}});a:AddSlider({Label="Reposition Interval (s)",Min=0.05,Max=2,Step=0.01,Config={"Ragebot","Evasion","ProjectileBreaker","RepositionInterval"}});a:AddToggle({Label="Fallback Character Origin",Config={"Ragebot","Evasion","ProjectileBreaker","FallbackAnchorFromCharacter"}});a:AddSlider({Label="Fallback Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackBaseRadius"}});a:AddSlider({Label="Fallback Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackRadiusRandomFactor"}});end;local function N(P)local a=P:AddDropdown({Label="Evasion Mode",Options={"Off","Random","Translocate","ProjectileBreaker"},Labels={ProjectileBreaker="Projectile Breaker"},Config={"Ragebot","Evasion","Mode"}});local e=P:AddGroup({Source=a,Option="Random"});e:AddToggle({Label="Character Origin",Config={"Ragebot","Evasion","Random","AnchorFromCharacter"}});e:AddSlider({Label="Base Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","Random","BaseRadius"}});e:AddSlider({Label="Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","Random","RadiusRandomFactor"}});P:AddGroup({Source=a,Option="Translocate"}):AddSlider({Label="Offset",Min=-5,Max=5,Step=0.1,Config={"Ragebot","Evasion","Translocate","Offset"}});W(P,a);end;local function H(P)P:AddToggle({Label="Target HUD",Config={"Ragebot","TargetHud","Enabled"}});P:AddToggle({Label="Always Show",Tooltip="Keep the card up: without a ragebot target it shows the nearest enemy.",Config={"Ragebot","TargetHud","AlwaysShow"}});P:AddSlider({Label="Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","Scale"}});P:AddSlider({Label="Item Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","ItemScale"}});P:AddSlider({Label="Offset X (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosX"}});P:AddSlider({Label="Offset Y (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosY"}});end;return function(W)local style=l(W:AddSection({Title="Activation",Side="left"}));local khSection=W:AddSection({Title="KH Settings",Side="left"});kf(khSection);local carefulSection=W:AddSection({Title="Careful Settings",Side="left"});cf(carefulSection);local ueSection=W:AddSection({Title="UE Settings",Side="left"});uf(ueSection);local weaponSection=W:AddSection({Title="Weapon Strategy",Side="left"});I(weaponSection);local evasionSection=W:AddSection({Title="Evasion",Side="right"});N(evasionSection);local hudSection=W:AddSection({Title="Target HUD",Side="right"});H(hudSection);local fwSection=W:AddSection({Title="FW UE Settings",Side="left"});fwSection:AddToggle({Label="FW Weapon Check",Tooltip="Hide only while the weapon window is open. Slow weapons: the shot / swing cooldown must have at least 0.6 s left. Fast weapons (cooldown up to 0.3 s): the magazine must be nearly empty. Nobody may be reloading, and an enemy starting to reload sends you back to the void. No time limit on the wait.",Config={"Ragebot","FWWeaponCheck"}});local function applyStyle()local picked=style.Value;local isUE=picked=="UE";local isK8x=picked=="k8x";local isCareful=picked=="Careful";local isEmpty=picked=="FWUE";khSection:SetVisible(not isUE and not isK8x and not isCareful and not isEmpty);evasionSection:SetVisible(not isUE and not isK8x and not isCareful and not isEmpty);ueSection:SetVisible(isUE);carefulSection:SetVisible(isCareful);weaponSection:SetVisible(not isEmpty and not isK8x);hudSection:SetVisible(not isEmpty);fwSection:SetVisible(picked=="FWUE");end;applyStyle();pcall(function()style.ValueChanged:Connect(applyStyle);end);end;end
 
 tbl17.ih = function()
 local ih = tbl17.cache.ih
@@ -73122,7 +73122,7 @@ return it.c
 end
 end
 do -- iU
-local function fn35() tbl17 .aE();local function l(I,W,N)I:AddDivider({Label="Highlight"});local P=I:AddToggle({Label=N.." Highlight",Config={"ViewModelHighlight",W,"Enabled"}});I:AddColor({Row=P.Row,Config={"ViewModelHighlight",W,"FillColor"},Animatable=true});I:AddToggle({Label=N.." Render Above",Config={"ViewModelHighlight",W,"AlwaysOnTop"}});local a=I:AddGroup({Source=P});a:AddSlider({Label=N.." Fill Transparency",Min=-10,Max=10,Step=0.01,Config={"ViewModelHighlight",W,"FillTransparency"}});a:AddColor({Label=N.." Outline",Config={"ViewModelHighlight",W,"OutlineColor"},Animatable=true});a:AddSlider({Label=N.." Outline Transparency",Min=-10,Max=10,Step=0.01,Config={"ViewModelHighlight",W,"OutlineTransparency"}});end;return function(I,W)l(I,"Arms","Arms");l(W,"Item","Held Item");end;end
+local function fn35() tbl17 .aE();local function l(I,W,N)I:AddDivider({Label="Highlight"});local P=I:AddToggle({Label=N.." Highlight",Config={"ViewModelHighlight",W,"Enabled"}});I:AddColor({Row=P.Row,Config={"ViewModelHighlight",W,"FillColor"},Animatable=true});I:AddToggle({Label=N.." Render Above",Config={"ViewModelHighlight",W,"AlwaysOnTop"}});local a=I:AddGroup({Source=P});a:AddSlider({Label=N.." Fill Transparency",Min=0,Max=1,Step=0.01,Config={"ViewModelHighlight",W,"FillTransparency"}});a:AddColor({Label=N.." Outline",Config={"ViewModelHighlight",W,"OutlineColor"},Animatable=true});a:AddSlider({Label=N.." Outline Transparency",Min=0,Max=1,Step=0.01,Config={"ViewModelHighlight",W,"OutlineTransparency"}});end;return function(I,W)l(I,"Arms","Arms");l(W,"Item","Held Item");end;end
 
 tbl17.iU = function()
 local iu = tbl17.cache.iU
@@ -73460,6 +73460,7 @@ if mode=="Lite" and K.SetsunaUI~=nil then MenuClass=K.SetsunaUI.Lite end
 if mode=="Setsuna" and K.SetsunaUI~=nil then MenuClass=K.SetsunaUI.Menu end
 if mode=="Setsuna Drop" and K.SetsunaUI~=nil then MenuClass=K.SetsunaUI.Drop end
 if mode=="Matcha" and K.SetsunaUI~=nil and K.SetsunaUI.Matcha~=nil then MenuClass=K.SetsunaUI.Matcha end
+if mode=="KH V2" and K.SetsunaUI~=nil and K.SetsunaUI.V2~=nil then MenuClass=K.SetsunaUI.V2 end
 local t=MenuClass.new({Icon=K.LithiumLogo,Title=string.format("LxYHook | Rivals | %s",tostring("Premium Build")),Directory=K.AccountDir,Config=l.ReactiveStoreAdapter,ColorAnimation=l.ColorAnimation,Persistence=I,State=l.GeneralState,StateData=l.GeneralStateData,OnUnload=function()e:Destroy();end})
 current=t
 e:Add(t)
@@ -75642,10 +75643,11 @@ local M = {}
 -- UE ragebot style is picked with Ragebot.KnifeMode == "UE" (the dropdown is labelled "Ragebot Style": KH / UE / Careful)
 function M.IsUE()
 local style = K.RagebotStyle(config.Data.Ragebot.KnifeMode)
-return style == "UE" or style == "k8x"
+return style == "UE"
 end
 
--- k8x: UE's whole void-spam ragebot, except the void is straight UP (y = 2147483647) instead of a random direction
+-- k8x: its own category, NOT UE. Dodge only: it never targets or attacks, it just sits in the void straight
+-- UP (y = 2147483647) and ignores every UE setting (including Never Void).
 function M.IsK8x()
 return K.RagebotStyle(config.Data.Ragebot.KnifeMode) == "k8x"
 end
@@ -75670,12 +75672,12 @@ return settings ~= nil and settings.NoVoid == true
 end
 
 function M.Void()
-if M.NoVoid() then
-return nil
-end
 local distance = UE_VOID_DISTANCE
 if M.IsK8x() then
 return CFrame.new(0, distance, 0)
+end
+if M.NoVoid() then
+return nil
 end
 local v = random:NextUnitVector()
 -- UE is literally CFrame.new(NextUnitVector() * distance) (proto 4290 pc6-9), and NextUnitVector is
@@ -75686,6 +75688,28 @@ local v = random:NextUnitVector()
 -- kh.lua:51192, y = +5000..10000 at 62650 and 62809), so mirror a downward pick upward: same
 -- direction spread, same exact distance, never below the world.
 return CFrame.new(Vector3.new(v.X, math.abs(v.Y), v.Z) * distance)
+end
+
+-- k8x pose (same numbers as the Pigeon style): park FeetDrop studs under the target's RootPart, lying flat
+-- (pitch 90 deg), spinning clockwise SpinTurns turns a second; the shot origin is OriginHeight studs above his
+-- head hitbox, looking down at it. To change any of them before running the script:
+--   getgenv().K8xPose = { OriginHeight = 50, FeetDrop = 3, SpinTurns = 1, Pitch = 90 }
+-- (any field left out keeps its default below)
+local K8X_POSE_DEFAULT = { OriginHeight = 50, FeetDrop = 5, SpinTurns = 1, Pitch = 90 }
+function M.K8xPose()
+local okEnv, env = pcall(function() return getgenv().K8xPose end)
+local pose = {}
+for key, default in pairs(K8X_POSE_DEFAULT) do
+local value = okEnv and type(env) == "table" and env[key] or nil
+pose[key] = type(value) == "number" and value or default
+end
+return pose
+end
+
+-- server CFrame for a park point: lying flat, spinning clockwise (negative yaw seen from above)
+function M.K8xStandCFrame(standPosition)
+local pose = M.K8xPose()
+return CFrame.new(standPosition) * CFrame.Angles(0, -pose.SpinTurns * 6.283185307179586 * tick(), 0) * CFrame.Angles(math.rad(pose.Pitch), 0, 0)
 end
 
 -- true when the knife should stand exactly behind the victim along the victim's facing (not UE's random sphere)
@@ -76080,6 +76104,51 @@ arg._ueNextShot = now2 + 1 / 120
 -- Get('ObjectID'), ToEnum('StartShooting'), the payload build and fireServer -- is the loop body
 -- (pc308 -> pc291 -> pc178). So each attempt re-encodes with fresh jitter rather than resending one
 -- payload. Slider in proto 1 pc11947/11949/13083: Default 1, Min 1, Max 2.
+local attempts = ueS.ShootAttempts()
+
+return serverCFrame, function()
+for _ = 1, attempts do
+gun:ShootEncoded(
+ueEncode.encode(origin),
+ueEncode.encode(origin),
+targetPart,
+ueEncode.encode(CFrame.new(math.random() * 0.1, math.random() * 0.1, math.random() * 0.1))
+)
+end
+end
+end
+
+-- k8x gun path: PlanUE's packet (origin = our own stand position + eye height, aimed at the head, \2 = HitboxHead,
+-- jittered \3, 1/120 s pacing, ShootAttempts re-encodes) but the stand is `below` studs straight UNDER the target's
+-- root part instead of 3 above his head. Returns the server CFrame and the shot (nil while paced / blocked).
+index2.PlanK8x = function(arg, target, gun, ourPart, localFighterState, below)
+arg._partGlue:Free(ourPart)
+local targetPart = target.AliveState.HitboxHead
+if targetPart == nil then
+return nil
+end
+local position = targetPart.Position
+local pose = ueS.K8xPose()
+local standPosition = target.AliveState.RootPart.Position - Vector3.new(0, pose.FeetDrop, 0)
+
+local crouching = false
+if localFighterState ~= nil then
+local okCrouch, isCrouching = pcall(localFighterState.IsCrouching, localFighterState)
+crouching = okCrouch and isCrouching == true
+end
+-- Shot origin (\0 and \1 both): our own stand position + eye height, looking at the head
+local origin = CFrame.new(standPosition + (crouching and Vector3.new(0, 0.25, 0) or Vector3.new(0, 1.75, 0)), position)
+
+arg._ueOurPart = ourPart
+arg._partGlue:SetRepRoot(ourPart, workspace.Terrain)
+-- lying flat and spinning clockwise (Pigeon's pose)
+local serverCFrame = ueS.K8xStandCFrame(standPosition)
+
+local now2 = tick()
+if ueS.Blocked() or now2 < arg._ueNextShot then
+return serverCFrame, nil
+end
+arg._ueNextShot = now2 + 1 / 120
 local attempts = ueS.ShootAttempts()
 
 return serverCFrame, function()
@@ -76520,6 +76589,29 @@ end
 arg._ueNextSwing = now2 + 1 / 60
 
 return stand, nil, function()
+ueSendLight(weapon, targetPart, stand)
+end
+end
+
+-- k8x vs an enemy judged UE: swing the light attack (UE's light packet, ueSendLight) every frame (1/60 s) from
+-- `standPosition` at the target's head. Returns the swing as a function, or nil while paced / no head hitbox.
+index2.PlanK8x = function(arg, target, weapon, standPosition)
+local gluedOurPart = arg._gluedOurPart
+if gluedOurPart ~= nil then
+arg._partGlue:Free(gluedOurPart)
+arg._gluedOurPart = nil
+end
+local targetPart = target.AliveState.HitboxHead
+if targetPart == nil then
+return nil
+end
+local stand = CFrame.new(standPosition, targetPart.Position)
+local now2 = tick()
+if now2 < arg._ueNextSwing then
+return nil
+end
+arg._ueNextSwing = now2 + 1 / 60
+return function()
 ueSendLight(weapon, targetPart, stand)
 end
 end
@@ -81161,7 +81253,7 @@ end
 -- values used while the ragebot is off.
 index2._ApplyHistoryFlags = function(arg, enabled)
 local khStyle = K.RagebotStyle(v115.Data.Ragebot.KnifeMode)
-local khHistory = enabled and not isUE() and khStyle ~= "Careful"
+local khHistory = enabled and not isUE() and not ueS.IsK8x() and khStyle ~= "Careful"
 v107(v108, "DFIntAssemblyHistoryBufferSize", khHistory and "2147483648" or "15")
 v107(v108, "DFIntAssemblyHistorySkipSize", khHistory and v86[18] or "8")
 arg._historyStyle = K.RagebotStyle(v115.Data.Ragebot.KnifeMode)
@@ -81624,7 +81716,7 @@ arg._fwPhase = nil
 end
 local v130 = v128.getAction(innerContext)
 
-if fwue or (mode == "Translocate" and not isUE() and arg._reloadGun == nil and (v130 == nil or v130.Type ~= "Reload")) then
+if fwue or (mode == "Translocate" and not isUE() and not ueS.IsK8x() and arg._reloadGun == nil and (v130 == nil or v130.Type ~= "Reload")) then
 arg:_ApplyForcedCrouch(v86[153])
 targetHud.Hide()
 -- FW UE void phase: UE's void (random direction at 2147483647 studs, kept above the map), the furthest
@@ -81680,7 +81772,7 @@ tbl17.ragebotLastFire = os.clock()
 weaponAction()
 
 if v132 ~= nil and (v132 ~= nil and v132.ShotRequestCount - shotRequestCount or 0) > 0 and v132:GetExpectedAmmoAfterPendingShots() <= 0 then
-if isUE() then
+if isUE() or ueS.IsK8x() then
 -- not "isUE() and x or y": with Never Void on, ueVoidPlan's CFrame is nil and that idiom would fall through
 innerContext.CharacterController:SetServerCFrame(ueVoidPlan(arg, v132, state.RootPart).CFrame)
 else
@@ -81723,6 +81815,227 @@ roundDelayLog("_Plan gate active=" .. tostring(active))
 end
 return active
 end
+-- Detect Knife (Ragebot.DetectKnife): never stand next to a target whose Knife can stab. The knife is
+-- dangerous unless its attack cooldown is running (FighterController fighter.EquippedItem keeps
+-- _attack_cooldown = tick() time the cooldown ends, as FW UE reads it) and the swing that started it is over
+-- (a stab does its damage up to 0.625 s after its packet, kh.lua:30329). While it is dangerous the plan is the
+-- evasion plan, so we are far away and the stab has nobody to hit. KNIFE_WAIT_MAX = how long we wait for the
+-- window before attacking anyway (math.huge = never; the round can then stall against a knife that never swings).
+local KNIFE_SWING = 0.625
+local KNIFE_LEAD = 0.15
+local KNIFE_WAIT_MAX = math.huge
+local knifeSeen = setmetatable({}, { __mode = "k" })
+local knifeWaitSince = nil
+local function targetKnifeDangerous(target)
+	if v115.Data.Ragebot.DetectKnife == false then
+		knifeWaitSince = nil
+		return false
+	end
+	local ok, danger = pcall(function()
+		local player = target.FighterState ~= nil and target.FighterState.Player or nil
+		if player == nil then
+			return false
+		end
+		local fighter = K.Controller("FighterController"):GetFighter(player)
+		local item = fighter ~= nil and fighter.EquippedItem or nil
+		if item == nil or item.Name ~= "Knife" then
+			return false
+		end
+		local clock = tick()
+		local ends = item._attack_cooldown
+		if type(ends) ~= "number" or ends == math.huge or ends <= clock + KNIFE_LEAD then
+			return true
+		end
+		local rec = knifeSeen[item]
+		if rec == nil or rec.ends ~= ends then
+			rec = { ends = ends, at = clock }
+			knifeSeen[item] = rec
+		end
+		return clock - rec.at < KNIFE_SWING
+	end)
+	danger = ok and danger == true
+	if danger then
+		knifeWaitSince = knifeWaitSince or os.clock()
+		if os.clock() - knifeWaitSince > KNIFE_WAIT_MAX then
+			return false
+		end
+	else
+		knifeWaitSince = nil
+	end
+	return danger
+end
+
+-- k8x: when to hide in the void (straight up) instead of sitting under the target.
+local K8X_FAR = 14000000
+-- the map's position, taken from its killing OOB parts (tag "OutOfBoundsPart", KillDelay == 0, else any OOB part): the average of their centres. Cached for a second.
+local k8xMapCache, k8xMapAt = nil, -math.huge
+local function k8xMapPosition()
+	local now2 = os.clock()
+	if now2 - k8xMapAt < 1 then
+		return k8xMapCache
+	end
+	k8xMapAt = now2
+	local ok, pos = pcall(function()
+		local sum, n, sumAll, nAll = Vector3.zero, 0, Vector3.zero, 0
+		for _, part in CollectionService:GetTagged("OutOfBoundsPart") do
+			if part:IsA("BasePart") then
+				sumAll += part.Position
+				nAll += 1
+				if part:GetAttribute("KillDelay") == 0 then
+					sum += part.Position
+					n += 1
+				end
+			end
+		end
+		if n > 0 then
+			return sum / n
+		end
+		if nAll > 0 then
+			return sumAll / nAll
+		end
+		return nil
+	end)
+	k8xMapCache = ok and pos or nil
+	return k8xMapCache
+end
+-- Detection: an enemy more than 1.5 billion studs from the map's OOB position is judged to be UE (UE hides at
+-- 2147483647); anything closer is judged to be KH. The last verdict is kept while there is no target.
+-- Only the current target is judged: 2v2 with two enemies on different cheats is not handled (on purpose, for now).
+-- KH tops out at ~1.86e9 (its immune ring: x, y, z each up to 1.07e9, so the magnitude reaches sqrt(3) * 1.07e9;
+-- its Evasion Random only gets to ~1.084e9); UE hides at exactly 2147483647. 2.0e9 sits between the two.
+local K8X_UE_FAR = 2000000000
+-- A UE player hides in the void only part of the time (void spam) and stands next to us the rest, so a single
+-- look at his position is not enough: once he has been seen beyond K8X_UE_FAR he stays judged UE for this long.
+local K8X_UE_HOLD = 2
+local k8xLastStyle = "KH"
+local k8xUESeen = setmetatable({}, { __mode = "k" })
+local k8xAnyUESeen = -math.huge
+-- shown in the status line so the verdict can be checked: the largest enemy distance from the OOB position
+local k8xLastDist = 0
+-- Status line: "k8x[UE|KH] <max enemy distance from OOB> | <what it is doing>". The text only changes at most
+-- every 0.6 s (the state flips every frame, which made the line unreadable).
+local k8xStatusText, k8xStatusAt = nil, -math.huge
+local function k8xSetStatus(action)
+	local text = string.format("k8x[%s] %.1e | %s", k8xLastStyle, k8xLastDist, action)
+	local now2 = os.clock()
+	if k8xStatusText == nil or (text ~= k8xStatusText and now2 - k8xStatusAt >= 0.6) then
+		k8xStatusText = text
+		k8xStatusAt = now2
+	end
+	ueS.SetStatus(k8xStatusText)
+end
+local k8xScanMax = 0
+local function k8xFarFromMap(position, ref)
+	if typeof(position) ~= "Vector3" then
+		return false
+	end
+	local dist = (position - ref).Magnitude
+	if dist ~= dist then
+		return false -- NaN
+	end
+	if dist > k8xScanMax and dist < 1e12 then
+		k8xScanMax = dist
+	end
+	-- UE hides at exactly 2147483647; only that band counts. Anything absurdly further (KH's -9e37 / glue
+	-- constants, inf) is not UE.
+	return dist > K8X_UE_FAR and dist < 2300000000
+end
+local function k8xDetectStyle(target)
+	local now2 = os.clock()
+	local ref = k8xMapPosition() or Vector3.zero
+	k8xScanMax = 0
+	-- look at every other player's character (root part and PhysicsRepRootPart), so an enemy that is in the
+	-- void right now is caught even when he is not the current target
+	pcall(function()
+		local playersService = game:GetService("Players")
+		for _, plr in ipairs(playersService:GetPlayers()) do
+			if plr ~= playersService.LocalPlayer and plr.Character ~= nil then
+				for _, partName in ipairs({ "HumanoidRootPart" }) do
+					local part = plr.Character:FindFirstChild(partName)
+					if part ~= nil and k8xFarFromMap(part.Position, ref) then
+						k8xUESeen[plr] = now2
+						k8xAnyUESeen = now2
+					end
+				end
+			end
+		end
+	end)
+	if target == nil then
+		k8xLastStyle = (now2 - k8xAnyUESeen < K8X_UE_HOLD) and "UE" or "KH"
+		k8xLastDist = k8xScanMax
+		return k8xLastStyle
+	end
+	local okPlr, plr = pcall(function() return target.FighterState.Player end)
+	local okPos, pos = pcall(function() return target.AliveState.RootPart.Position end)
+	if okPos and k8xFarFromMap(pos, ref) then
+		k8xAnyUESeen = now2
+		if okPlr and plr ~= nil then
+			k8xUESeen[plr] = now2
+		end
+	end
+	local seenAt = (okPlr and plr ~= nil) and k8xUESeen[plr] or nil
+	k8xLastStyle = (seenAt ~= nil and now2 - seenAt < K8X_UE_HOLD) and "UE" or "KH"
+	k8xLastDist = k8xScanMax
+	return k8xLastStyle
+end
+local function k8xEnemyHasKatana(target)
+	local ok, has = pcall(function()
+		local plr = target.FighterState ~= nil and target.FighterState.Player or nil
+		if plr == nil then
+			return false
+		end
+		local fighter = K.Controller("FighterController"):GetFighter(plr)
+		local held = fighter ~= nil and fighter.EquippedItem or nil
+		return held ~= nil and string.find(string.lower(tostring(held.Name)), "katana", 1, true) ~= nil
+	end)
+	return ok and has == true
+end
+local function k8xShouldVoid(arg, action, target, ownRoot)
+	-- no target
+	if target == nil then
+		return true, "no target"
+	end
+	-- reloading / swapping
+	if arg._reloadGun ~= nil or (action ~= nil and (action.Type == "Reload" or action.Type == "Swap")) then
+		return true, "reload / swap"
+	end
+	local item = action ~= nil and action.Item or nil
+	if item ~= nil and item.__type == "Gun" then
+		local okR, reloading = pcall(item.IsReloading, item)
+		if okR and reloading then
+			return true, "reloading"
+		end
+		-- out of bullets
+		local okA, ammo = pcall(item.GetExpectedAmmoAfterPendingShots, item)
+		if okA and type(ammo) == "number" and ammo <= 0 then
+			return true, "no ammo"
+		end
+	end
+	-- enemy is not within 14M studs of us
+	local okP, targetPos = pcall(function() return target.AliveState.RootPart.Position end)
+	if not okP then
+		return true, "no target position"
+	end
+	-- judged from the map's OOB position (not our own position: in the void that is ~2.1e9 and would latch)
+	-- (not for an enemy judged UE: he sits at ~2.1e9 on purpose, and we shoot him there too)
+	if k8xLastStyle ~= "UE" then
+		local ref = k8xMapPosition()
+		if ref ~= nil then
+			local dist = (targetPos - ref).Magnitude
+			if dist > K8X_FAR then
+				return true, string.format("enemy beyond 14M (%.0f from OOB)", dist)
+			end
+		elseif targetPos.Magnitude > K8X_FAR then
+			return true, "enemy beyond 14M (no OOB part)"
+		end
+	end
+	-- enemy holds a katana
+	if k8xEnemyHasKatana(target) then
+		return true, "enemy katana"
+	end
+	return false
+end
+
 -- KH hides with its own evasion plan, UE with UE's void
 local function ragebotStartDelayPlan(arg, arg5, arg6, arg7)
 if isUE() then
@@ -81732,6 +82045,101 @@ return arg:_EvadePlan(arg6, arg7)
 end
 
 index2._Plan = function(arg, arg2, arg3, arg4, arg5, arg6, arg7)
+-- k8x: its own style. Equip / reload run through the normal machinery (same as the other styles) but hide in
+-- the straight-up void while they happen; otherwise sit K8X_BELOW studs under the target and shoot.
+if ueS.IsK8x() then
+local K8X_BELOW = 5
+local k8xEnemyStyle = k8xDetectStyle(arg4)
+-- Enemy judged UE: hide exactly the way KH's "Evasion" does (arg:_EvadePlan with the Evasion Mode from the
+-- menu: Random = a point on a shell around the anchor with one axis pushed to 1073741824, Off = no move, ...).
+-- Enemy judged KH: unchanged, the straight-up void (y = 2147483647).
+local function k8xHidePlan()
+if k8xEnemyStyle == "UE" then
+local okE, evade = pcall(arg._EvadePlan, arg, arg6, arg7)
+if okE and type(evade) == "table" then
+return evade
+end
+return {}
+end
+return { CFrame = ueS.Void(), ShouldSkipDefense = v86[34] }
+end
+local function k8xVoid(why)
+ueS.MarkVoid()
+k8xSetStatus("void: " .. why)
+return k8xHidePlan()
+end
+-- Enemy judged UE: stay K8xPose().FeetDrop studs under OUR OWN REAL position (arg6 = the client CFrame, where our
+-- body really is, not the server CFrame we spoof) and keep sending the melee packet at his head, every frame.
+if k8xEnemyStyle == "UE" and arg4 ~= nil and arg6 ~= nil and arg._innerContext ~= nil then
+local melee = nil
+pcall(function()
+for _, it in arg._innerContext.ItemBehaviors:GetItems() do
+if it.__type == "Melee" then
+melee = it
+break
+end
+end
+end)
+if melee ~= nil then
+local standPos = arg6.Position - Vector3.new(0, ueS.K8xPose().FeetDrop, 0)
+local uePlan = { CFrame = ueS.K8xStandCFrame(standPos), ShouldSkipDefense = v86[34] }
+if not melee:IsEquipped() then
+uePlan.WeaponAction = function()
+melee:Equip()
+end
+k8xSetStatus("melee: equipping")
+else
+local okM, swing = pcall(arg._meleeStrategy.PlanK8x, arg._meleeStrategy, arg4, melee, standPos)
+uePlan.WeaponAction = okM and swing or nil
+k8xSetStatus("melee: under real position")
+end
+return uePlan
+end
+end
+-- a reload in progress / starting (Type == "Reload" starts it here, WeaponAction sends the Reload packet)
+local k8xReload = arg:_PlanReloadTransport(arg3)
+if k8xReload ~= nil then
+local k8xHide = k8xHidePlan()
+k8xReload.CFrame = k8xHide.CFrame
+k8xReload.ShouldSkipDefense = k8xHide.ShouldSkipDefense
+ueS.MarkVoid()
+k8xSetStatus("void: reload")
+return k8xReload
+end
+if arg3 == nil then
+return k8xVoid("no usable item")
+end
+-- the gun is not equipped yet: equip it (the other styles do this through WeaponAction too)
+if arg3.Type == "Swap" then
+local swapItem = arg3.Item
+local swapPlan = k8xVoid("swap")
+swapPlan.WeaponAction = function()
+swapItem:Equip()
+end
+return swapPlan
+end
+local voidNow, voidWhy = k8xShouldVoid(arg, arg3, arg4, arg5)
+if voidNow then
+return k8xVoid(voidWhy)
+end
+-- Gun in hand: shoot from 5000 studs above his head (PlanK8x), standing under him and spinning.
+local k8xItem = arg3 ~= nil and arg3.Item or nil
+if k8xItem ~= nil and k8xItem.__type == "Gun" then
+local localFighterState = arg._innerContext ~= nil and arg._innerContext.FighterState or nil
+local okK, k8xCFrame, k8xAction = pcall(arg._hitscanStrategy.PlanK8x, arg._hitscanStrategy, arg4, k8xItem, arg5, localFighterState, K8X_BELOW)
+if okK and k8xCFrame ~= nil then
+k8xSetStatus("shooting")
+return { CFrame = k8xCFrame, WeaponAction = k8xAction, ShouldSkipDefense = v86[34] }
+end
+end
+local okPos, targetPos = pcall(function() return arg4.AliveState.RootPart.Position end)
+if okPos and typeof(targetPos) == "Vector3" then
+k8xSetStatus("under target")
+return { CFrame = ueS.K8xStandCFrame(targetPos - Vector3.new(0, ueS.K8xPose().FeetDrop, 0)), ShouldSkipDefense = v86[34] }
+end
+k8xSetStatus("dodge (void up)")
+return { CFrame = ueS.Void(), ShouldSkipDefense = v86[34] }
+end
 if isUE() and not ueRoundActive(arg) then
 return ueVoidPlan(arg, nil, arg5)
 end
@@ -81777,6 +82185,14 @@ if isUE() then
 return ueVoidPlan(arg, arg3.Item, arg5)
 end
 return arg:_EvadePlan(arg6, arg7)
+end
+-- Detect Knife: the target's knife can stab, so do not stand at him. Give his head hitbox back first
+-- (with it restored the glued rep root resolves us to exactly where we put ourselves), then evade.
+if not isUE() and targetKnifeDangerous(arg4) then
+	pcall(function()
+		arg._hitscanStrategy._partGlue:Free(arg5)
+	end)
+	return arg:_EvadePlan(arg6, arg7)
 end
 local item = arg3.Item
 
@@ -84884,7 +85300,7 @@ end
 do
     -- one file per account (like the rest of its settings, in K.AccountDir), so each account keeps its own menu form
     local MODE_FILE = K.AccountDir .. "/ui_style.txt"
-    local function valid(m) return m == "Classic" or m == "Starlight" or m == "Lite" or m == "Setsuna" or m == "Setsuna Drop" or m == "Matcha" end
+    local function valid(m) return m == "Classic" or m == "Starlight" or m == "Lite" or m == "Setsuna" or m == "Setsuna Drop" or m == "Matcha" or m == "KH V2" end
     function K.UIMode()
         local m = getgenv().LxYUI
         if valid(m) then return m end
@@ -87094,8 +87510,10 @@ end
         if parent ~= nil then inst.Parent = parent end
         return inst
     end
-    local function corner(inst, px) return mk("UICorner", { CornerRadius = UDim.new(0, px) }, inst) end
-    local function circle(inst) return mk("UICorner", { CornerRadius = UDim.new(0.5, 0) }, inst) end
+    -- the KH V2 form has square corners everywhere (set per menu in newMenu)
+    local sharpCorners = false
+    local function corner(inst, px) return mk("UICorner", { CornerRadius = UDim.new(0, sharpCorners and 0 or px) }, inst) end
+    local function circle(inst) return mk("UICorner", { CornerRadius = sharpCorners and UDim.new(0, 0) or UDim.new(0.5, 0) }, inst) end
     local function tween(inst, seconds, props, style, dir)
         local tw = TweenSvc:Create(inst, TweenInfo.new(seconds, style or Enum.EasingStyle.Quint, dir or Enum.EasingDirection.Out), props)
         tw:Play()
@@ -87288,7 +87706,10 @@ end
             Size = UDim2.new(1, -8, 0, h), BorderSizePixel = 0, LayoutOrder = sec._order * 1000 + sec._n, Active = true,
         }, scroll)
         corner(row, 8)
-        if m._lite and not solid then
+        if m._v2 and not solid then
+            m:_paint(row, "BackgroundColor3", "hover")
+            row.BackgroundTransparency = 1
+        elseif m._lite and not solid then
             -- Starlight's rows sit flat on the card; only the pointer lights one (a button keeps its backdrop)
             m:_paint(row, "BackgroundColor3", "hover")
             row.BackgroundTransparency = 1
@@ -87328,7 +87749,7 @@ end
         local avail = (g and g.setW or 280) - 16 - 28 - self._extrasW
         local ok, size = pcall(TextSvc.GetTextSize, TextSvc, tostring(t.Text), 14, Enum.Font.GothamMedium, Vector2.new(math.max(60, avail), 10000))
         local h = ok and size.Y or 16
-        row.Size = UDim2.new(1, -8, 0, math.max(36, h + 20))
+        row.Size = UDim2.new(1, -8, 0, self._menu._v2 and math.max(20, h + 6) or math.max(36, h + 20))
         t.Size = UDim2.new(1, -self._extrasW, 1, 0)
     end
 
@@ -87372,8 +87793,9 @@ end
         self._canNest = true
         self:_defer(function()
             local m = sec._menu
-            local row = newRow(sec, 36)
-            mk("UIPadding", { PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 10), PaddingLeft = UDim.new(0, 14), PaddingRight = UDim.new(0, 14) }, row)
+            local row = newRow(sec, m._v2 and 20 or 36)
+            local pv, ph = m._v2 and 3 or 10, m._v2 and 4 or 14
+            mk("UIPadding", { PaddingTop = UDim.new(0, pv), PaddingBottom = UDim.new(0, pv), PaddingLeft = UDim.new(0, ph), PaddingRight = UDim.new(0, ph) }, row)
             self._row, self._el, self._auto, self._reserve, self._extrasW = row, row, true, 0, 0
             local t = text(m, row, self.Text, 14, "dim", false)
             t.Size = UDim2.fromScale(1, 1)
@@ -87406,27 +87828,32 @@ end
         self._canNest = true
         self:_defer(function()
             local m = sec._menu
-            local row = newRow(sec, 40)
+            local v2 = m._v2
+            local row = newRow(sec, v2 and 20 or 40)
             self._row, self._el = row, row
-            rowLabel(self, row, self._label, 60)
+            rowLabel(self, row, self._label, v2 and 0 or 60)
+            if v2 then self._text.Position = UDim2.fromOffset(22, 0) end
             rowButton(row).Activated:Connect(function()
                 local nv = not self.Value
                 self.Value = nv
                 self:_render(true)
                 self:_emit(nv)
             end)
-            local track = mk("Frame", { AnchorPoint = Vector2.new(1, .5), Position = UDim2.new(1, -12, .5, 0), Size = UDim2.fromOffset(44, 22), BorderSizePixel = 0, ZIndex = 2 }, row)
+            local track = mk("Frame", { AnchorPoint = v2 and Vector2.new(0, .5) or Vector2.new(1, .5), Position = v2 and UDim2.new(0, 4, .5, 0) or UDim2.new(1, -12, .5, 0),
+                Size = v2 and UDim2.fromOffset(13, 13) or UDim2.fromOffset(44, 22), BorderSizePixel = 0, ZIndex = 2 }, row)
             circle(track)
+            if v2 then mk("UIStroke", { Thickness = 1, Color = Color3.new(0, 0, 0) }, track) end
             local tg = m:_grad(track)
             local knob = mk("Frame", { AnchorPoint = Vector2.new(0, .5), Size = UDim2.fromOffset(16, 16), BorderSizePixel = 0, ZIndex = 3 }, track)
             circle(knob)
             m:_paint(knob, "BackgroundColor3", "knob")
+            knob.Visible = not v2
             function self._render(_, animate)
                 local on = self.Value
-                local goal = on and m._pal.fill or m._pal.toggleoff
+                local goal = on and m._pal.fill or (v2 and m._pal.track or m._pal.toggleoff)
                 if tg then tg.Enabled = on end
                 local pos = UDim2.new(0, on and 25 or 3, .5, 0)
-                if animate then
+                if animate and not v2 then
                     tween(track, .15, { BackgroundColor3 = goal })
                     tween(knob, .15, { Position = pos })
                 else
@@ -87471,19 +87898,22 @@ end
         self._label = tostring(o.Label or "")
         self:_defer(function()
             local m = sec._menu
-            local row = newRow(sec, 56)
+            local v2 = m._v2
+            local row = newRow(sec, v2 and 32 or 56)
             self._row, self._el = row, row
             local t = text(m, row, self._label, 14, "text", false)
-            t.Position = UDim2.fromOffset(14, 8)
-            t.Size = UDim2.new(1, -110, 0, 18)
+            t.Position = v2 and UDim2.fromOffset(4, 1) or UDim2.fromOffset(14, 8)
+            t.Size = v2 and UDim2.new(1, -90, 0, 14) or UDim2.new(1, -110, 0, 18)
             self._text = t
             local val = text(m, row, "", 13, "value", true)
             val.AnchorPoint = Vector2.new(1, 0)
-            val.Position = UDim2.new(1, -14, 0, 8)
-            val.Size = UDim2.fromOffset(90, 18)
+            val.Position = v2 and UDim2.new(1, -4, 0, 1) or UDim2.new(1, -14, 0, 8)
+            val.Size = v2 and UDim2.fromOffset(90, 14) or UDim2.fromOffset(90, 18)
+            if v2 then val.Font = Enum.Font.Ubuntu val.TextColor3 = m._pal.text end
             val.TextXAlignment = Enum.TextXAlignment.Right
-            local track = mk("Frame", { Position = UDim2.new(0, 14, 0, 38), Size = UDim2.new(1, -28, 0, 5), BorderSizePixel = 0 }, row)
+            local track = mk("Frame", { Position = v2 and UDim2.new(0, 4, 0, 18) or UDim2.new(0, 14, 0, 38), Size = v2 and UDim2.new(1, -8, 0, 10) or UDim2.new(1, -28, 0, 5), BorderSizePixel = 0 }, row)
             circle(track)
+            if v2 then mk("UIStroke", { Thickness = 1, Color = Color3.new(0, 0, 0) }, track) end
             m:_paint(track, "BackgroundColor3", "track")
             local fill = mk("Frame", { Size = UDim2.fromScale(0, 1), BorderSizePixel = 0 }, track)
             circle(fill)
@@ -87492,6 +87922,7 @@ end
             local thumb = mk("Frame", { AnchorPoint = Vector2.new(.5, .5), Position = UDim2.fromScale(0, .5), Size = UDim2.fromOffset(14, 14), BorderSizePixel = 0, ZIndex = 2 }, track)
             circle(thumb)
             m:_paint(thumb, "BackgroundColor3", m._lite and "knob" or "acc")
+            thumb.Visible = not v2
             local dec = decimals(self._step)
             function self._render()
                 local frac = (self.Value - self._min) / (self._max - self._min)
@@ -87543,8 +87974,14 @@ end
         self.Clicked = Signal.new()
         self:_defer(function()
             local m = sec._menu
-            local row = newRow(sec, 38, (o.Style == 1 and m._lite) and "grad" or true)
+            local row = newRow(sec, m._v2 and 24 or 38, (o.Style == 1 and m._lite and not m._v2) and "grad" or true)
             self._row, self._el = row, row
+            if m._v2 then
+                local st = mk("UIStroke", { Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, row)
+                m:_paint(st, "Color", "outline")
+                row.MouseEnter:Connect(function() st.Color = m._pal.acc end)
+                row.MouseLeave:Connect(function() st.Color = m._pal.outline end)
+            end
             local t = text(m, row, self._confirming and "Click again to confirm" or self._label, 14, "value", true)
             t.Size = UDim2.fromScale(1, 1)
             t.TextXAlignment = Enum.TextXAlignment.Center
@@ -87609,20 +88046,34 @@ end
         self._label = tostring(o.Label or "")
         self:_defer(function()
             local m = sec._menu
-            local row = newRow(sec, 44)
+            local row = newRow(sec, m._v2 and 24 or 44)
             self._row, self._el = row, row
             rowLabel(self, row, self._label, m._ctlW.tb + 10)
+            if m._v2 then self._text.Position = UDim2.fromOffset(4, 0) end
             local box = mk("TextBox", {
-                AnchorPoint = Vector2.new(1, .5), Position = UDim2.new(1, -10, .5, 0), Size = UDim2.fromOffset(m._ctlW.tb, 28), BorderSizePixel = 0,
+                AnchorPoint = Vector2.new(1, .5), Position = UDim2.new(1, -10, .5, 0), Size = UDim2.fromOffset(m._ctlW.tb, m._v2 and 18 or 28), BorderSizePixel = 0,
                 Text = self.Value, PlaceholderText = tostring(o.Placeholder or ""), ClearTextOnFocus = false, TextSize = 13,
                 Font = Enum.Font.GothamMedium, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 3,
             }, row)
             corner(box, 6)
+            if m._v2 then
+                local st = mk("UIStroke", { Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, box)
+                m:_paint(st, "Color", "outline")
+            end
             mk("UIPadding", { PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8) }, box)
             m:_paint(box, "BackgroundColor3", "track")
             m:_paint(box, "TextColor3", "text")
             m:_paint(box, "PlaceholderColor3", "faint")
             self._box = box
+            if m._v2 then
+                local cap = self._label ~= ""
+                row.Size = UDim2.new(1, -8, 0, cap and 40 or 24)
+                self._text.Visible = cap
+                self._text.Size = UDim2.new(1, -8, 0, 16)
+                box.AnchorPoint = Vector2.new(0, 0)
+                box.Position = UDim2.new(0, 4, 0, cap and 20 or 3)
+                box.Size = UDim2.new(1, -8, 0, 18)
+            end
             box.FocusLost:Connect(function()
                 local v = box.Text
                 if v ~= self.Value then self:_emit(v) end
@@ -87669,8 +88120,8 @@ end
         y = clamp(y, 8, math.max(8, g.sh - h - 8))
         local frame = mk("Frame", { Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(w, h), BorderSizePixel = 0, ZIndex = 61, ClipsDescendants = true, Active = true }, catcher)
         corner(frame, 10)
-        self:_paint(frame, "BackgroundColor3", "panel")
-        local st = mk("UIStroke", { Thickness = 1.5, Transparency = .3 }, frame)
+        self:_paint(frame, "BackgroundColor3", self._v2 and "inner" or "panel")
+        local st = mk("UIStroke", { Thickness = self._v2 and 1 or 1.5, Transparency = self._v2 and 0 or .3 }, frame)
         self:_paint(st, "Color", "outline")
         catcher.Activated:Connect(function() self:_closePopup() end)
         self._popup = { catcher = catcher, frame = frame, onClose = onClose }
@@ -87717,20 +88168,37 @@ end
         self._label = tostring(o.Label or "")
         self:_defer(function()
             local m = sec._menu
-            local row = newRow(sec, 40)
+            local row = newRow(sec, m._v2 and 24 or 40)
             self._row, self._el = row, row
             rowLabel(self, row, self._label, m._ctlW.dd + 10)
+            if m._v2 then self._text.Position = UDim2.fromOffset(4, 0) end
             local btn = mk("TextButton", {
-                AnchorPoint = Vector2.new(1, .5), Position = UDim2.new(1, -10, .5, 0), Size = UDim2.fromOffset(m._ctlW.dd, 28), BorderSizePixel = 0,
+                AnchorPoint = Vector2.new(1, .5), Position = UDim2.new(1, -10, .5, 0), Size = UDim2.fromOffset(m._ctlW.dd, m._v2 and 18 or 28), BorderSizePixel = 0,
                 Text = "", AutoButtonColor = false, ZIndex = 3,
             }, row)
             corner(btn, 6)
-            m:_paint(btn, "BackgroundColor3", "track")
-            local val = text(m, btn, "", 13, "value", false)
+            m:_paint(btn, "BackgroundColor3", m._v2 and "inner" or "track")
+            if m._v2 then
+                local cap = self._label ~= ""
+                row.Size = UDim2.new(1, -8, 0, cap and 40 or 24)
+                self._text.Visible = cap
+                self._text.Size = UDim2.new(1, -8, 0, 16)
+                self._text.Position = UDim2.fromOffset(4, 0)
+                btn.AnchorPoint = Vector2.new(0, 0)
+                btn.Position = UDim2.new(0, 4, 0, cap and 20 or 3)
+                btn.Size = UDim2.new(1, -8, 0, 18)
+            end
+            if m._v2 then
+                local st = mk("UIStroke", { Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, btn)
+                m:_paint(st, "Color", "outline")
+                btn.MouseEnter:Connect(function() st.Color = m._pal.acc end)
+                btn.MouseLeave:Connect(function() st.Color = m._pal.outline end)
+            end
+            local val = text(m, btn, "", 13, m._v2 and "text" or "value", false)
             val.Position = UDim2.fromOffset(8, 0)
             val.Size = UDim2.new(1, -26, 1, 0)
             val.TextTruncate = Enum.TextTruncate.AtEnd
-            local chev = text(m, btn, "v", 11, "faint", true)
+            local chev = text(m, btn, m._v2 and "+" or "v", m._v2 and 14 or 11, m._v2 and "text" or "faint", true)
             chev.AnchorPoint = Vector2.new(1, .5)
             chev.Position = UDim2.new(1, -8, .5, 0)
             chev.Size = UDim2.fromOffset(10, 14)
@@ -87760,7 +88228,7 @@ end
     function SDropdown:_openList(anchor)
         local m = self._menu
         local count = #self.Options
-        local h = clamp(count * 32 + 10, 52, 290)
+        local h = clamp(count * (m._v2 and 22 or 32) + 10, m._v2 and 34 or 52, 290)
         m:_openPopup(anchor, math.max(anchor.AbsoluteSize.X / m._k, 170), h, function(frame)
             local sc = mk("ScrollingFrame", {
                 Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3,
@@ -87781,7 +88249,7 @@ end
             end
             self._redraw = redraw
             for i, opt in ipairs(self.Options) do
-                local btn = mk("TextButton", { Size = UDim2.new(1, 0, 0, 30), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, LayoutOrder = i, ZIndex = 63 }, sc)
+                local btn = mk("TextButton", { Size = UDim2.new(1, 0, 0, m._v2 and 20 or 30), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, LayoutOrder = i, ZIndex = 63 }, sc)
                 corner(btn, 6)
                 m:_paint(btn, "BackgroundColor3", "acc")
                 local lbl = text(m, btn, self:_display(opt), 13, "dim", false)
@@ -87829,11 +88297,12 @@ end
         self:_defer(function()
             if not host._realized then host:_realizeNow() end
             if host._row == nil then return end
-            local btn = mk("TextButton", { Size = UDim2.fromOffset(34, 20), BorderSizePixel = 0, Text = "", AutoButtonColor = false, ZIndex = 4, BackgroundColor3 = self.Value.Rgb }, nil)
+            local v2 = sec._menu._v2
+            local btn = mk("TextButton", { Size = v2 and UDim2.fromOffset(40, 13) or UDim2.fromOffset(34, 20), BorderSizePixel = 0, Text = "", AutoButtonColor = false, ZIndex = 4, BackgroundColor3 = self.Value.Rgb }, nil)
             corner(btn, 5)
-            local st = mk("UIStroke", { Thickness = 1, Transparency = .5 }, btn)
-            sec._menu:_paint(st, "Color", "text")
-            attach(host, btn, 34)
+            local st = mk("UIStroke", { Thickness = 1, Transparency = v2 and 0 or .5 }, btn)
+            if v2 then st.Color = Color3.new(0, 0, 0) else sec._menu:_paint(st, "Color", "text") end
+            attach(host, btn, v2 and 40 or 34)
             self._btn, self._el = btn, btn
             btn.Activated:Connect(function() self:_openPicker(btn) end)
         end)
@@ -87978,10 +88447,15 @@ end
             if not host._realized then host:_realizeNow() end
             if host._row == nil then return end
             local m = sec._menu
-            local btn = mk("TextButton", { Size = UDim2.fromOffset(0, 22), AutomaticSize = Enum.AutomaticSize.X, BorderSizePixel = 0, Text = "", AutoButtonColor = false, ZIndex = 4 }, nil)
+            local v2 = m._v2
+            local btn = mk("TextButton", { Size = UDim2.fromOffset(0, v2 and 14 or 22), AutomaticSize = Enum.AutomaticSize.X, BorderSizePixel = 0, Text = "", AutoButtonColor = false, ZIndex = 4 }, nil)
             corner(btn, 5)
-            m:_paint(btn, "BackgroundColor3", "track")
-            mk("UISizeConstraint", { MinSize = Vector2.new(48, 22) }, btn)
+            m:_paint(btn, "BackgroundColor3", v2 and "inner" or "track")
+            if v2 then
+                local st = mk("UIStroke", { Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, btn)
+                m:_paint(st, "Color", "outline")
+            end
+            mk("UISizeConstraint", { MinSize = Vector2.new(v2 and 30 or 48, v2 and 14 or 22) }, btn)
             mk("UIPadding", { PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8) }, btn)
             local lbl = text(m, btn, "", 12, "value", true)
             lbl.Size = UDim2.fromScale(0, 1)
@@ -88343,6 +88817,12 @@ end
             local line = mk("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 6, 1, 0), Size = UDim2.new(1, -12, 0, 1), BorderSizePixel = 0, BackgroundTransparency = .55 }, head)
             m:_paint(line, "BackgroundColor3", "line")
             if m._lite then line.Visible = false end
+            if m._v2 then
+                local bar = mk("Frame", { Position = UDim2.fromOffset(0, 0), Size = UDim2.new(1, 0, 0, 2), BorderSizePixel = 0 }, head)
+                m:_paint(bar, "BackgroundColor3", "acc")
+                t.Position = UDim2.fromOffset(4, 4)
+                t.Font = Enum.Font.Ubuntu
+            end
             self._header = head
             if self._secVis == false then head.Visible = false end
         end
@@ -88611,6 +89091,8 @@ end
         self._tabs = {}
         self._acc, self._ov = DEFAULT_ACCENT, {}
         self._lite = class.__lite == true
+        sharpCorners = rawget(class, "__sharp") == true
+        self._v2 = sharpCorners
         if self._lite then self:_initTheme() end
         self._pal = palette(self._acc, self._ov, self._lite, self._theme)
         self._themed, self._themeFns = {}, {}
@@ -90383,6 +90865,268 @@ end
         if self._page ~= page then return end
         page._scroll.Visible = true
         page._scroll.CanvasPosition = Vector2.zero
+    end
+
+    ----------------------------------------------------------------------------------------------- KH V2
+    -- Sixth form of the menu: the "Kiciahook V2" look. A small square-cornered window with a 1 px blue frame, a thin
+    -- title bar ("Kiciahook V2 | Rivals"), a row of tabs and, for a tab with several pages, a row of page tabs under
+    -- it. Everything is flat dark grey with the blue accent, drawn in the Ubuntu font, and it can be resized from the
+    -- grip in the bottom right corner. It is a Matcha with another shell and theme (square corners come from
+    -- sharpCorners, set in newMenu), so it reuses the Lite widgets and every page builder works unchanged.
+    local V2_W, V2_H, V2_HEAD = 520, 360, 22
+    local V2_MIN_W, V2_MIN_H, V2_MAX_W, V2_MAX_H = 420, 300, 1000, 800
+    local V2_TITLE = "Kiciahook V2 | Rivals"
+
+    local SV2 = {}
+    SV2.__lite = true
+    SV2.__sharp = true
+    SV2.__index = function(t, k)
+        local v = rawget(SV2, k)
+        if v ~= nil then return v end
+        v = rawget(SMatcha, k)
+        if v ~= nil then return v end
+        v = rawget(SLite, k)
+        if v ~= nil then return v end
+        v = rawget(SMenu, k)
+        if v ~= nil then return v end
+        if isMethodName(k) then return function() return nil end end
+        return nil
+    end
+    SetsunaUI.V2 = SV2
+    function SV2.new(opts) return newMenu(SV2, opts) end
+
+    local function v2Theme()
+        local function rgb(r, g, b) return Color3.fromRGB(r, g, b) end
+        local function flat(c) return ColorSequence.new(c) end
+        return {
+            Backgrounds = { Dark = rgb(26, 26, 26), Medium = rgb(31, 31, 31), Light = rgb(26, 26, 26), Groupbox = rgb(24, 24, 24), Highlight = rgb(42, 42, 42) },
+            Foregrounds = { Active = rgb(255, 255, 255), Light = rgb(255, 255, 255), Medium = rgb(160, 160, 160), Dark = rgb(50, 50, 50),
+                MediumHover = rgb(200, 200, 200), DarkHover = rgb(70, 70, 70) },
+            Miscellaneous = { Divider = rgb(50, 50, 50), Shadow = rgb(32, 32, 32), LighterShadow = rgb(24, 24, 24) },
+            Accents = { Main = flat(rgb(58, 164, 210)), Brighter = flat(rgb(88, 190, 232)) },
+        }
+    end
+
+    function SV2:_initTheme()
+        self._theme = v2Theme()
+        self._themes = { ["KH V2"] = v2Theme() }
+        self._themeExt = ".starlight"
+        self._themeDir = "Starlight Interface Suite/LxYHook/themes"
+        self._themeName = "KH V2"
+    end
+
+    function SV2:_themeNames()
+        local names = SLite._themeNames(self)
+        table.insert(names, 1, "KH V2")
+        return names
+    end
+
+    -- the V2 menu is drawn in Ubuntu
+    function SV2:_fontPass(root)
+        if root == nil then return end
+        local function one(d)
+            if d:IsA("TextLabel") or d:IsA("TextButton") or d:IsA("TextBox") then d.Font = Enum.Font.Ubuntu end
+        end
+        one(root)
+        for _, d in ipairs(root:GetDescendants()) do one(d) end
+    end
+
+    function SV2:_buildShell()
+        local gui = mk("ScreenGui", { Name = "Kiciahook V2 Interface", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 100000,
+            ZIndexBehavior = Enum.ZIndexBehavior.Sibling, Enabled = false })
+        local placed = pcall(function() gui.Parent = gethui() end)
+        if not placed or gui.Parent == nil then gui.Parent = game:GetService("CoreGui") end
+        self._gui = gui
+        local dim = mk("TextButton", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, BorderSizePixel = 0, Modal = false }, gui)
+        self._dim = dim
+        local stage = mk("Frame", { BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 1 }, gui)
+        self._stage = stage
+        self._uiscale = mk("UIScale", {}, stage)
+
+        local win = mk("CanvasGroup", { AnchorPoint = Vector2.new(.5, .5), Size = UDim2.fromOffset(V2_W, V2_H), BorderSizePixel = 0,
+            ZIndex = 5, GroupTransparency = 1, Active = true }, stage)
+        self:_paint(win, "BackgroundColor3", "panel")
+        -- the 1 px frame in the accent colour
+        local wst = mk("UIStroke", { Thickness = 1, Transparency = 0, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, win)
+        self:_paint(wst, "Color", "acc")
+        self._win = win
+        self._winScale = mk("UIScale", { Scale = .965 }, win)
+        self._ctlW = { dd = 140, tb = 130 }
+        self._w, self._h = V2_W, V2_H
+
+        -- title bar: the title, the user name, and the drag handle
+        local me = game:GetService("Players").LocalPlayer
+        local head = mk("Frame", { Size = UDim2.new(1, 0, 0, V2_HEAD), BorderSizePixel = 0, Active = true }, win)
+        self:_paint(head, "BackgroundColor3", "top")
+        self._head = head
+        local title = text(self, head, V2_TITLE, 13, "text", false)
+        title.Position, title.Size = UDim2.fromOffset(8, 0), UDim2.new(0.6, 0, 1, 0)
+        local who = text(self, head, me and me.Name or "", 12, "dim", false)
+        who.Position, who.Size = UDim2.new(0.6, 0, 0, 0), UDim2.new(0.4, -8, 1, 0)
+        who.TextXAlignment = Enum.TextXAlignment.Right
+        who.TextTruncate = Enum.TextTruncate.AtEnd
+        local rule = mk("Frame", { Position = UDim2.new(0, 0, 1, -1), Size = UDim2.new(1, 0, 0, 1), BorderSizePixel = 0 }, head)
+        self:_paint(rule, "BackgroundColor3", "outline")
+        head.InputBegan:Connect(function(input)
+            if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+            self:_closePopup()
+            local sx, sy = pointer(input)
+            local start = win.Position
+            local moveConn, endConn
+            moveConn = UIS.InputChanged:Connect(function(i)
+                if i.UserInputType ~= Enum.UserInputType.MouseMovement and i.UserInputType ~= Enum.UserInputType.Touch then return end
+                local x, y = pointer(i)
+                local k = self._k
+                self._moved = true
+                win.Position = UDim2.fromOffset(start.X.Offset + (x - sx) / k, start.Y.Offset + (y - sy) / k)
+                self:_clampWin()
+            end)
+            endConn = UIS.InputEnded:Connect(function(i)
+                if i == input or i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                    moveConn:Disconnect()
+                    endConn:Disconnect()
+                end
+            end)
+        end)
+
+        -- navigation: the tab row, then (for a tab with several pages) its page tabs; both wrap onto more lines
+        local nav = mk("Frame", { Position = UDim2.fromOffset(0, V2_HEAD), Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
+            BackgroundTransparency = 1, BorderSizePixel = 0 }, win)
+        mk("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }, nav)
+        mk("UIPadding", { PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 6), PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 2) }, nav)
+        local tabBar = mk("Frame", { Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = 1 }, nav)
+        mk("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Wraps = true, Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder }, tabBar)
+        self._nav, self._tabBar = nav, tabBar
+
+        -- the open page: below the navigation, whose height changes with the tab
+        local body = mk("Frame", { BackgroundTransparency = 1, ClipsDescendants = true, BorderSizePixel = 0 }, win)
+        self._body = body
+        local bst = mk("UIStroke", { Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, body)
+        self:_paint(bst, "Color", "outline")
+        local function place()
+            local y = V2_HEAD + math.floor(nav.AbsoluteSize.Y / (self._k or 1) + .5)
+            body.Position = UDim2.fromOffset(6, y + 2)
+            body.Size = UDim2.new(1, -12, 1, -y - 8)
+        end
+        nav:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
+        self._placeBody = place
+        place()
+
+        -- resize grip, bottom right
+        local grip = mk("TextButton", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, 0, 1, 0), Size = UDim2.fromOffset(16, 16),
+            BackgroundTransparency = 1, Text = "", AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 20 }, win)
+        for i = 1, 3 do
+            local dot = mk("Frame", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -3, 1, -3 - (i - 1) * 4), Size = UDim2.fromOffset(i * 3, 1),
+                BorderSizePixel = 0, ZIndex = 21 }, grip)
+            self:_paint(dot, "BackgroundColor3", "acc")
+        end
+        self._grip = grip
+        grip.InputBegan:Connect(function(input)
+            if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+            self:_closePopup()
+            local sx, sy = pointer(input)
+            local w0, h0 = self._w, self._h
+            local p0 = win.Position
+            local moveConn, endConn
+            moveConn = UIS.InputChanged:Connect(function(i)
+                if i.UserInputType ~= Enum.UserInputType.MouseMovement and i.UserInputType ~= Enum.UserInputType.Touch then return end
+                local x, y = pointer(i)
+                local k = self._k or 1
+                -- the window is centred on its anchor: move the centre by half the growth so the top left stays put
+                local w1 = clamp(w0 + (x - sx) / k, V2_MIN_W, V2_MAX_W)
+                local h1 = clamp(h0 + (y - sy) / k, V2_MIN_H, V2_MAX_H)
+                self._w, self._h = w1, h1
+                self._moved = true
+                win.Position = UDim2.fromOffset(p0.X.Offset + (w1 - w0) / 2, p0.Y.Offset + (h1 - h0) / 2)
+                self:_relayout()
+            end)
+            endConn = UIS.InputEnded:Connect(function(i)
+                if i == input or i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                    moveConn:Disconnect()
+                    endConn:Disconnect()
+                end
+            end)
+        end)
+
+        dim.Activated:Connect(function() self:_closePopup() end)
+        gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() self:_relayout() end)
+        self:_relayout()
+    end
+
+    function SV2:_relayout()
+        local gui = self._gui
+        local vw, vh = gui.AbsoluteSize.X, gui.AbsoluteSize.Y
+        if vw <= 0 or vh <= 0 then
+            local cam = workspace.CurrentCamera
+            if cam == nil then return end
+            vw, vh = cam.ViewportSize.X, cam.ViewportSize.Y
+        end
+        if vw <= 0 or vh <= 0 then return end
+        local k = clamp(math.min(1, (vw - 24) / V2_MIN_W, (vh - 24) / V2_MIN_H), .5, 1)
+        k = math.floor(k * 20) / 20
+        self._k = k
+        self._uiscale.Scale = k
+        local sw, sh = vw / k, vh / k
+        self._stage.Size = UDim2.fromOffset(sw, sh)
+        local w = math.floor(math.min(self._w or V2_W, sw - 24) / 2) * 2
+        local h = math.floor(math.min(self._h or V2_H, sh - 24) / 2) * 2
+        self._win.Size = UDim2.fromOffset(w, h)
+        self._g = { sw = sw, sh = sh, cx = sw / 2, cy = sh / 2, setW = (w - 56) / 2, panelW = 0 }
+        if self._moved then
+            self:_clampWin()
+        else
+            self._win.Position = UDim2.fromOffset(math.floor(sw / 2), math.floor(sh / 2))
+        end
+        if self._placeBody then self._placeBody() end
+        self:_closePopup()
+    end
+
+    function SV2:_sectionHost(sec)
+        local card = SLite._sectionHost(self, sec)
+        self:_paint(card, "BackgroundColor3", "surf")
+        local lay = card:FindFirstChildOfClass("UIListLayout")
+        if lay ~= nil then lay.Padding = UDim.new(0, 1) end
+        return card
+    end
+
+    -- every button of a row gets the same share of the width and a thin border
+    function SV2:_fillRow(container, height)
+        local btns = {}
+        for _, c in ipairs(container:GetChildren()) do
+            if c:IsA("TextButton") then btns[#btns + 1] = c end
+        end
+        local n = #btns
+        if n == 0 then return end
+        for _, b in ipairs(btns) do
+            b.AutomaticSize = Enum.AutomaticSize.None
+            b.Size = UDim2.new(1 / n, -math.ceil(3 * (n - 1) / n) - 1, 0, height)
+            b.TextSize = 14
+            if b:FindFirstChildOfClass("UIStroke") == nil then
+                local st = mk("UIStroke", { Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, b)
+                self:_paint(st, "Color", "outline")
+            end
+        end
+    end
+
+    function SV2:AddTab(o)
+        local tab = SMatcha.AddTab(self, o)
+        self:_fillRow(self._tabBar, 24)
+        self:_fontPass(self._tabBar)
+        return tab
+    end
+
+    function SV2:_makePageRow(tab, page)
+        SMatcha._makePageRow(self, tab, page)
+        self:_fillRow(tab._sub, 22)
+        self:_fontPass(tab._sub)
+    end
+
+    function SV2:_openPage(page)
+        SMatcha._openPage(self, page)
+        if self._page == page and page._scroll ~= nil and not page._v2font then
+            page._v2font = true
+            self:_fontPass(page._scroll)
+        end
     end
 end
 ;(function()
