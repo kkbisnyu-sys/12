@@ -81926,6 +81926,10 @@ local function k8xSetStatus(action)
 	end
 	ueS.SetStatus(k8xStatusText)
 end
+-- UE just detected: equip the melee and wait this long (hidden) before coming down to hit him
+local K8X_UE_WAIT = 1
+local k8xPrevStyle = "KH"
+local k8xUEWaitUntil = 0
 local k8xScanMax = 0
 local function k8xFarFromMap(position, ref)
 	if typeof(position) ~= "Vector3" then
@@ -82052,6 +82056,11 @@ index2._Plan = function(arg, arg2, arg3, arg4, arg5, arg6, arg7)
 if ueS.IsK8x() then
 local K8X_BELOW = 5
 local k8xEnemyStyle = k8xDetectStyle(arg4)
+-- the moment UE is first detected, start the wait
+if k8xEnemyStyle == "UE" and k8xPrevStyle ~= "UE" then
+k8xUEWaitUntil = os.clock() + K8X_UE_WAIT
+end
+k8xPrevStyle = k8xEnemyStyle
 -- Enemy judged UE: hide exactly the way KH's "Evasion" does (arg:_EvadePlan with the Evasion Mode from the
 -- menu: Random = a point on a shell around the anchor with one axis pushed to 1073741824, Off = no move, ...).
 -- Enemy judged KH: unchanged, the straight-up void (y = 2147483647).
@@ -82083,6 +82092,18 @@ end
 end
 end)
 if melee ~= nil then
+-- first K8X_UE_WAIT seconds after detecting UE: take out the melee and stay hidden (KH Evasion), then come down
+if os.clock() < k8xUEWaitUntil then
+local waitPlan = k8xHidePlan()
+if not melee:IsEquipped() then
+waitPlan.WeaponAction = function()
+melee:Equip()
+end
+end
+ueS.MarkVoid()
+k8xSetStatus(string.format("melee: wait %.1fs", k8xUEWaitUntil - os.clock()))
+return waitPlan
+end
 local standPos = arg6.Position - Vector3.new(0, ueS.K8xPose().FeetDrop, 0)
 local uePlan = { CFrame = ueS.K8xStandCFrame(standPos), ShouldSkipDefense = v86[34] }
 if not melee:IsEquipped() then
