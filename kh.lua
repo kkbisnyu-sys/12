@@ -13257,7 +13257,7 @@ tbl17.iQ = function()
         --  Score HUD: the match score (see the SCH block near the end of the script)
         local sc = grid:AddSection({ Title = "Score HUD", Side = "left" })
         local function S(...) return { "ScoreHud", ... } end
-        local scOn = sc:AddToggle({ Label = "Score HUD", Tooltip = "Your team's score against the enemy's, the round number, the round state and the lead. Drag it while the menu is open.", Config = S("Enabled") })
+        local scOn = sc:AddToggle({ Label = "Score HUD", Tooltip = "Your team's score against the enemy's, the time left in the round, the round number, the round state and the lead. Drag it while the menu is open.", Config = S("Enabled") })
         sc:AddColor({ Row = scOn.Row, Config = S("Color") })
         sc:AddSlider({ Label = "Scale (%)", Min = 50, Max = 200, Config = S("Scale") })
         sc:AddSlider({ Label = "Position X (%)", Min = 0, Max = 100, Config = S("PosX") })
@@ -96082,7 +96082,9 @@ end)
 --  Score HUD (SCH): the match score. Title bar (name | score hud | queue name), our team's score against the
 --  enemy's in the middle with each side's player names, then the round number, the round state and the lead.
 --  Source (read in game): DuelController.CurrentObject.Data -> Scores (a table keyed by TeamID, "\1" / "\2" ...),
---  RoundNum, Status (RoundStarting -> RoundStarted -> RoundFinished), QueueName, NumTeams. Our team is the
+--  RoundNum, Status (RoundStarting -> RoundStarted -> RoundFinished), QueueName, NumTeams. Time left in the round:
+--  DuelController.CurrentObject.DuelInterface.Timer:GetTimeRemaining() (the game's own top-bar clock, in seconds,
+--  shown rounded up like the game does; its Infinite icon is visible when the round has no time limit). Our team is the
 --  TeamID player attribute; players of the match share the EnvironmentID attribute. The duel data carries no
 --  "rounds to win" value, so none is shown. With more than two teams the enemy side is the best enemy score.
 --  Settings: config.Data.ScoreHud, menu: Visuals > Player ESP > Score HUD.
@@ -96101,7 +96103,7 @@ do -- SCH
         local LocalPlayer = Players.LocalPlayer
         local config = tbl17.bG()
 
-        local WIDTH, HEIGHT = 280, 96
+        local WIDTH, HEIGHT = 280, 114
         local HEADER_H = 22
         local WHITE = Color3.fromRGB(235, 235, 240)
         local GREY = Color3.fromRGB(150, 150, 160)
@@ -96181,6 +96183,8 @@ do -- SCH
         local ourNames = text(root, 8, HEADER_H + 6, SIDE_W, 40, 12, FONT_BOLD, WHITE)
         local score = text(root, 8 + SIDE_W, HEADER_H + 4, WIDTH - 16 - SIDE_W * 2, 44, 30, FONT_BOLD, WHITE, "C")
         local theirNames = text(root, WIDTH - 8 - SIDE_W, HEADER_H + 6, SIDE_W, 40, 12, FONT_BOLD, WHITE, "R")
+        --  time left in the round, under the score
+        local timer = text(root, 8, HEADER_H + 48, WIDTH - 16, 18, 15, FONT_BOLD, WHITE, "C")
 
         --  bottom: round + state | lead
         local roundLine = text(root, 8, HEIGHT - 24, (WIDTH - 16) / 2, 20, 12, FONT, GREY)
@@ -96225,13 +96229,37 @@ do -- SCH
             return cached
         end
 
+        local currentDuel
         local function duelData()
             local data
+            currentDuel = nil
             pcall(function()
                 local current = K.Controller("DuelController").CurrentObject
-                data = type(current) == "table" and current.Data or nil
+                if type(current) == "table" then
+                    currentDuel = current
+                    data = current.Data
+                end
             end)
             return type(data) == "table" and data or nil
+        end
+
+        --  seconds left on the game's round clock; "inf" when the round has no time limit, nil when unknown
+        local function timeLeft()
+            local left
+            pcall(function()
+                local clock = currentDuel.DuelInterface.Timer
+                if clock.InfiniteIcon ~= nil and clock.InfiniteIcon.Visible then
+                    left = "inf"
+                    return
+                end
+                local v = clock:GetTimeRemaining()
+                if type(v) == "number" and v == v then left = math.max(v, 0) end
+            end)
+            return left
+        end
+        local function clockText(seconds)
+            local whole = math.ceil(seconds)
+            return string.format("%d:%02d", math.floor(whole / 60), whole % 60)
         end
 
         --  names of the players of each side in our match ("A, B" or "A +2")
@@ -96295,6 +96323,18 @@ do -- SCH
             local status = data.Status
             local stateText = STATUS_TEXT[status] or (status ~= nil and tostring(status) or "-")
             put(roundLine, "Text", (roundNum and ("Round " .. roundNum) or "Round -") .. "  |  " .. stateText)
+
+            --  time left: the round clock while the round is on, the countdown while it is starting
+            local left = timeLeft()
+            if left == "inf" and status == "RoundStarted" then
+                put(timer, "Text", paint("no time limit", GREY))
+            elseif type(left) == "number" and status == "RoundStarted" then
+                put(timer, "Text", paint(clockText(left), left <= 10 and RED or (left <= 30 and YELLOW or WHITE)) .. paint("  left", GREY))
+            elseif type(left) == "number" and status == "RoundStarting" and left > 0 then
+                put(timer, "Text", paint("starts in ", GREY) .. paint(tostring(math.ceil(left)), accent))
+            else
+                put(timer, "Text", paint("-", GREY))
+            end
             local diff = ours - theirs
             if diff > 0 then
                 put(leadLine, "Text", "ahead by " .. paint(tostring(diff), accent))
