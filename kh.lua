@@ -11931,6 +11931,112 @@ local function hudParent()
 end
 K.hudParent = hudParent
 
+--  Dragging for the HUD panels (Team HUD, Score HUD, Target HUD), the same way the menu drags its watermark and
+--  keybind list: a UIDragDetector on the panel, so the click is taken by the panel (no shot, no camera turn) and
+--  the whole panel is a handle. It only works while the menu is open (K.MenuOpen, set by every menu skin next to
+--  its Modal button, which is what frees the mouse). The panel is kept inside the screen; on release its position
+--  goes to onDrop(px, py) as a percent of the screen (to 0.1 %, so it does not jump) for the HUD's PosX / PosY.
+--  Returns a state table: while state.dragging is true the HUD must not write its own Position.
+function K.MakeHudDraggable(root, onDrop)
+    local state = { dragging = false }
+    local ok, detector = pcall(Instance.new, "UIDragDetector")
+    if not ok or detector == nil then return state end
+    detector.DragStyle = Enum.UIDragDetectorDragStyle.TranslatePlane
+    detector.ResponseStyle = Enum.UIDragDetectorResponseStyle.CustomOffset
+    detector.Enabled = false
+    detector.Parent = root
+    local function clamp()
+        local camera = workspace.CurrentCamera
+        if camera == nil then return end
+        local viewport = camera.ViewportSize
+        local pos, size = root.AbsolutePosition, root.AbsoluteSize
+        local dx, dy = 0, 0
+        if pos.X < 0 then dx = -pos.X elseif pos.X + size.X > viewport.X then dx = viewport.X - pos.X - size.X end
+        if pos.Y < 0 then dy = -pos.Y elseif pos.Y + size.Y > viewport.Y then dy = viewport.Y - pos.Y - size.Y end
+        if dx ~= 0 or dy ~= 0 then root.Position = root.Position + UDim2.fromOffset(dx, dy) end
+    end
+    local start
+    K.track(detector.DragStart:Connect(function()
+        start = root.Position
+        state.dragging = true
+    end))
+    K.track(detector.DragContinue:Connect(function()
+        if start == nil then return end
+        local d = detector.DragUDim2
+        root.Position = UDim2.new(start.X.Scale, start.X.Offset + d.X.Offset, start.Y.Scale, start.Y.Offset + d.Y.Offset)
+        clamp()
+    end))
+    K.track(detector.DragEnd:Connect(function()
+        start = nil
+        clamp()
+        local camera = workspace.CurrentCamera
+        if camera ~= nil then
+            local viewport = camera.ViewportSize
+            local p = root.Position
+            local px = math.floor((p.X.Scale * viewport.X + p.X.Offset) / viewport.X * 1000 + 0.5) / 10
+            local py = math.floor((p.Y.Scale * viewport.Y + p.Y.Offset) / viewport.Y * 1000 + 0.5) / 10
+            px, py = math.clamp(px, 0, 100), math.clamp(py, 0, 100)
+            root.Position = UDim2.fromScale(px / 100, py / 100)
+            if onDrop ~= nil then pcall(onDrop, px, py) end
+        end
+        state.dragging = false
+    end))
+    K.track(game:GetService("RunService").Heartbeat:Connect(function()
+        local want = K.MenuOpen == true
+        if detector.Enabled ~= want then detector.Enabled = want end
+    end))
+    return state
+end
+
+--  Hold fire when ahead on HP (the "Evade When Target Hacking" option, Ragebot.EvadeWhenHacking): true while the
+--  enemy team's total health in our match is below our whole team's total health (us included), so the ragebot
+--  picks no target (only evasion runs) and the round can run out on HP. Teams: TeamID, the match: EnvironmentID
+--  (the ragebot's own tests; the same totals as the Team HUD). Read live on every call, so it flips back as soon
+--  as our total drops to (or below) theirs.
+function K.EnemyTeamHpBelowMine()
+    local Players = game:GetService("Players")
+    local me = Players.LocalPlayer
+    local env = me:GetAttribute("EnvironmentID")
+    if env == nil then return false end
+    local myCharacter = me.Character
+    local myHumanoid = myCharacter and myCharacter:FindFirstChildOfClass("Humanoid")
+    if myHumanoid == nil or myHumanoid.Health <= 0 then return false end
+    local myTeam = me:GetAttribute("TeamID")
+    local ours, theirs = myHumanoid.Health, 0
+    for _, player in Players:GetPlayers() do
+        if player ~= me and player:GetAttribute("EnvironmentID") == env then
+            local theirTeam = player:GetAttribute("TeamID")
+            local enemy
+            if myTeam ~= nil and theirTeam ~= nil then
+                enemy = myTeam ~= theirTeam
+            else
+                enemy = not (me.Team ~= nil and player.Team ~= nil and me.Team == player.Team)
+            end
+            local character = player.Character
+            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+            if humanoid ~= nil and humanoid.Health > 0 then
+                if enemy then
+                    theirs = theirs + humanoid.Health
+                else
+                    ours = ours + humanoid.Health
+                end
+            end
+        end
+    end
+    return theirs < ours
+end
+
+--  KH's own Hacker Detector verdict (the "Hacker" player tag; K.HackerTags is set when the detector is built)
+function K.IsTaggedHacker(player)
+    local tags = K.HackerTags
+    if tags ~= nil then
+        local ok, has = pcall(tags.Has, tags, player, "Hacker")
+        if ok and has then return true end
+    end
+    local flagged = getgenv().InstanceHackerFlagged
+    return type(flagged) == "table" and flagged[player] == true
+end
+
 --  Muzzle of the local first-person viewmodel (same source as LY.lua: the "_muzzle" attachment inside
 --  workspace.ViewModels.FirstPerson.<UserName> ...). Shared by the Division HUD and the FOV "Follow Muzzle".
 --  The attachment is cached and searched again (4 times a second at most) when the weapon changes.
@@ -13136,6 +13242,26 @@ tbl17.iQ = function()
         dh:AddSlider({ Label = "Scale (%)", Min = 50, Max = 200, Config = D("Scale") })
         dh:AddSlider({ Label = "Offset X", Min = -300, Max = 300, Config = D("PosX") })
         dh:AddSlider({ Label = "Offset Y", Min = -300, Max = 300, Config = D("PosY") })
+
+        --  Team HUD: the match panel (see the TMH block near the end of the script)
+        local tm = grid:AddSection({ Title = "Team HUD", Side = "left" })
+        local function T(...) return { "TeamHud", ... } end
+        local tmOn = tm:AddToggle({ Label = "Team HUD", Tooltip = "Team / enemy HP, who is winning, every enemy with HP, weapon and status, and the ragebot target. Drag it while the menu is open.", Config = T("Enabled") })
+        tm:AddColor({ Row = tmOn.Row, Config = T("Color") })
+        tm:AddToggle({ Label = "Status (Rage / Legit)", Tooltip = "RAGE when KH's Hacker Detector has tagged the enemy (needs Hacker Detector or a ragebot option that runs it)", Config = T("ShowStatus") })
+        tm:AddToggle({ Label = "Target", Tooltip = "Name of the ragebot's current target at the bottom", Config = T("ShowTarget") })
+        tm:AddSlider({ Label = "Scale (%)", Min = 50, Max = 200, Config = T("Scale") })
+        tm:AddSlider({ Label = "Position X (%)", Min = 0, Max = 100, Config = T("PosX") })
+        tm:AddSlider({ Label = "Position Y (%)", Min = 0, Max = 100, Config = T("PosY") })
+
+        --  Score HUD: the match score (see the SCH block near the end of the script)
+        local sc = grid:AddSection({ Title = "Score HUD", Side = "left" })
+        local function S(...) return { "ScoreHud", ... } end
+        local scOn = sc:AddToggle({ Label = "Score HUD", Tooltip = "Your team's score against the enemy's, the round number, the round state and the lead. Drag it while the menu is open.", Config = S("Enabled") })
+        sc:AddColor({ Row = scOn.Row, Config = S("Color") })
+        sc:AddSlider({ Label = "Scale (%)", Min = 50, Max = 200, Config = S("Scale") })
+        sc:AddSlider({ Label = "Position X (%)", Min = 0, Max = 100, Config = S("PosX") })
+        sc:AddSlider({ Label = "Position Y (%)", Min = 0, Max = 100, Config = S("PosY") })
     end
 end
 
@@ -29202,6 +29328,7 @@ return false
 end
 arg.Open = open
 arg._modalButton.Modal = open
+K.MenuOpen = open and true or false
 arg.MenuFrame.Visible = open
 return true
 end
@@ -32361,6 +32488,28 @@ ShowHealth = true,
 ShowShield = true,
 ShowKeys = true,
 ShowSpeed = true,
+}
+
+--  Team HUD (the match panel: team / enemy HP, who is winning, every enemy with HP, weapon, status, the target)
+assert(tbl19.TeamHud == nil, "Duplicate default configuration key 'TeamHud'")
+tbl19.TeamHud = {
+Enabled = false,
+Scale = 100,
+PosX = 1,
+PosY = 30,
+Color = Color3.fromRGB(80, 210, 110),
+ShowStatus = true,
+ShowTarget = true,
+}
+
+--  Score HUD (the match score: our team against the enemy, round number, round state, lead)
+assert(tbl19.ScoreHud == nil, "Duplicate default configuration key 'ScoreHud'")
+tbl19.ScoreHud = {
+Enabled = false,
+Scale = 100,
+PosX = 50,
+PosY = 12,
+Color = Color3.fromRGB(80, 210, 110),
 }
 
 return (table.freeze(tbl19))
@@ -71971,7 +72120,7 @@ return ie.c
 end
 end
 do -- ih
-local function fn35() tbl17 .aE();local cfgd= tbl17 .bG();local I= tbl17 .h6();local function l(W)I(W,"Enable Ragebot",{"Always","Toggle","Hold"},{"Ragebot"},true);local style=W:AddDropdown({Label="Ragebot Style",Tooltip="KH: Kicia's own ragebot. UE: the Unnamed Enhancements ragebot (void spam, backstab, gun and light attack). Picking UE hides the KH settings. Auto: plays as KH until the Hacker Detector flags an enemy, then switches this dropdown to FW UE and stays there. Careful: the LY hub's own ragebot in its Careful mode (its own targeting, teleport attack, evasion and reloads). Careful Settings, Weapon Strategy and Target HUD apply to it.",Options={"Original","UE","k8x","Careful","FWUE"},Labels={Original="KH",UE="UE",k8x="k8x",Careful="Careful",FWUE="FW UE trash kh"},Config={"Ragebot","KnifeMode"}});W:AddToggle({Label="Round Start Delay",Tooltip="At the start of a round, hide in the void for a random 1-6 s first, then start attacking. Applies to every Ragebot Style.",Config={"Ragebot","StartDelay"}});W:AddToggle({Label="Prioritize Hackers",Config={"Ragebot","PrioritizeHackers"}});W:AddToggle({Label="Evade When Target Hacking",Config={"Ragebot","EvadeWhenHacking"}});W:AddButton({Label="Clear Hacker Tags",OnClick=function()local d=K.HackerDetector;local ok,n=pcall(function()return d and d:ClearTags() or nil;end);local text=(not ok or n==nil) and "Hacker detector is not ready" or string.format("Cleared %d hacker tag(s)",n);pcall(function()tbl17.aB().get():Notify(text);end);end});return style;end;local function kf(W)W:AddToggle({Label="Detect Knife",Config={"Ragebot","DetectKnife"}});W:AddSlider({Label="Stability",Min=0,Max=1.5,Step=0.001,Config={"Ragebot","Stability"}});W:AddSlider({Label="Shoot Frames",Min=1,Max=5,Config={"Ragebot","ShootFrames"}});W:AddToggle({Label="Custom Attack Height",Tooltip="Off: the fixed stand height (0.7 below the head hitbox of the target). On: the Attack Height below is used.",Config={"Ragebot","CustomAttackHeight"}});W:AddSlider({Label="Attack Height",Tooltip="How far above (+) or below (-) the head hitbox of the target you stand. A shield pointing down is 3.15 lower.",Min=-15,Max=15,Step=0.05,Config={"Ragebot","AttackHeight"}});end;local function cf(W)W:AddToggle({Label="Evade Between Shots",Tooltip="Slow weapons (shotgun, sniper, knife): evade in the gaps instead of standing on the target",Config={"Ragebot","Careful","EvadeBetweenShots"}});W:AddToggle({Label="Attack After Enemy",Tooltip="Only shoot an enemy in the gap right after it fired or swung, or while its weapon cools down or reloads",Config={"Ragebot","Careful","RetaliateOnly"}});W:AddSlider({Label="Gap Window",Tooltip="How long after its shot or swing an enemy can still be shot (its weapon cooldown or reload also counts)",Min=0.5,Max=5,Step=0.1,Suffix="s",Config={"Ragebot","Careful","RetaliateWindow"}});W:AddToggle({Label="Custom Attack Height",Tooltip="Off: the fixed stand height (0.7 below the head hitbox of the target). On: the Attack Height below is used.",Config={"Ragebot","CustomAttackHeight"}});W:AddSlider({Label="Attack Height",Tooltip="How far above (+) or below (-) the head hitbox of the target you stand. A shield pointing down is 3.15 lower.",Min=-15,Max=15,Step=0.05,Config={"Ragebot","AttackHeight"}});end;local function uf(W)W:AddToggle({Label="Never Void",Tooltip="Never hide in the void (UE style): no hide phase, and none while reloading, swapping, without a target or between knife stabs. You stay where you are.",Config={"Ragebot","UE","NoVoid"}});W:AddToggle({Label="Backstab Cooldown 0.8",Tooltip="On: the time between two backstabs is HeavyAttackCooldown x 0.8. Off: UE's own x 0.75.",Config={"Ragebot","UE","KnifeCooldown08"}});W:AddToggle({Label="Void Spam",Tooltip="Hide in the void between attack bursts (UE void spam). Used by the gun and the light attack, not by the backstab.",Config={"Ragebot","UE","VoidSpam"}});W:AddSlider({Label="Void Spam Attack",Tooltip="the amount of time attacking before hiding again (UE adds 0.1 s on top)",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","AttackTime"}});W:AddSlider({Label="Void Spam Hide",Tooltip="how long it stays in void for",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","HideTime"}});W:AddSlider({Label="Shoot Attempts",Tooltip="how many times it will try to fire your weapon (UE: ragebot_shoot_attempts)",Min=1,Max=2,Step=1,Config={"Ragebot","UE","ShootAttempts"}});W:AddDropdown({Label="Knife Attack",Tooltip="Heavy Backstab = UE attack mode knife. Light Attack = UE attack mode melee (fast light attacks with the knife).",Options={"Heavy","Light"},Labels={Heavy="Heavy Backstab",Light="Light Attack"},Config={"Ragebot","UE","KnifeAttack"}});end;local function I(W)local N={"Primary","Secondary","Melee"};for P,P in N,nil,nil do W:AddToggle({Label=string.format("%s Enabled",tostring(P)),Config={"Ragebot","Weapons","Enabled",P}});end;W:AddOrderedList({Label="Weapon Priority",Items=N,Default=N,Config={"Ragebot","Weapons","Priority"}});W:AddDropdown({Label="On Empty",Options={"Reload","Swap","SwapOrReload"},Labels={SwapOrReload="Swap or Reload"},Config={"Ragebot","Weapons","OnEmpty"}});end;local function W(N,P)local a=N:AddGroup({Source=P,Option="ProjectileBreaker"});a:AddRangeSlider({Label="Forward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForward"}});a:AddSlider({Label="Forward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForwardFrequency"}});a:AddRangeSlider({Label="Upward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUp"}});a:AddSlider({Label="Upward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUpFrequency"}});a:AddSlider({Label="Reposition Interval (s)",Min=0.05,Max=2,Step=0.01,Config={"Ragebot","Evasion","ProjectileBreaker","RepositionInterval"}});a:AddToggle({Label="Fallback Character Origin",Config={"Ragebot","Evasion","ProjectileBreaker","FallbackAnchorFromCharacter"}});a:AddSlider({Label="Fallback Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackBaseRadius"}});a:AddSlider({Label="Fallback Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackRadiusRandomFactor"}});end;local function N(P)local a=P:AddDropdown({Label="Evasion Mode",Options={"Off","Random","Translocate","ProjectileBreaker"},Labels={ProjectileBreaker="Projectile Breaker"},Config={"Ragebot","Evasion","Mode"}});local e=P:AddGroup({Source=a,Option="Random"});e:AddToggle({Label="Character Origin",Config={"Ragebot","Evasion","Random","AnchorFromCharacter"}});e:AddSlider({Label="Base Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","Random","BaseRadius"}});e:AddSlider({Label="Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","Random","RadiusRandomFactor"}});P:AddGroup({Source=a,Option="Translocate"}):AddSlider({Label="Offset",Min=-5,Max=5,Step=0.1,Config={"Ragebot","Evasion","Translocate","Offset"}});W(P,a);end;local function H(P)P:AddToggle({Label="Target HUD",Config={"Ragebot","TargetHud","Enabled"}});P:AddToggle({Label="Always Show",Tooltip="Keep the card up: without a ragebot target it shows the nearest enemy.",Config={"Ragebot","TargetHud","AlwaysShow"}});P:AddSlider({Label="Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","Scale"}});P:AddSlider({Label="Item Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","ItemScale"}});P:AddSlider({Label="Offset X (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosX"}});P:AddSlider({Label="Offset Y (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosY"}});end;return function(W)local style=l(W:AddSection({Title="Activation",Side="left"}));local khSection=W:AddSection({Title="KH Settings",Side="left"});kf(khSection);local carefulSection=W:AddSection({Title="Careful Settings",Side="left"});cf(carefulSection);local ueSection=W:AddSection({Title="UE Settings",Side="left"});uf(ueSection);local weaponSection=W:AddSection({Title="Weapon Strategy",Side="left"});I(weaponSection);local evasionSection=W:AddSection({Title="Evasion",Side="right"});N(evasionSection);local hudSection=W:AddSection({Title="Target HUD",Side="right"});H(hudSection);local fwSection=W:AddSection({Title="FW UE Settings",Side="left"});fwSection:AddToggle({Label="FW Weapon Check",Tooltip="Hide only while the weapon window is open. Slow weapons: the shot / swing cooldown must have at least 0.6 s left. Fast weapons (cooldown up to 0.3 s): the magazine must be nearly empty. Nobody may be reloading, and an enemy starting to reload sends you back to the void. No time limit on the wait.",Config={"Ragebot","FWWeaponCheck"}});local function applyStyle()local picked=style.Value;local isUE=picked=="UE";local isK8x=picked=="k8x";local isCareful=picked=="Careful";local isEmpty=picked=="FWUE";khSection:SetVisible(not isUE and not isK8x and not isCareful and not isEmpty);evasionSection:SetVisible(not isUE and not isK8x and not isCareful and not isEmpty);ueSection:SetVisible(isUE);carefulSection:SetVisible(isCareful);weaponSection:SetVisible(not isEmpty and not isK8x);hudSection:SetVisible(not isEmpty);fwSection:SetVisible(picked=="FWUE");end;applyStyle();pcall(function()style.ValueChanged:Connect(applyStyle);end);end;end
+local function fn35() tbl17 .aE();local cfgd= tbl17 .bG();local I= tbl17 .h6();local function l(W)I(W,"Enable Ragebot",{"Always","Toggle","Hold"},{"Ragebot"},true);local style=W:AddDropdown({Label="Ragebot Style",Tooltip="KH: Kicia's own ragebot. UE: the Unnamed Enhancements ragebot (void spam, backstab, gun and light attack). Picking UE hides the KH settings. Auto: plays as KH until the Hacker Detector flags an enemy, then switches this dropdown to FW UE and stays there. Careful: the LY hub's own ragebot in its Careful mode (its own targeting, teleport attack, evasion and reloads). Careful Settings, Weapon Strategy and Target HUD apply to it.",Options={"Original","UE","k8x","Careful","FWUE"},Labels={Original="KH",UE="UE",k8x="k8x",Careful="Careful",FWUE="FW UE trash kh"},Config={"Ragebot","KnifeMode"}});W:AddToggle({Label="Round Start Delay",Tooltip="At the start of a round, hide in the void for a random 1-6 s first, then start attacking. Applies to every Ragebot Style.",Config={"Ragebot","StartDelay"}});W:AddToggle({Label="Prioritize Hackers",Config={"Ragebot","PrioritizeHackers"}});W:AddToggle({Label="Evade When Target Hacking",Tooltip="Hold fire while the enemy team's total HP is below your team's total HP (you included): no target is picked (only evasion runs), so the round can run out on HP. Attacks again once your team drops to their total.",Config={"Ragebot","EvadeWhenHacking"}});W:AddButton({Label="Clear Hacker Tags",OnClick=function()local d=K.HackerDetector;local ok,n=pcall(function()return d and d:ClearTags() or nil;end);local text=(not ok or n==nil) and "Hacker detector is not ready" or string.format("Cleared %d hacker tag(s)",n);pcall(function()tbl17.aB().get():Notify(text);end);end});return style;end;local function kf(W)W:AddToggle({Label="Detect Knife",Config={"Ragebot","DetectKnife"}});W:AddSlider({Label="Stability",Min=0,Max=1.5,Step=0.001,Config={"Ragebot","Stability"}});W:AddSlider({Label="Shoot Frames",Min=1,Max=5,Config={"Ragebot","ShootFrames"}});W:AddToggle({Label="Custom Attack Height",Tooltip="Off: the fixed stand height (0.7 below the head hitbox of the target). On: the Attack Height below is used.",Config={"Ragebot","CustomAttackHeight"}});W:AddSlider({Label="Attack Height",Tooltip="How far above (+) or below (-) the head hitbox of the target you stand. A shield pointing down is 3.15 lower.",Min=-15,Max=15,Step=0.05,Config={"Ragebot","AttackHeight"}});end;local function cf(W)W:AddToggle({Label="Evade Between Shots",Tooltip="Slow weapons (shotgun, sniper, knife): evade in the gaps instead of standing on the target",Config={"Ragebot","Careful","EvadeBetweenShots"}});W:AddToggle({Label="Attack After Enemy",Tooltip="Only shoot an enemy in the gap right after it fired or swung, or while its weapon cools down or reloads",Config={"Ragebot","Careful","RetaliateOnly"}});W:AddSlider({Label="Gap Window",Tooltip="How long after its shot or swing an enemy can still be shot (its weapon cooldown or reload also counts)",Min=0.5,Max=5,Step=0.1,Suffix="s",Config={"Ragebot","Careful","RetaliateWindow"}});W:AddToggle({Label="Custom Attack Height",Tooltip="Off: the fixed stand height (0.7 below the head hitbox of the target). On: the Attack Height below is used.",Config={"Ragebot","CustomAttackHeight"}});W:AddSlider({Label="Attack Height",Tooltip="How far above (+) or below (-) the head hitbox of the target you stand. A shield pointing down is 3.15 lower.",Min=-15,Max=15,Step=0.05,Config={"Ragebot","AttackHeight"}});end;local function uf(W)W:AddToggle({Label="Never Void",Tooltip="Never hide in the void (UE style): no hide phase, and none while reloading, swapping, without a target or between knife stabs. You stay where you are.",Config={"Ragebot","UE","NoVoid"}});W:AddToggle({Label="Backstab Cooldown 0.8",Tooltip="On: the time between two backstabs is HeavyAttackCooldown x 0.8. Off: UE's own x 0.75.",Config={"Ragebot","UE","KnifeCooldown08"}});W:AddToggle({Label="Void Spam",Tooltip="Hide in the void between attack bursts (UE void spam). Used by the gun and the light attack, not by the backstab.",Config={"Ragebot","UE","VoidSpam"}});W:AddSlider({Label="Void Spam Attack",Tooltip="the amount of time attacking before hiding again (UE adds 0.1 s on top)",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","AttackTime"}});W:AddSlider({Label="Void Spam Hide",Tooltip="how long it stays in void for",Min=0.01,Max=1,Step=0.01,Suffix="s",Config={"Ragebot","UE","HideTime"}});W:AddSlider({Label="Shoot Attempts",Tooltip="how many times it will try to fire your weapon (UE: ragebot_shoot_attempts)",Min=1,Max=2,Step=1,Config={"Ragebot","UE","ShootAttempts"}});W:AddDropdown({Label="Knife Attack",Tooltip="Heavy Backstab = UE attack mode knife. Light Attack = UE attack mode melee (fast light attacks with the knife).",Options={"Heavy","Light"},Labels={Heavy="Heavy Backstab",Light="Light Attack"},Config={"Ragebot","UE","KnifeAttack"}});end;local function I(W)local N={"Primary","Secondary","Melee"};for P,P in N,nil,nil do W:AddToggle({Label=string.format("%s Enabled",tostring(P)),Config={"Ragebot","Weapons","Enabled",P}});end;W:AddOrderedList({Label="Weapon Priority",Items=N,Default=N,Config={"Ragebot","Weapons","Priority"}});W:AddDropdown({Label="On Empty",Options={"Reload","Swap","SwapOrReload"},Labels={SwapOrReload="Swap or Reload"},Config={"Ragebot","Weapons","OnEmpty"}});end;local function W(N,P)local a=N:AddGroup({Source=P,Option="ProjectileBreaker"});a:AddRangeSlider({Label="Forward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForward"}});a:AddSlider({Label="Forward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthForwardFrequency"}});a:AddRangeSlider({Label="Upward Depth",Min=0,Max=10,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUp"}});a:AddSlider({Label="Upward Frequency",Min=0,Max=20,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","DepthUpFrequency"}});a:AddSlider({Label="Reposition Interval (s)",Min=0.05,Max=2,Step=0.01,Config={"Ragebot","Evasion","ProjectileBreaker","RepositionInterval"}});a:AddToggle({Label="Fallback Character Origin",Config={"Ragebot","Evasion","ProjectileBreaker","FallbackAnchorFromCharacter"}});a:AddSlider({Label="Fallback Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackBaseRadius"}});a:AddSlider({Label="Fallback Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","ProjectileBreaker","FallbackRadiusRandomFactor"}});end;local function N(P)local a=P:AddDropdown({Label="Evasion Mode",Options={"Off","Random","Translocate","ProjectileBreaker"},Labels={ProjectileBreaker="Projectile Breaker"},Config={"Ragebot","Evasion","Mode"}});local e=P:AddGroup({Source=a,Option="Random"});e:AddToggle({Label="Character Origin",Config={"Ragebot","Evasion","Random","AnchorFromCharacter"}});e:AddSlider({Label="Base Radius",Min=5,Max=100000000,Config={"Ragebot","Evasion","Random","BaseRadius"}});e:AddSlider({Label="Random Factor",Min=0,Max=1,Step=0.1,Config={"Ragebot","Evasion","Random","RadiusRandomFactor"}});P:AddGroup({Source=a,Option="Translocate"}):AddSlider({Label="Offset",Min=-5,Max=5,Step=0.1,Config={"Ragebot","Evasion","Translocate","Offset"}});W(P,a);end;local function H(P)P:AddToggle({Label="Target HUD",Config={"Ragebot","TargetHud","Enabled"}});P:AddToggle({Label="Always Show",Tooltip="Keep the card up: without a ragebot target it shows the nearest enemy.",Config={"Ragebot","TargetHud","AlwaysShow"}});P:AddSlider({Label="Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","Scale"}});P:AddSlider({Label="Item Scale (%)",Min=50,Max=200,Config={"Ragebot","TargetHud","ItemScale"}});P:AddSlider({Label="Offset X (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosX"}});P:AddSlider({Label="Offset Y (%)",Min=0,Max=100,Config={"Ragebot","TargetHud","PosY"}});end;return function(W)local style=l(W:AddSection({Title="Activation",Side="left"}));local khSection=W:AddSection({Title="KH Settings",Side="left"});kf(khSection);local carefulSection=W:AddSection({Title="Careful Settings",Side="left"});cf(carefulSection);local ueSection=W:AddSection({Title="UE Settings",Side="left"});uf(ueSection);local weaponSection=W:AddSection({Title="Weapon Strategy",Side="left"});I(weaponSection);local evasionSection=W:AddSection({Title="Evasion",Side="right"});N(evasionSection);local hudSection=W:AddSection({Title="Target HUD",Side="right"});H(hudSection);local fwSection=W:AddSection({Title="FW UE Settings",Side="left"});fwSection:AddToggle({Label="FW Weapon Check",Tooltip="Hide only while the weapon window is open. Slow weapons: the shot / swing cooldown must have at least 0.6 s left. Fast weapons (cooldown up to 0.3 s): the magazine must be nearly empty. Nobody may be reloading, and an enemy starting to reload sends you back to the void. No time limit on the wait.",Config={"Ragebot","FWWeaponCheck"}});local function applyStyle()local picked=style.Value;local isUE=picked=="UE";local isK8x=picked=="k8x";local isCareful=picked=="Careful";local isEmpty=picked=="FWUE";khSection:SetVisible(not isUE and not isK8x and not isCareful and not isEmpty);evasionSection:SetVisible(not isUE and not isK8x and not isCareful and not isEmpty);ueSection:SetVisible(isUE);carefulSection:SetVisible(isCareful);weaponSection:SetVisible(not isEmpty and not isK8x);hudSection:SetVisible(not isEmpty);fwSection:SetVisible(picked=="FWUE");end;applyStyle();pcall(function()style.ValueChanged:Connect(applyStyle);end);end;end
 
 tbl17.ih = function()
 local ih = tbl17.cache.ih
@@ -75526,30 +75675,15 @@ index2.new = function(arg, arg2)
 return setmetatable({ _fighters = arg, _playerTags = arg2 }, index2)
 end
 
--- Evade When Target Hacking: a target the Hacker Detector has tagged "Hacker" (the detector's own
--- verdict: view pitch past tau, or speed over 200 for 0.25 s) is skipped, so only evasion runs
--- against him, but only while our health is strictly above his. Once he has the same or more
--- health we attack him again. Both values are read live on every call (GetTarget runs each frame),
--- nothing is latched, so the verdict flips as either side loses or regenerates health, across
--- rounds too. Hacker Detector has to be enabled for the tag to exist.
-local skipTags = nil
-local skipMyHealth = nil
-local function fn38(fighterState)
-if not skipTags:Has(fighterState.Player, "Hacker") then
-return false
-end
-
-local theirHealth = fighterState.Character.State.Health
-return type(skipMyHealth) == "number" and type(theirHealth) == "number" and skipMyHealth > theirHealth
-end
-
+-- Evade When Target Hacking (now: hold fire when ahead on HP): while the enemy team's total health is
+-- below our team's total health there is no target at all, so only evasion runs and the round can run
+-- out on HP. Read live on every call (GetTarget runs each frame), nothing is latched, so we attack again
+-- as soon as our team's total drops to (or below) theirs. See K.EnemyTeamHpBelowMine.
 index2.GetTarget = function(arg, myHealth)
-if not v115.Data.Ragebot.EvadeWhenHacking then
-return arg:_PickTarget(nil)
+if v115.Data.Ragebot.EvadeWhenHacking and K.EnemyTeamHpBelowMine() then
+return nil
 end
-skipTags = arg._playerTags
-skipMyHealth = myHealth
-return arg:_PickTarget(fn38)
+return arg:_PickTarget(nil)
 end
 
 -- `skip` gets the candidate's FighterState and is asked before the target record is allocated.
@@ -77826,6 +77960,11 @@ return built
 end)
 if ok then
 hud = result
+-- drag the card while the menu is open (K.MakeHudDraggable); the drop writes the position sliders
+result.drag = K.MakeHudDraggable(result.root, function(px, py)
+config:Set({ "Ragebot", "TargetHud", "PosX" }, px)
+config:Set({ "Ragebot", "TargetHud", "PosY" }, py)
+end)
 K.TargetHudRoot = result.root
 if K.TargetHudRegister ~= nil then pcall(K.TargetHudRegister, result.root) end
 else
@@ -77920,7 +78059,7 @@ local fighterState = target.FighterState
 local aliveState = target.AliveState
 local player = fighterState.Player
 
-if not K.TargetHudLayout then put(card.root, "Position", UDim2.new(settings.PosX / 100, 0, settings.PosY / 100, 0)) end
+if not K.TargetHudLayout and not (card.drag and card.drag.dragging) then put(card.root, "Position", UDim2.new(settings.PosX / 100, 0, settings.PosY / 100, 0)) end
 put(card.scale, "Scale", settings.Scale / 100)
 put(card.root, "BackgroundColor3", theme.ElementBackground)
 put(card.rootStroke, "Color", theme.Outline)
@@ -77999,6 +78138,7 @@ K.onUnload(function() standalone:Disconnect() end)
 return {
 Hide = function()
 lastCall = os.clock()
+K.HudAimTarget = nil
 if alwaysShow() then
 local target = fallbackTarget()
 if target ~= nil then
@@ -78010,6 +78150,9 @@ hide()
 end,
 Update = function(target)
 lastCall = os.clock()
+-- the ragebot's real target (before the Always Show fallback), read by the Team HUD
+K.HudAimTarget = target ~= nil and target.FighterState ~= nil and target.FighterState.Player or nil
+K.HudAimTargetAt = lastCall
 if target == nil and alwaysShow() then target = fallbackTarget() end
 updateCard(target)
 end,
@@ -78128,7 +78271,7 @@ local rage = {
 	Provoked = setmetatable({}, { __mode = "k" }),
 	AntiTranslocate = true,   -- always on with the ragebot (no toggle): tracks enemies hiding below OutOfBoundsParts
 	PrioritizeHackers = false,
-	EvadeWhenHacking = false, -- kh: a hacker (Hacker Detector tag) is only evaded while our health is above his
+	EvadeWhenHacking = false, -- kh: hold fire while the enemy team's total HP is below our team's total (K.EnemyTeamHpBelowMine)
 	Evasion = "Random",
 	EvadeRadius = 100,
 	AttackPrep = 0,           -- the other hub has no hold before the first shot
@@ -78361,13 +78504,10 @@ local function rageIsHacker(player)
 	return type(flagged) == "table" and flagged[player] == true
 end
 
--- Evade When Target Hacking: a hacker is not a target while our health is above his (only evasion runs against
--- him, as in KH style); once he has the same or more health he is attacked again
+-- Evade When Target Hacking (now: hold fire when ahead on HP): nobody is a target while the enemy team's
+-- total health is below our team's total (only evasion runs, as in KH style); see K.EnemyTeamHpBelowMine
 local function rageSkipHacker(player, character)
-	if not rage.EvadeWhenHacking or not rageIsHacker(player) then return false end
-	local mine = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-	local theirs = character and character:FindFirstChildOfClass("Humanoid")
-	return mine ~= nil and theirs ~= nil and mine.Health > theirs.Health
+	return rage.EvadeWhenHacking == true and K.EnemyTeamHpBelowMine()
 end
 
 local function rageSlotConfig(slot)
@@ -89567,6 +89707,7 @@ end
         if visible then
             self._gui.Enabled = true
             self._dim.Modal = true
+            K.MenuOpen = true
             if self._cat ~= nil then
                 self._cat, self._page = nil, nil
                 self._listPanel.Visible, self._setPanel.Visible = false, false
@@ -89586,6 +89727,7 @@ end
         else
             -- a Modal button keeps the mouse free for as long as it is Modal, even in a disabled gui
             self._dim.Modal = false
+            K.MenuOpen = false
             self._gui.Enabled = false
         end
         self:_setVisibleState(visible)
@@ -89594,6 +89736,7 @@ end
 
     function SMenu:Destroy()
         pcall(function() self._dim.Modal = false end)
+        K.MenuOpen = false
         if self._destroyed then return end
         if K.KeyHud then K.KeyHud.destroy() end
         self._destroyed = true
@@ -89847,6 +89990,7 @@ end
         if visible then
             self._gui.Enabled = true
             self._dim.Modal = true
+            K.MenuOpen = true
             self:_relayout()
             if not was then
                 self._dim.BackgroundTransparency = 1
@@ -89867,6 +90011,7 @@ end
             end
         else
             self._dim.Modal = false
+            K.MenuOpen = false
             self._gui.Enabled = false
         end
         self:_setVisibleState(visible)
@@ -90613,6 +90758,7 @@ end
         if visible then
             self._gui.Enabled = true
             self._dim.Modal = true
+            K.MenuOpen = true
             self:_relayout()
             if self._page == nil then
                 local first = self._tabs[1] ~= nil and self._tabs[1]._pages[1] or nil
@@ -90635,6 +90781,7 @@ end
         else
             -- a Modal button keeps the mouse free for as long as it is Modal, even in a disabled gui
             self._dim.Modal = false
+            K.MenuOpen = false
             if instant or not self._gui.Enabled then
                 win.GroupTransparency = 1
                 self._dim.BackgroundTransparency = 1
@@ -95617,6 +95764,565 @@ end
 task.defer(function()
     local ok, err = pcall(K.StartDivisionHud)
     if not ok then warn("[Kicia DivisionHud] could not start: " .. tostring(err)) end
+end)
+
+--==========================================================================
+--  Team HUD (TMH): the match panel. Title bar (name | main hud | fps | ping), the HP of your team against the
+--  HP of the enemy team and by how much you are winning or losing, then one row per enemy in your match
+--  (headshot, name, HP, held weapon, RAGE / LEGIT status) and the ragebot's current target at the bottom.
+--  Teams: the TeamID player attribute, the match: the EnvironmentID attribute (the same tests as the ragebot).
+--  Weapon: FighterController:GetFighter(player).EquippedItem. Target: K.HudAimTarget, set by the Target HUD's
+--  Update (the ragebot calls it every frame with its target).
+--  Status: KH's own Hacker Detector (the "Hacker" player tag, K.IsTaggedHacker): RAGE once the detector has
+--  tagged the enemy, LEGIT otherwise. The detector runs while Hacker Detector, Prioritize Hackers, Evade When
+--  Target Hacking or Knife Mode Auto is on; "Clear Hacker Tags" resets it.
+--  Settings: config.Data.TeamHud, menu: Visuals > Player ESP > Team HUD.
+--==========================================================================
+do -- TMH
+    local started = false
+    K.StartTeamHud = function()
+        if started then return end
+        started = true
+
+        local Players = game:GetService("Players")
+        local RunService = game:GetService("RunService")
+        local UserInputService = game:GetService("UserInputService")
+        local HttpService = game:GetService("HttpService")
+        local Stats = game:GetService("Stats")
+        local LocalPlayer = Players.LocalPlayer
+        local config = tbl17.bG()
+
+        local WIDTH = 300
+        local HEADER_H, INFO_H, ROW_H, FOOTER_H = 22, 44, 52, 24
+        local MAX_ROWS = 8
+        local WHITE = Color3.fromRGB(235, 235, 240)
+        local GREY = Color3.fromRGB(150, 150, 160)
+        local BG = Color3.fromRGB(16, 16, 20)
+        local LINE = Color3.fromRGB(48, 48, 56)
+        local GREEN = Color3.fromRGB(80, 210, 110)
+        local RED = Color3.fromRGB(235, 70, 70)
+        local YELLOW = Color3.fromRGB(240, 200, 60)
+        local FONT = Enum.Font.GothamMedium
+        local FONT_BOLD = Enum.Font.GothamBold
+
+        local function hex(c)
+            return string.format("#%02x%02x%02x", math.floor(c.R * 255 + 0.5), math.floor(c.G * 255 + 0.5), math.floor(c.B * 255 + 0.5))
+        end
+        local function paint(text, c)
+            return '<font color="' .. hex(c) .. '">' .. text .. "</font>"
+        end
+
+        local function create(className, props)
+            local instance = Instance.new(className)
+            for k, v in props do
+                if k ~= "Parent" then instance[k] = v end
+            end
+            instance.Parent = props.Parent
+            return instance
+        end
+        local function text(parent, x, y, w, h, size, font, color, align)
+            return create("TextLabel", {
+                BackgroundTransparency = 1,
+                BorderSizePixel = 0,
+                Position = UDim2.fromOffset(x, y),
+                Size = UDim2.fromOffset(w, h),
+                Font = font or FONT,
+                Text = "",
+                RichText = true,
+                TextSize = size,
+                TextColor3 = color or WHITE,
+                TextStrokeTransparency = 0.6,
+                TextXAlignment = align == "R" and Enum.TextXAlignment.Right or Enum.TextXAlignment.Left,
+                TextYAlignment = Enum.TextYAlignment.Center,
+                TextTruncate = Enum.TextTruncate.AtEnd,
+                ZIndex = 3,
+                Parent = parent,
+            })
+        end
+
+        local gui = create("ScreenGui", {
+            Name = HttpService:GenerateGUID(false),
+            ResetOnSpawn = false,
+            IgnoreGuiInset = true,
+            DisplayOrder = 85,
+            ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+            Parent = K.hudParent(),
+        })
+        local root = create("Frame", {
+            Name = "TeamHud",
+            BackgroundColor3 = BG,
+            BackgroundTransparency = 0.12,
+            BorderSizePixel = 0,
+            Active = true,
+            Position = UDim2.fromScale(0.01, 0.3),
+            Size = UDim2.fromOffset(WIDTH, 100),
+            Visible = false,
+            ClipsDescendants = true,
+            Parent = gui,
+        })
+        create("UICorner", { CornerRadius = UDim.new(0, 4), Parent = root })
+        local rootStroke = create("UIStroke", { Color = LINE, Thickness = 1, Parent = root })
+        local scale = create("UIScale", { Parent = root })
+
+        --  title bar + accent line under it
+        local title = text(root, 8, 0, WIDTH - 16, HEADER_H, 13, FONT_BOLD, WHITE)
+        local titleLine = create("Frame", { BackgroundColor3 = GREEN, BorderSizePixel = 0, Position = UDim2.fromOffset(0, HEADER_H), Size = UDim2.new(1, 0, 0, 1), ZIndex = 3, Parent = root })
+
+        --  team / enemy HP and the lead
+        local hpLine = text(root, 8, HEADER_H + 4, WIDTH - 16, 18, 13, FONT_BOLD, WHITE)
+        local leadLine = text(root, 8, HEADER_H + 22, WIDTH - 16, 18, 13, FONT_BOLD, WHITE)
+
+        --  enemy rows (a pool, shown as needed)
+        local rows = {}
+        for i = 1, MAX_ROWS do
+            local y = HEADER_H + INFO_H + (i - 1) * ROW_H
+            local frame = create("Frame", { BackgroundTransparency = 1, BorderSizePixel = 0, Position = UDim2.fromOffset(0, y), Size = UDim2.fromOffset(WIDTH, ROW_H), Visible = false, ZIndex = 2, Parent = root })
+            local bar = create("Frame", { BackgroundColor3 = GREEN, BorderSizePixel = 0, Position = UDim2.fromOffset(8, 4), Size = UDim2.fromOffset(3, ROW_H - 8), ZIndex = 3, Parent = frame })
+            create("UICorner", { CornerRadius = UDim.new(0, 2), Parent = bar })
+            local avatar = create("ImageLabel", { BackgroundColor3 = Color3.fromRGB(32, 32, 40), BorderSizePixel = 0, Position = UDim2.fromOffset(16, 4), Size = UDim2.fromOffset(ROW_H - 8, ROW_H - 8), Image = "", ZIndex = 3, Parent = frame })
+            create("UICorner", { CornerRadius = UDim.new(0, 3), Parent = avatar })
+            local nx = 16 + ROW_H - 8 + 8
+            rows[i] = {
+                frame = frame,
+                bar = bar,
+                avatar = avatar,
+                name = text(frame, nx, 4, 150, 16, 13, FONT_BOLD, WHITE),
+                hp = text(frame, nx, 20, 150, 13, 11, FONT, GREY),
+                weapon = text(frame, nx, 33, 150, 13, 11, FONT, GREY),
+                status = text(frame, WIDTH - 108, 4, 100, 16, 12, FONT_BOLD, GREY, "R"),
+            }
+        end
+        local footer = text(root, 8, 0, WIDTH - 16, FOOTER_H, 13, FONT_BOLD, WHITE)
+
+        --  write a property only when it changed (each write is a call into the engine)
+        local written = setmetatable({}, { __mode = "k" })
+        local function put(instance, property, value)
+            local row = written[instance]
+            if row == nil then
+                row = {}
+                written[instance] = row
+            end
+            if row[property] ~= value then
+                row[property] = value
+                instance[property] = value
+            end
+        end
+
+        --  drag (while the menu is open); the drop writes the position to the config
+        local drag = K.MakeHudDraggable(root, function(px, py)
+            config:Set({ "TeamHud", "PosX" }, px)
+            config:Set({ "TeamHud", "PosY" }, py)
+        end)
+
+        --  match / team tests (same as the ragebot)
+        local function inMyMatch(player)
+            local mine = LocalPlayer:GetAttribute("EnvironmentID")
+            return mine ~= nil and player:GetAttribute("EnvironmentID") == mine
+        end
+        local function isTeammate(player)
+            if player == LocalPlayer then return true end
+            local myId, theirId = LocalPlayer:GetAttribute("TeamID"), player:GetAttribute("TeamID")
+            if myId ~= nil and theirId ~= nil then return myId == theirId end
+            local a, b = LocalPlayer.Team, player.Team
+            return a ~= nil and b ~= nil and a == b
+        end
+        local function humanoidOf(player)
+            local character = player.Character
+            return character and character:FindFirstChildOfClass("Humanoid")
+        end
+        local function weaponOf(player)
+            local name
+            pcall(function()
+                local fighter = K.Controller("FighterController"):GetFighter(player)
+                local item = fighter and fighter.EquippedItem
+                if item == nil then return end
+                local info
+                pcall(function() info = item.Info end)
+                name = (info and info.Name) or (item.Get and item:Get("Name")) or item.Name
+            end)
+            return type(name) == "string" and name or "-"
+        end
+
+
+        --  fps (smoothed) and ping
+        local fps = 60
+        local function pingMs()
+            local ms
+            pcall(function() ms = Stats.Network.ServerStatsItem["Data Ping"]:GetValue() end)
+            if type(ms) ~= "number" then
+                pcall(function() ms = LocalPlayer:GetNetworkPing() * 1000 end)
+            end
+            return math.floor((ms or 0) + 0.5)
+        end
+        local lastPing, pingAt = 0, 0
+
+        local function hpColor(ratio)
+            if ratio > 0.6 then return GREEN elseif ratio > 0.3 then return YELLOW end
+            return RED
+        end
+
+        local function updateFrame(dt)
+            if dt and dt > 0 then fps = fps + (1 / dt - fps) * 0.05 end
+            local s = config.Data and config.Data.TeamHud
+            if type(s) ~= "table" or not s.Enabled or LocalPlayer:GetAttribute("EnvironmentID") == nil then
+                put(root, "Visible", false)
+                return
+            end
+            local now = os.clock()
+            local accent = typeof(s.Color) == "Color3" and s.Color or GREEN
+            put(scale, "Scale", (s.Scale or 100) / 100)
+            if not drag.dragging then
+                put(root, "Position", UDim2.fromScale((s.PosX or 1) / 100, (s.PosY or 30) / 100))
+            end
+            put(titleLine, "BackgroundColor3", accent)
+            put(rootStroke, "Color", LINE)
+
+            if now - pingAt > 0.5 then
+                pingAt = now
+                lastPing = pingMs()
+            end
+            put(title, "Text", string.format("Kicia | main hud | %d fps | %d ms", math.floor(fps + 0.5), lastPing))
+
+            --  players of this match, split by team
+            local teamHp, enemyHp = 0, 0
+            local enemies = {}
+            for _, player in Players:GetPlayers() do
+                if player == LocalPlayer or inMyMatch(player) then
+                    local humanoid = humanoidOf(player)
+                    local hp = humanoid and math.max(humanoid.Health, 0) or 0
+                    if isTeammate(player) then
+                        teamHp = teamHp + hp
+                    else
+                        enemyHp = enemyHp + hp
+                        table.insert(enemies, { player = player, humanoid = humanoid, hp = hp })
+                    end
+                end
+            end
+            table.sort(enemies, function(a, b)
+                if (a.hp > 0) ~= (b.hp > 0) then return a.hp > 0 end
+                return a.player.Name:lower() < b.player.Name:lower()
+            end)
+
+            teamHp, enemyHp = math.ceil(teamHp), math.ceil(enemyHp)
+            put(hpLine, "Text", "Team HP : " .. paint(tostring(teamHp), accent) .. "  |  Enemy team Hp : " .. paint(tostring(enemyHp), RED))
+            local diff = teamHp - enemyHp
+            if diff > 0 then
+                put(leadLine, "Text", "You are winning by " .. paint(tostring(diff), accent))
+            elseif diff < 0 then
+                put(leadLine, "Text", "You are losing by " .. paint(tostring(-diff), RED))
+            else
+                put(leadLine, "Text", "You are " .. paint("tied", YELLOW))
+            end
+
+            --  enemy rows
+            local shown = math.min(#enemies, MAX_ROWS)
+            for i = 1, MAX_ROWS do
+                local row = rows[i]
+                local e = enemies[i]
+                if e == nil then
+                    put(row.frame, "Visible", false)
+                else
+                    put(row.frame, "Visible", true)
+                    local player, humanoid = e.player, e.humanoid
+                    local maxHp = humanoid and math.max(humanoid.MaxHealth, 1) or 100
+                    local ratio = math.clamp(e.hp / maxHp, 0, 1)
+                    local alive = e.hp > 0
+                    put(row.avatar, "Image", "rbxthumb://type=AvatarHeadShot&id=" .. player.UserId .. "&w=48&h=48")
+                    put(row.avatar, "ImageTransparency", alive and 0 or 0.6)
+                    put(row.bar, "BackgroundColor3", alive and hpColor(ratio) or LINE)
+                    put(row.bar, "Size", UDim2.fromOffset(3, math.max(math.floor((ROW_H - 8) * (alive and ratio or 1) + 0.5), 2)))
+                    put(row.bar, "Position", UDim2.fromOffset(8, 4 + (ROW_H - 8) - math.max(math.floor((ROW_H - 8) * (alive and ratio or 1) + 0.5), 2)))
+                    put(row.name, "Text", player.Name)
+                    put(row.name, "TextColor3", alive and WHITE or GREY)
+                    put(row.hp, "Text", alive and string.format("%d / %d", math.ceil(e.hp), math.ceil(maxHp)) or "dead")
+                    put(row.weapon, "Text", "weapon: " .. (alive and weaponOf(player) or "-"))
+                    if s.ShowStatus ~= false then
+                        local rage = K.IsTaggedHacker(player)
+                        put(row.status, "Text", "status: " .. (rage and paint("RAGE", RED) or paint("LEGIT", GREEN)))
+                    else
+                        put(row.status, "Text", "")
+                    end
+                end
+            end
+
+            --  target + height
+            local footerY = HEADER_H + INFO_H + shown * ROW_H + 2
+            local showTarget = s.ShowTarget ~= false
+            put(footer, "Visible", showTarget)
+            if showTarget then
+                local target = K.HudAimTarget
+                local fresh = target ~= nil and K.HudAimTargetAt ~= nil and now - K.HudAimTargetAt < 0.4
+                put(footer, "Position", UDim2.fromOffset(8, footerY))
+                put(footer, "Text", "Target : " .. (fresh and paint(target.Name, accent) or paint("none", GREY)))
+            end
+            put(root, "Size", UDim2.fromOffset(WIDTH, footerY + (showTarget and FOOTER_H or 4)))
+            put(root, "Visible", true)
+        end
+
+        local conn = K.track(RunService.RenderStepped:Connect(function(dt)
+            local ok, err = pcall(updateFrame, dt)
+            if not ok and not K.__tmhWarned then
+                K.__tmhWarned = true
+                warn("[Kicia TeamHud] " .. tostring(err))
+            end
+        end))
+        K.onUnload(function()
+            started = false
+            pcall(function() conn:Disconnect() end)
+            gui:Destroy()
+        end)
+    end
+end
+task.defer(function()
+    local ok, err = pcall(K.StartTeamHud)
+    if not ok then warn("[Kicia TeamHud] could not start: " .. tostring(err)) end
+end)
+
+--==========================================================================
+--  Score HUD (SCH): the match score. Title bar (name | score hud | queue name), our team's score against the
+--  enemy's in the middle with each side's player names, then the round number, the round state and the lead.
+--  Source (read in game): DuelController.CurrentObject.Data -> Scores (a table keyed by TeamID, "\1" / "\2" ...),
+--  RoundNum, Status (RoundStarting -> RoundStarted -> RoundFinished), QueueName, NumTeams. Our team is the
+--  TeamID player attribute; players of the match share the EnvironmentID attribute. The duel data carries no
+--  "rounds to win" value, so none is shown. With more than two teams the enemy side is the best enemy score.
+--  Settings: config.Data.ScoreHud, menu: Visuals > Player ESP > Score HUD.
+--==========================================================================
+do -- SCH
+    local started = false
+    K.StartScoreHud = function()
+        if started then return end
+        started = true
+
+        local Players = game:GetService("Players")
+        local RunService = game:GetService("RunService")
+        local UserInputService = game:GetService("UserInputService")
+        local HttpService = game:GetService("HttpService")
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local LocalPlayer = Players.LocalPlayer
+        local config = tbl17.bG()
+
+        local WIDTH, HEIGHT = 280, 96
+        local HEADER_H = 22
+        local WHITE = Color3.fromRGB(235, 235, 240)
+        local GREY = Color3.fromRGB(150, 150, 160)
+        local BG = Color3.fromRGB(16, 16, 20)
+        local LINE = Color3.fromRGB(48, 48, 56)
+        local GREEN = Color3.fromRGB(80, 210, 110)
+        local RED = Color3.fromRGB(235, 70, 70)
+        local YELLOW = Color3.fromRGB(240, 200, 60)
+        local FONT = Enum.Font.GothamMedium
+        local FONT_BOLD = Enum.Font.GothamBold
+        local STATUS_TEXT = { RoundStarting = "Starting", RoundStarted = "In round", RoundFinished = "Round over" }
+
+        local function hex(c)
+            return string.format("#%02x%02x%02x", math.floor(c.R * 255 + 0.5), math.floor(c.G * 255 + 0.5), math.floor(c.B * 255 + 0.5))
+        end
+        local function paint(text, c)
+            return '<font color="' .. hex(c) .. '">' .. text .. "</font>"
+        end
+        local function create(className, props)
+            local instance = Instance.new(className)
+            for k, v in props do
+                if k ~= "Parent" then instance[k] = v end
+            end
+            instance.Parent = props.Parent
+            return instance
+        end
+        local function text(parent, x, y, w, h, size, font, color, align)
+            return create("TextLabel", {
+                BackgroundTransparency = 1,
+                BorderSizePixel = 0,
+                Position = UDim2.fromOffset(x, y),
+                Size = UDim2.fromOffset(w, h),
+                Font = font or FONT,
+                Text = "",
+                RichText = true,
+                TextSize = size,
+                TextColor3 = color or WHITE,
+                TextStrokeTransparency = 0.6,
+                TextXAlignment = align == "R" and Enum.TextXAlignment.Right or (align == "C" and Enum.TextXAlignment.Center or Enum.TextXAlignment.Left),
+                TextYAlignment = Enum.TextYAlignment.Center,
+                TextTruncate = Enum.TextTruncate.AtEnd,
+                ZIndex = 3,
+                Parent = parent,
+            })
+        end
+
+        local gui = create("ScreenGui", {
+            Name = HttpService:GenerateGUID(false),
+            ResetOnSpawn = false,
+            IgnoreGuiInset = true,
+            DisplayOrder = 85,
+            ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+            Parent = K.hudParent(),
+        })
+        local root = create("Frame", {
+            Name = "ScoreHud",
+            BackgroundColor3 = BG,
+            BackgroundTransparency = 0.12,
+            BorderSizePixel = 0,
+            Active = true,
+            AnchorPoint = Vector2.new(0.5, 0),
+            Position = UDim2.fromScale(0.5, 0.12),
+            Size = UDim2.fromOffset(WIDTH, HEIGHT),
+            Visible = false,
+            ClipsDescendants = true,
+            Parent = gui,
+        })
+        create("UICorner", { CornerRadius = UDim.new(0, 4), Parent = root })
+        create("UIStroke", { Color = LINE, Thickness = 1, Parent = root })
+        local scale = create("UIScale", { Parent = root })
+
+        local title = text(root, 8, 0, WIDTH - 16, HEADER_H, 13, FONT_BOLD, WHITE)
+        local titleLine = create("Frame", { BackgroundColor3 = GREEN, BorderSizePixel = 0, Position = UDim2.fromOffset(0, HEADER_H), Size = UDim2.new(1, 0, 0, 1), ZIndex = 3, Parent = root })
+
+        --  middle: our names | score | their names
+        local SIDE_W = 92
+        local ourNames = text(root, 8, HEADER_H + 6, SIDE_W, 40, 12, FONT_BOLD, WHITE)
+        local score = text(root, 8 + SIDE_W, HEADER_H + 4, WIDTH - 16 - SIDE_W * 2, 44, 30, FONT_BOLD, WHITE, "C")
+        local theirNames = text(root, WIDTH - 8 - SIDE_W, HEADER_H + 6, SIDE_W, 40, 12, FONT_BOLD, WHITE, "R")
+
+        --  bottom: round + state | lead
+        local roundLine = text(root, 8, HEIGHT - 24, (WIDTH - 16) / 2, 20, 12, FONT, GREY)
+        local leadLine = text(root, WIDTH / 2, HEIGHT - 24, (WIDTH - 16) / 2, 20, 12, FONT_BOLD, WHITE, "R")
+
+        local written = setmetatable({}, { __mode = "k" })
+        local function put(instance, property, value)
+            local row = written[instance]
+            if row == nil then
+                row = {}
+                written[instance] = row
+            end
+            if row[property] ~= value then
+                row[property] = value
+                instance[property] = value
+            end
+        end
+
+        --  drag (while the menu is open); the drop writes the position (X is the centre) to the config
+        local drag = K.MakeHudDraggable(root, function(px, py)
+            config:Set({ "ScoreHud", "PosX" }, px)
+            config:Set({ "ScoreHud", "PosY" }, py)
+        end)
+
+        --  queue display name ("Ranked 1v1"), looked up once per queue
+        local queueNames = {}
+        local function queueDisplayName(queueName)
+            if type(queueName) ~= "string" then return nil end
+            local cached = queueNames[queueName]
+            if cached == nil then
+                cached = queueName
+                pcall(function()
+                    local library = require(ReplicatedStorage.Modules.DuelLibrary)
+                    local entry = (library.MatchmakingQueues and library.MatchmakingQueues[queueName])
+                        or (library.PlaySources and library.PlaySources[queueName])
+                    if type(entry) == "table" and type(entry.DisplayName) == "string" and entry.DisplayName ~= "" then
+                        cached = entry.DisplayName
+                    end
+                end)
+                queueNames[queueName] = cached
+            end
+            return cached
+        end
+
+        local function duelData()
+            local data
+            pcall(function()
+                local current = K.Controller("DuelController").CurrentObject
+                data = type(current) == "table" and current.Data or nil
+            end)
+            return type(data) == "table" and data or nil
+        end
+
+        --  names of the players of each side in our match ("A, B" or "A +2")
+        local function joinNames(list)
+            if #list == 0 then return "-" end
+            if #list <= 2 then return table.concat(list, "\n") end
+            return list[1] .. "\n+" .. (#list - 1)
+        end
+
+        local function updateFrame()
+            local s = config.Data and config.Data.ScoreHud
+            local data = duelData()
+            local myTeam = LocalPlayer:GetAttribute("TeamID")
+            local env = LocalPlayer:GetAttribute("EnvironmentID")
+            if type(s) ~= "table" or not s.Enabled or data == nil or type(data.Scores) ~= "table" or myTeam == nil or env == nil then
+                put(root, "Visible", false)
+                return
+            end
+            local accent = typeof(s.Color) == "Color3" and s.Color or GREEN
+            put(scale, "Scale", (s.Scale or 100) / 100)
+            if not drag.dragging then
+                put(root, "Position", UDim2.fromScale((s.PosX or 50) / 100, (s.PosY or 12) / 100))
+            end
+            put(titleLine, "BackgroundColor3", accent)
+
+            local queue = queueDisplayName(data.QueueName)
+            put(title, "Text", "Kicia | score hud" .. (queue and (" | " .. queue) or ""))
+
+            --  scores: ours, and the best enemy team's
+            local ours, theirs = 0, nil
+            for teamId, value in data.Scores do
+                local n = tonumber(value) or 0
+                if teamId == myTeam then
+                    ours = n
+                elseif theirs == nil or n > theirs then
+                    theirs = n
+                end
+            end
+            theirs = theirs or 0
+            local ourColor = ours > theirs and accent or (ours < theirs and RED or WHITE)
+            local theirColor = theirs > ours and RED or WHITE
+            put(score, "Text", paint(tostring(ours), ourColor) .. paint("  -  ", GREY) .. paint(tostring(theirs), theirColor))
+
+            --  names per side
+            local ourList, theirList = {}, {}
+            for _, player in Players:GetPlayers() do
+                if player:GetAttribute("EnvironmentID") == env then
+                    local team = player:GetAttribute("TeamID")
+                    if team == myTeam then
+                        table.insert(ourList, player == LocalPlayer and paint(player.Name, accent) or player.Name)
+                    elseif team ~= nil then
+                        table.insert(theirList, player.Name)
+                    end
+                end
+            end
+            put(ourNames, "Text", joinNames(ourList))
+            put(theirNames, "Text", paint(joinNames(theirList), RED))
+
+            --  round, state, lead
+            local roundNum = tonumber(data.RoundNum)
+            local status = data.Status
+            local stateText = STATUS_TEXT[status] or (status ~= nil and tostring(status) or "-")
+            put(roundLine, "Text", (roundNum and ("Round " .. roundNum) or "Round -") .. "  |  " .. stateText)
+            local diff = ours - theirs
+            if diff > 0 then
+                put(leadLine, "Text", "ahead by " .. paint(tostring(diff), accent))
+            elseif diff < 0 then
+                put(leadLine, "Text", "behind by " .. paint(tostring(-diff), RED))
+            else
+                put(leadLine, "Text", paint("tied", YELLOW))
+            end
+            put(root, "Visible", true)
+        end
+
+        local conn = K.track(RunService.RenderStepped:Connect(function()
+            local ok, err = pcall(updateFrame)
+            if not ok and not K.__schWarned then
+                K.__schWarned = true
+                warn("[Kicia ScoreHud] " .. tostring(err))
+            end
+        end))
+        K.onUnload(function()
+            started = false
+            pcall(function() conn:Disconnect() end)
+            gui:Destroy()
+        end)
+    end
+end
+task.defer(function()
+    local ok, err = pcall(K.StartScoreHud)
+    if not ok then warn("[Kicia ScoreHud] could not start: " .. tostring(err)) end
 end)
 
 tbl17.j1()(boot)
