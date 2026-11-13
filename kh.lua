@@ -78345,6 +78345,15 @@ local RAGE_RESTRICTED = {
 	Satchel = true, ["Jump Pad"] = true, Medkit = true, ["War Horn"] = true,
 	["Subspace Tripmine"] = true, Warpstone = true, ["Riot Shield"] = true,
 }
+-- Utility-slot items (Info.Class "Utility") never go into the ragebot. Without this every utility not
+-- named above fell into the Primary slot (rageWeaponInfo / indexToSlot have no Utility slot) and, unless
+-- it was a gun, counted as always loaded, so it tied with the real primary and could be picked over it.
+-- (on rage, not a local: this chunk is close to Luau's 200-register limit)
+function rage.isUtility(item)
+	local class
+	pcall(function() class = item.Info.Class end)
+	return class == "Utility"
+end
 
 -- Real damage hitboxes the game uses; falls back to Head/Torso rigs.
 local function rageHitbox(character)
@@ -78881,7 +78890,7 @@ local function rageAllItems()
 					if ie and ie.item then
 						local it = ie.item
 						local n, _, isM, _, _, _, s = rageWeaponInfo(it)
-						if not (n and RAGE_RESTRICTED[n]) then
+						if not (n and RAGE_RESTRICTED[n]) and not rage.isUtility(it) then
 							local ammo = 0
 							if isM then ammo = 1
 							else pcall(function() ammo = it:Get("Ammo") or 0 end) end
@@ -78908,7 +78917,7 @@ local function rageAllItems()
 			end
 			for _, it in pairs(rawItems or {}) do
 				local n, _, isM, _, _, _, s = rageWeaponInfo(it)
-				if not (n and RAGE_RESTRICTED[n]) then
+				if not (n and RAGE_RESTRICTED[n]) and not rage.isUtility(it) then
 					local ammo = 0
 					if isM then ammo = 1
 					else pcall(function() ammo = it:Get("Ammo") or 0 end) end
@@ -79214,7 +79223,7 @@ local function rageGetAction()
 					local it = ie.item
 					local name
 					pcall(function() name = it:Get("Name") end)
-					if not (name and RAGE_RESTRICTED[name]) then
+					if not (name and RAGE_RESTRICTED[name]) and not rage.isUtility(it) then
 						local slot = indexToSlot(it)
 						local isM = (ie.type ~= "Gun") or (slot == "Melee" or slot == "Knife")
 						table.insert(itemList, { item=it, slot=slot, isMelee=isM })
@@ -79241,7 +79250,7 @@ local function rageGetAction()
 		end
 		for _, it in pairs(rawItems or {}) do
 			local name, _, isM, _, _, _, slot = rageWeaponInfo(it)
-			if not (name and RAGE_RESTRICTED[name]) then
+			if not (name and RAGE_RESTRICTED[name]) and not rage.isUtility(it) then
 				table.insert(itemList, { item=it, slot=slot, isMelee=isM })
 			end
 		end
@@ -82040,89 +82049,17 @@ local function k8xMapPosition()
 	k8xMapCache = ok and pos or nil
 	return k8xMapCache
 end
--- Detection: an enemy between 2.0e9 and 2.3e9 studs from the map's OOB position is judged to be UE (UE hides at
--- 2147483647); anything else is judged to be KH. The verdict is held for K8X_UE_HOLD seconds.
--- Only the current target is judged: 2v2 with two enemies on different cheats is not handled (on purpose, for now).
--- KH tops out at ~1.86e9 (its immune ring: x, y, z each up to 1.07e9, so the magnitude reaches sqrt(3) * 1.07e9;
--- its Evasion Random only gets to ~1.084e9); UE hides at exactly 2147483647. 2.0e9 sits between the two.
-local K8X_UE_FAR = 2000000000
--- A UE player hides in the void only part of the time (void spam) and stands next to us the rest, so a single
--- look at his position is not enough: once he has been seen beyond K8X_UE_FAR he stays judged UE for this long.
-local K8X_UE_HOLD = 2
-local k8xLastStyle = "KH"
-local k8xUESeen = setmetatable({}, { __mode = "k" })
-local k8xAnyUESeen = -math.huge
--- shown in the status line so the verdict can be checked: the largest enemy distance from the OOB position
-local k8xLastDist = 0
--- Status line: "k8x[UE|KH] <max enemy distance from OOB> | <what it is doing>". The text only changes at most
--- every 0.6 s (the state flips every frame, which made the line unreadable).
+-- Status line: "k8x | <what it is doing>". The text only changes at most every 0.6 s (the state flips every
+-- frame, which made the line unreadable).
 local k8xStatusText, k8xStatusAt = nil, -math.huge
 local function k8xSetStatus(action)
-	local text = string.format("k8x[%s] %.1e | %s", k8xLastStyle, k8xLastDist, action)
+	local text = "k8x | " .. action
 	local now2 = os.clock()
 	if k8xStatusText == nil or (text ~= k8xStatusText and now2 - k8xStatusAt >= 0.6) then
 		k8xStatusText = text
 		k8xStatusAt = now2
 	end
 	ueS.SetStatus(k8xStatusText)
-end
--- UE just detected: equip the melee and wait this long (hidden) before coming down to hit him
-local K8X_UE_WAIT = 1
-local k8xPrevStyle = "KH"
-local k8xUEWaitUntil = 0
-local k8xScanMax = 0
-local function k8xFarFromMap(position, ref)
-	if typeof(position) ~= "Vector3" then
-		return false
-	end
-	local dist = (position - ref).Magnitude
-	if dist ~= dist then
-		return false -- NaN
-	end
-	if dist > k8xScanMax and dist < 1e12 then
-		k8xScanMax = dist
-	end
-	-- UE hides at exactly 2147483647; only that band counts. Anything absurdly further (KH's -9e37 / glue
-	-- constants, inf) is not UE.
-	return dist > K8X_UE_FAR and dist < 2300000000
-end
-local function k8xDetectStyle(target)
-	local now2 = os.clock()
-	local ref = k8xMapPosition() or Vector3.zero
-	k8xScanMax = 0
-	-- look at every other player's character (root part and PhysicsRepRootPart), so an enemy that is in the
-	-- void right now is caught even when he is not the current target
-	pcall(function()
-		local playersService = game:GetService("Players")
-		for _, plr in ipairs(playersService:GetPlayers()) do
-			if plr ~= playersService.LocalPlayer and plr.Character ~= nil then
-				for _, partName in ipairs({ "HumanoidRootPart" }) do
-					local part = plr.Character:FindFirstChild(partName)
-					if part ~= nil and k8xFarFromMap(part.Position, ref) then
-						k8xUESeen[plr] = now2
-						k8xAnyUESeen = now2
-					end
-				end
-			end
-		end
-	end)
-	if target == nil then
-		k8xLastStyle = (now2 - k8xAnyUESeen < K8X_UE_HOLD) and "UE" or "KH"
-		k8xLastDist = k8xScanMax
-		return k8xLastStyle
-	end
-	local okPlr, plr = pcall(function() return target.FighterState.Player end)
-	local okPos, pos = pcall(function() return target.AliveState.RootPart.Position end)
-	if okPos and k8xFarFromMap(pos, ref) then
-		k8xAnyUESeen = now2
-		if okPlr and plr ~= nil then
-			k8xUESeen[plr] = now2
-		end
-	end
-	local seenAt = (okPlr and plr ~= nil) and k8xUESeen[plr] or nil
-	k8xLastStyle = (seenAt ~= nil and now2 - seenAt < K8X_UE_HOLD) and "UE" or "KH"
-	k8xLastDist = k8xScanMax
-	return k8xLastStyle
 end
 local function k8xEnemyHasKatana(target)
 	local ok, has = pcall(function()
@@ -82163,17 +82100,14 @@ local function k8xShouldVoid(arg, action, target, ownRoot)
 		return true, "no target position"
 	end
 	-- judged from the map's OOB position (not our own position: in the void that is ~2.1e9 and would latch)
-	-- (not for an enemy judged UE: he sits at ~2.1e9 on purpose, and we shoot him there too)
-	if k8xLastStyle ~= "UE" then
-		local ref = k8xMapPosition()
-		if ref ~= nil then
-			local dist = (targetPos - ref).Magnitude
-			if dist > K8X_FAR then
-				return true, string.format("enemy beyond 14M (%.0f from OOB)", dist)
-			end
-		elseif targetPos.Magnitude > K8X_FAR then
-			return true, "enemy beyond 14M (no OOB part)"
+	local ref = k8xMapPosition()
+	if ref ~= nil then
+		local dist = (targetPos - ref).Magnitude
+		if dist > K8X_FAR then
+			return true, string.format("enemy beyond 14M (%.0f from OOB)", dist)
 		end
+	elseif targetPos.Magnitude > K8X_FAR then
+		return true, "enemy beyond 14M (no OOB part)"
 	end
 	-- enemy holds a katana
 	if k8xEnemyHasKatana(target) then
@@ -82195,70 +82129,13 @@ index2._Plan = function(arg, arg2, arg3, arg4, arg5, arg6, arg7)
 -- the straight-up void while they happen; otherwise sit K8X_BELOW studs under the target and shoot.
 if ueS.IsK8x() then
 local K8X_BELOW = 5
-local k8xEnemyStyle = k8xDetectStyle(arg4)
--- the moment UE is first detected, start the wait
-if k8xEnemyStyle == "UE" and k8xPrevStyle ~= "UE" then
-k8xUEWaitUntil = os.clock() + K8X_UE_WAIT
-end
-k8xPrevStyle = k8xEnemyStyle
--- Enemy judged UE: hide exactly the way KH's "Evasion" does (arg:_EvadePlan with the Evasion Mode from the
--- menu: Random = a point on a shell around the anchor with one axis pushed to 1073741824, Off = no move, ...).
--- Enemy judged KH: unchanged, the straight-up void (y = 2147483647).
 local function k8xHidePlan()
-if k8xEnemyStyle == "UE" then
-local okE, evade = pcall(arg._EvadePlan, arg, arg6, arg7)
-if okE and type(evade) == "table" then
-return evade
-end
-return {}
-end
 return { CFrame = ueS.Void(), ShouldSkipDefense = v86[34] }
 end
 local function k8xVoid(why)
 ueS.MarkVoid()
 k8xSetStatus("void: " .. why)
 return k8xHidePlan()
-end
--- Enemy judged UE: stay K8xPose().FeetDrop studs under OUR OWN REAL position (arg6 = the client CFrame, where our
--- body really is, not the server CFrame we spoof) and keep sending the melee packet at his head, every frame.
-if k8xEnemyStyle == "UE" and arg4 ~= nil and arg6 ~= nil and arg._innerContext ~= nil then
-local melee = nil
-pcall(function()
-for _, it in arg._innerContext.ItemBehaviors:GetItems() do
-if it.__type == "Melee" then
-melee = it
-break
-end
-end
-end)
-if melee ~= nil then
--- first K8X_UE_WAIT seconds after detecting UE: take out the melee and wait in the straight-up void
--- (y = 2147483647, i.e. 2.1 billion studs), then come down
-if os.clock() < k8xUEWaitUntil then
-local waitPlan = { CFrame = ueS.Void(), ShouldSkipDefense = v86[34] }
-if not melee:IsEquipped() then
-waitPlan.WeaponAction = function()
-melee:Equip()
-end
-end
-ueS.MarkVoid()
-k8xSetStatus(string.format("melee: wait %.1fs", k8xUEWaitUntil - os.clock()))
-return waitPlan
-end
-local standPos = arg6.Position - Vector3.new(0, ueS.K8xPose().FeetDrop, 0)
-local uePlan = { CFrame = ueS.K8xStandCFrame(standPos), ShouldSkipDefense = v86[34] }
-if not melee:IsEquipped() then
-uePlan.WeaponAction = function()
-melee:Equip()
-end
-k8xSetStatus("melee: equipping")
-else
-local okM, swing = pcall(arg._meleeStrategy.PlanK8x, arg._meleeStrategy, arg4, melee, standPos)
-uePlan.WeaponAction = okM and swing or nil
-k8xSetStatus("melee: under real position")
-end
-return uePlan
-end
 end
 -- a reload in progress / starting (Type == "Reload" starts it here, WeaponAction sends the Reload packet)
 local k8xReload = arg:_PlanReloadTransport(arg3)
